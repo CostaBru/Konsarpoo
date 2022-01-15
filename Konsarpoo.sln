@@ -1,0 +1,19 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+
+VisualStudioVersion = 16.0.29123.88
+MinimumVisualStudioVersion = 10.0.40219.1
+
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Konsarpoo", "Konsarpoo\Konsarpoo.csproj", "{A2C46B33-D049-4429-96AA-8A57B2071437}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Konsarpoo.Tests", "Konsarpoo.Tests\Konsarpoo.Tests.csproj", "{6FD3B5F3-C9AE-4773-A953-7BF7DF25CDA9}"
+EndProject
+
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+EndGlobal
+
+
