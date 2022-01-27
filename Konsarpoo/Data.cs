@@ -269,7 +269,7 @@ namespace Konsarpoo.Collections
             {
                 if (index >= m_root.Size)
                 {
-                    throw new IndexOutOfRangeException();
+                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_root.Size}).");
                 }
 
                 return ref m_root.Storage[index];
@@ -427,10 +427,8 @@ namespace Konsarpoo.Collections
                 if (node.m_items == null)
                 {
                     var count = Math.Max(4, node.m_size * 2);
-                  
-                    var vals = m_pool.Rent(count);
 
-                    node.m_items = vals;
+                    node.m_items = m_pool.Rent(count);
                 }
                 else  if (node.m_size < node.m_maxCapacity - 1)
                 {
@@ -1089,7 +1087,7 @@ namespace Konsarpoo.Collections
         {
             if (index >= m_count)
             {
-                throw new IndexOutOfRangeException();
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
             }
             
             if (m_root is StoreNode simpleNode)
@@ -1162,7 +1160,7 @@ namespace Konsarpoo.Collections
         {
             if (m_count == 0)
             {
-                throw new IndexOutOfRangeException();
+                throw new InvalidOperationException("Cannot remove last because collection is empty.");
             }
             
             if (m_root == null)
@@ -1251,7 +1249,7 @@ namespace Konsarpoo.Collections
         {
             if (version != m_version)
             {
-                throw new InvalidOperationException("Data collection was modified during enumeration.");
+                throw new InvalidOperationException($"Data collection was modified during enumeration. ({m_version - version} time(s).)");
             }
         }
 

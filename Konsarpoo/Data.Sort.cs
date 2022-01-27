@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Konsarpoo.Collections
 {
@@ -45,7 +46,7 @@ namespace Konsarpoo.Collections
             {
                 return;
             }
-            Sort(list, 0, list.Count - 1, comparer.Compare);
+            Sort(list, comparer.Compare);
         }
 
         private class Comparer : IComparer<T>
@@ -100,105 +101,24 @@ namespace Konsarpoo.Collections
                 }
             }
 
-            Sort(list, 0, list.Count - 1, comparison);
+            SortSlowCore(list, comparison);
 
             ++list.m_version;
         }
 
-        private static void Sort(Data<T> list, int left, int right, Comparison<T> comparison)
+        private static void SortSlowCore(Data<T> list,  Comparison<T> comparison)
         {
-            do
-            {
-                int leftIdx = left;
-                int rightIdx = right;
-                int currentIdx = leftIdx + (rightIdx - leftIdx >> 1);
+            var temp = new Data<T>(list.m_count, list.m_maxSizeOfArray, (list.m_pool, list.m_nodesPool));
 
-                if (leftIdx != currentIdx)
-                {
-                    var x = list.ValueByRef(leftIdx);
-                    var y = list.ValueByRef(currentIdx);
+            temp.AddRange(list.OrderBy(x => x, new Comparer(comparison)));
 
-                    if (comparison(x, y) > 0)
-                    {
-                        T obj = x;
-                        list.ValueByRef(leftIdx) = y;
-                        list.ValueByRef(currentIdx) = obj;
-                    }
-                }
+            list.m_version += 1;
 
-                if (leftIdx != rightIdx)
-                {
-                    var x = list.ValueByRef(leftIdx);
-                    var y = list.ValueByRef(rightIdx);
+            list.m_root?.Clear();
+            list.m_root = temp.m_root;
 
-                    if (comparison(x, y) > 0)
-                    {
-                        T obj = x;
-                        list.ValueByRef(leftIdx) = y;
-                        list.ValueByRef(rightIdx) = obj;
-                    }
-                }
-
-                if (currentIdx != rightIdx)
-                {
-                    var x = list.ValueByRef(currentIdx);
-                    var y = list.ValueByRef(rightIdx);
-
-                    if (comparison(x, y) > 0)
-                    {
-                        T obj = x;
-                        list.ValueByRef(currentIdx) = y;
-                        list.ValueByRef(rightIdx) = obj;
-                    }
-                }
-
-                T value = list.ValueByRef(currentIdx);
-                do
-                {
-                    while (comparison(list.ValueByRef(leftIdx), value) < 0)
-                    {
-                        ++leftIdx;
-                    }
-                    while (comparison(value, list.ValueByRef(rightIdx)) < 0)
-                    {
-                        --rightIdx;
-                    }
-                    if (leftIdx <= rightIdx)
-                    {
-                        if (leftIdx < rightIdx)
-                        {
-                            T obj2 = list.ValueByRef(leftIdx);
-                            list.ValueByRef(leftIdx) = list.ValueByRef(rightIdx);
-                            list.ValueByRef(rightIdx) = obj2;
-                        }
-                        ++leftIdx;
-                        --rightIdx;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                while (leftIdx <= rightIdx);
-
-                if (rightIdx - left <= right - leftIdx)
-                {
-                    if (left < rightIdx)
-                    {
-                        Sort(list, left, rightIdx, comparison);
-                    }
-                    left = leftIdx;
-                }
-                else
-                {
-                    if (leftIdx < right)
-                    {
-                        Sort(list, leftIdx, right, comparison);
-                    }
-                    right = rightIdx;
-                }
-            }
-            while (left < right);
+            temp.m_root = null;
+            temp.Dispose();
         }
     }
 }
