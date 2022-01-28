@@ -169,6 +169,49 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestAdd2([Values(0,1,2,1000, 1_0000)] int count)
+        {
+            var map = new Map<int, int>();
+            var dict = new Dictionary<int, int>();
+
+            for (int i = 0; i < count; i++)
+            {
+                map[i] = i;
+                dict[i] = i;
+
+                if (i < 1000)
+                {
+                    var keys1 = new int[map.Keys.Count];
+                    var keys2 = new int[map.Keys.Count];
+
+                    map.Keys.CopyTo(keys1, 0);
+                    map.Keys.CopyTo(keys2, 0);
+                    
+                    for (int j = 0; j < keys1.Length; j++)
+                    {
+                        Assert.AreEqual(keys1[j], keys2[j]);
+                    }
+                }
+
+                if (i < 1000)
+                {
+                    var values1 = new int[map.Values.Count];
+                    var values2 = new int[map.Values.Count];
+
+                    map.Values.CopyTo(values1, 0);
+                    map.Values.CopyTo(values2, 0);
+                    
+                    for (int j = 0; j < values1.Length; j++)
+                    {
+                        Assert.AreEqual(values1[j], values2[j]);
+                    }
+                }
+                
+                Assert.AreEqual(dict[i], map[i]);
+            }
+        }
+
+        [Test]
         public void TestAdd()
         {
             var map = new Map<string, string>
