@@ -113,7 +113,7 @@ namespace Konsarpoo.Collections
 
             if (collection is Set<T> objSet && AreEqualityComparersEqual(this, objSet))
             {
-                CopyFrom(objSet);
+                CreateFrom(objSet);
             }
             else
             {
@@ -707,21 +707,6 @@ namespace Konsarpoo.Collections
                 }
             }
         }
-        
-        private void AddValue(int index, int hashCode, T value)
-        {
-            int storageIndex = hashCode % m_buckets.Count;
-
-            var bucket = m_buckets.ValueByRef(storageIndex);
-
-            ref var slot = ref m_slots.ValueByRef(index);
-
-            slot.hashCode = hashCode;
-            slot.value = value;
-            slot.next = bucket - 1;
-
-            m_buckets.ValueByRef(storageIndex) = index + 1;
-        }
 
         private bool ContainsAllElements(IEnumerable<T> other)
         {
@@ -808,44 +793,21 @@ namespace Konsarpoo.Collections
             }
             return Prime.GetPrime(min);
         }
-      
-        private void CopyFrom(Set<T> source)
+
+        private void CreateFrom(Set<T> source)
         {
             int count = source.m_count;
             if (count == 0)
             {
                 return;
             }
+            
+            m_buckets = new(source.m_buckets);
+            m_slots = new(source.m_slots);
 
-            int length = source.m_buckets.Count;
+            m_lastIndex = source.m_lastIndex;
+            m_freeList = source.m_freeList;
 
-            if (ExpandPrime(count + 1) >= length)
-            {
-                m_buckets = new (source.m_buckets);
-                m_slots = new (source.m_slots);
-
-                m_lastIndex = source.m_lastIndex;
-                m_freeList = source.m_freeList;
-            }
-            else
-            {
-                int lastIndex = source.m_lastIndex;
-                var slots = source.m_slots;
-
-                Initialize(count);
-
-                int index = 0;
-                for (int i = 0; i < lastIndex; ++i)
-                {
-                    int hashCode = slots.ValueByRef(i).hashCode;
-                    if (hashCode >= 0)
-                    {
-                        AddValue(index, hashCode, slots[i].value);
-                        ++index;
-                    }
-                }
-                m_lastIndex = index;
-            }
             m_count = count;
         }
 

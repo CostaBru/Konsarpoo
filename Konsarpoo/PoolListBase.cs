@@ -154,7 +154,7 @@ namespace Konsarpoo.Collections
 
         public void Insert(int index, T item)
         {
-            if (m_size + 1 >= m_maxCapacity)
+            if (m_size + 1 > m_maxCapacity)
             {
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached");
             }

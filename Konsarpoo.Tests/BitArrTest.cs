@@ -5,16 +5,32 @@ using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture]
+    [TestFixture(16)]
+    [TestFixture(1024)]
+    [TestFixture(null)]
     public class BitArrTest
     {
+        private readonly int m_maxSizeOfArrayBucket;
+
+        public BitArrTest(int? maxSizeOfArrayBucket)
+        {
+            m_maxSizeOfArrayBucket = maxSizeOfArrayBucket ?? 1024 * 1024;
+        }
+
+        [SetUp]
+        public void SetUp()
+        {
+            ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
+        }
+        
         [Test]
         public void TestSet([Values(true, false)] bool defaultVal)
         {
             {
-                var length = 100;
+                var length = 10000;
 
                 var bitArr = new BitArr(length, defaultVal);
+                var bitArr1 = new BitArr(length, defaultVal);
 
                 var ba = new BitArray(length, defaultVal);
 
@@ -23,6 +39,7 @@ namespace Konsarpoo.Collections.Tests
                 for (int i = 0; i < length; i++)
                 {
                     bitArr.Set(i, i % 2 == 0);
+                    bitArr1[i] = i % 2 == 0;
                     ba.Set(i, i % 2 == 0);
                 }
 
@@ -36,6 +53,7 @@ namespace Konsarpoo.Collections.Tests
                 foreach (bool b in ba)
                 {
                     Assert.AreEqual(b, bitArr[ii]);
+                    Assert.AreEqual(b, bitArr1[ii]);
 
                     ii++;
                 }
@@ -217,11 +235,11 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestAdd([Values(true, false)] bool defaultVal)
         {
-            var length = 100;
+            var length = 1000;
 
             var ba = new BitArr(length, defaultVal);
 
-            for (int i = length; i < length + 100; i++)
+            for (int i = length; i < length + 1000; i++)
             {
                 ba.SetOrAdd(i, true);
 
@@ -229,7 +247,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.False(ba.HasAndSet(i + 10000));
             }
 
-            Assert.False(ba.TrySet(1000, false));
+            Assert.False(ba.TrySet(100000, false));
             Assert.True(ba.TrySet(0, false));
 
             var clone = (BitArr)ba.Clone();

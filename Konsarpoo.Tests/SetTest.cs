@@ -285,8 +285,11 @@ namespace Konsarpoo.Collections.Tests
         {
             var hugeSet = Enumerable.Range(0, 1000000).ToHashSet();
             var s = new Set<int>(hugeSet);
+            var s1 = new Set<int>(s);
 
-            Assert.AreEqual(new Set<int>(s), s);
+            Assert.Throws<ArgumentNullException>(() => new Set<int>((IReadOnlyCollection<int>)null));
+
+            Assert.AreEqual(s, s1);
         }
 
         [Test]
@@ -306,8 +309,10 @@ namespace Konsarpoo.Collections.Tests
             set3.UnionWith(l2);
 
             Assert.AreEqual(set3, l3);
+            
+            Assert.True(set3 == l3);
+            
             set3.ExceptWith(l1);
-
 
             Assert.AreEqual(set3, l2);
 
@@ -406,6 +411,19 @@ namespace Konsarpoo.Collections.Tests
             set1.Remove(0);
             
             Assert.True(set1 != set);
+        }
+        
+        [Test]
+        public void TestAdd2([Values(0,1,2,1000, 1_0000)] int count)
+        {
+            var map = new Set<int>();
+            var dict = new HashSet<int>();
+
+            for (int i = 0; i < count; i++)
+            {
+                map.Add(i);
+                dict.Add(i);
+            }
         }
     }
 }

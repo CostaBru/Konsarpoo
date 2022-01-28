@@ -7,7 +7,7 @@ namespace Konsarpoo.Collections
 {
     public partial class Set<T>
     {
-          public static Set<T> operator +(Set<T> a, IReadOnlyCollection<T> b)
+        public static Set<T> operator +(Set<T> a, IReadOnlyCollection<T> b)
         {
             if (ReferenceEquals(a, null))
             {
@@ -59,6 +59,11 @@ namespace Konsarpoo.Collections
 
             if ((object) a == null || (object) b == null)
                 return false;
+
+            if (b is Set<T> bs)
+            {
+                return Set<T>.HashSetEquals(a, bs, a.m_comparer);
+            }
 
             return a.EqualsSet(b);
         }

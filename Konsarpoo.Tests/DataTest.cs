@@ -235,6 +235,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.False(vector.Any(v => v == i));
             }
         }
+        
 
         [Test]
         public void TestPoolList([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
@@ -285,6 +286,30 @@ namespace Konsarpoo.Collections.Tests
             }
 
             GC.Collect();
+        }
+        
+        [Test]
+        public void TestPoolListInsert([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
+        {
+            var poolList = new PoolList<int>(count, 0);
+            var list = new List<int>(count);
+
+            for (int i = 0; i < count; i++)
+            {
+                poolList.Insert(0, i);
+                list.Insert(0, i);
+
+                Assert.AreEqual(list[i], poolList[i]);
+            }
+
+            var enumerator = ((IEnumerable)poolList).GetEnumerator();
+            enumerator.MoveNext();
+
+            foreach (var i in list)
+            {
+                Assert.AreEqual(i, enumerator.Current);
+                enumerator.MoveNext();
+            }
         }
 
         [Test]
@@ -373,7 +398,7 @@ namespace Konsarpoo.Collections.Tests
 
                 dataList.Insert(insertPosition, -999);
                 copy.Insert(insertPosition, -999);
-                vector.Insert(insertPosition, -999);
+                vector.insert(insertPosition, -999);
 
                 Assert.GreaterOrEqual(dataList.IndexOf(-999), 0);
 
@@ -621,11 +646,21 @@ namespace Konsarpoo.Collections.Tests
             var list3 = Enumerable.Range(0, 100).Reverse().ToData();
             var list4 = Enumerable.Range(0, 100).Reverse().ToData();
             var list5 = Enumerable.Range(0, 100).Reverse().ToData();
+            var vect1 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
+            var vect2 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
+            var vect3 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
+            var vect4 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
 
+            var comparison = new Comparison<int>((x, y) => x.CompareTo(y));
+
+            vect1.sort();
+            vect2.sort((x, y) => x.CompareTo(y));
+            vect3.sort(comparison);
+            vect4.sort(new IntComp());
+            
             list1.Sort();
 
             list2.Sort((x, y) => x.CompareTo(y));
-            var comparison = new Comparison<int>((x, y) => x.CompareTo(y));
             list3.Sort(comparison);
 
             list4.Sort();
@@ -636,6 +671,10 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(list1[index], list2[index]);
                 Assert.AreEqual(list2[index], list3[index]);
                 Assert.AreEqual(list4[index], list4[index]);
+                Assert.AreEqual(list4[index], vect1[index]);
+                Assert.AreEqual(list4[index], vect2[index]);
+                Assert.AreEqual(list4[index], vect3[index]);
+                Assert.AreEqual(list4[index], vect4[index]);
             }
 
             for (var index = 0; index < list1.Count; index++)
