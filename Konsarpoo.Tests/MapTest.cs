@@ -500,8 +500,55 @@ namespace Konsarpoo.Collections.Tests
 
 
         [Test]
-        public void TestEnumeration()
+        public void TestGetPrime()
         {
+            var prime = Prime.GetPrime(2946901 + 1);
+            
+            Assert.AreEqual(2946907, prime);
+
+            Assert.Throws<ArgumentException>(() => Prime.GetPrime(-1));
+        }
+        
+        [Test]
+        public void TestCapacityCtr()
+        {
+            var map = new Map<int, int>(100);
+
+            for (int i = 0; i < 100; i++)
+            {
+                map[i] = i;
+            }
+
+            var map1 = map.ToMap();
+
+            Assert.False(map1 != map);
+
+            map1.Remove(0);
+            
+            Assert.True(map1 != map);
+        }
+
+        [Test]
+        public void TestGetOrDefault()
+        {
+            var map = new Map<int, string>();
+            
+            Assert.Null(map.GetOrDefault(1));
+            Assert.AreEqual(string.Empty, map.GetOrDefault(1, string.Empty));
+        }
+        
+        [Test]
+        public void TestGetOrCreate()
+        {
+            var map = new Map<int, Data<int>>();
+
+            var ints = map.GetOrAdd(1, () => new Data<int>());
+            
+            Assert.AreEqual(0, ints.Count);
+            
+            map.GetOrAdd(1, () => new Data<int>()).Add(1);
+
+            Assert.AreEqual(1, map[1].Count);
         }
     }
 }

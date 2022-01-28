@@ -420,6 +420,11 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Insert(int index, T item)
         {
+            if (index > m_count)
+            {
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+            }
+            
             if (m_root is StoreNode node)
             {
                 //inlined method StoreNode.Insert 
@@ -471,7 +476,7 @@ namespace Konsarpoo.Collections
                 Add(item);
                 return;
             }
-            
+
             if (m_root == null)
             {
                 switch (m_count)
@@ -530,11 +535,6 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                if (index > m_count)
-                {
-                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                }
-                
                 T current = item;
 
                 for (int i = index; i < m_count; ++i)
@@ -939,8 +939,18 @@ namespace Konsarpoo.Collections
         /// <typeparam name="V"></typeparam>
         /// <returns>True if any item was removed.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int RemoveAll<V>(V value, Func<T, V> valueSelector)
+        public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector)
         {
+            if (m_count == 0)
+            {
+                return 0;
+            }
+            
+            if (valueSelector == null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
+            
             return RemoveAll<V>(value, valueSelector, EqualityComparer<V>.Default);
         }
 
@@ -953,11 +963,16 @@ namespace Konsarpoo.Collections
         /// <typeparam name="V"></typeparam>
         /// <returns>True if any item was removed.</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public int RemoveAll<V>(V value, Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer)
+        public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer)
         {
             if (m_count == 0)
             {
                 return 0;
+            }
+            
+            if (valueSelector == null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
             }
             
             if (equalityComparer == null)
@@ -1000,6 +1015,11 @@ namespace Konsarpoo.Collections
         /// <returns>True if any item was removed.</returns>
         public int RemoveAll(T item)
         {
+            if (m_count == 0)
+            {
+                return 0;
+            }
+            
             return RemoveAll(item, Comparer<T>.Default);
         }
 
@@ -1017,7 +1037,7 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentNullException(nameof(comparer));
             }
-
+            
             if (m_count == 0)
             {
                 return 0;
@@ -1326,8 +1346,13 @@ namespace Konsarpoo.Collections
         /// <param name="start"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int FindIndex(Predicate<T> match, int start = 0)
+        public int FindIndex([NotNull] Predicate<T> match, int start = 0)
         {
+            if (match == null)
+            {
+                throw new ArgumentNullException(nameof(match));
+            }
+            
             if (start >= m_count || start < 0)
             {
                 return -1;
@@ -1372,15 +1397,20 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="value"></param>
         /// <param name="valueSelector"></param>
+        /// <param name="equalityComparer"></param>
         /// <param name="start"></param>
         /// <returns></returns>
-        public int FindIndex<V>(V value, Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
+        public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
         {
+            if (valueSelector == null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
             if (equalityComparer == null)
             {
                 throw new ArgumentNullException(nameof(equalityComparer));
             }
-
+            
             if (start >= m_count || start < 0)
             {
                 return -1;
@@ -1422,8 +1452,18 @@ namespace Konsarpoo.Collections
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int FindLastIndex<V>(V value, Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int end = int.MinValue)
+        public int FindLastIndex<V>(V value, [NotNull] Func<T, V> valueSelector, [NotNull] IEqualityComparer<V> equalityComparer, int end = int.MinValue)
         {
+            if (valueSelector == null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
+
+            if (equalityComparer == null)
+            {
+                throw new ArgumentNullException(nameof(equalityComparer));
+            }
+            
             if (end >= m_count)
             {
                 return -1;
@@ -1432,11 +1472,6 @@ namespace Konsarpoo.Collections
             if (end == int.MinValue)
             {
                 end = m_count - 1;
-            }
-            
-            if (equalityComparer == null)
-            {
-                throw new ArgumentNullException(nameof(equalityComparer));
             }
 
             for (int index = end; index >= 0; --index)

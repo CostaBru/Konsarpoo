@@ -361,12 +361,12 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestInsert([Values(0, 2, 3, 4, 5, 6, 7, 8, 51, 25001)] int count,
+        public void TestInsert([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 51, 25001)] int count,
             [Values(0, 1, 2, 3, 4, 5, 6, 7, 50, 25000)] int insertPosition)
         {
             var dataList = Enumerable.Range(0, count).Reverse().ToData();
 
-            if (insertPosition < dataList.Count)
+            if (insertPosition <= dataList.Count)
             {
                 var copy = dataList.ToList();
                 var vector = new std.vector<int>(dataList);
@@ -1228,6 +1228,59 @@ namespace Konsarpoo.Collections.Tests
                 }
             }
         }
+        
+        private class Comparer<T> : IComparer<T>
+        {
+            private readonly Comparison<T> m_comparison;
+
+            public Comparer(Comparison<T> comparison)
+            {
+                m_comparison = comparison;
+            }
+
+            public int Compare(T x, T y)
+            {
+                return m_comparison(x, y);
+            }
+        }
+
+        [Test]
+        public void TestRemoveOnEmpty()
+        {
+            Assert.AreEqual(0, new Data<int>().RemoveAll(1));
+            Assert.AreEqual(0, new Data<int>().RemoveAll(1, new Comparer<int>((x, y) => x.CompareTo(y))));
+            Assert.AreEqual(0, new Data<int>().RemoveAll(1, i => i));
+            Assert.AreEqual(0, new Data<int>().RemoveAll(1, i => i, EqualityComparer<int>.Default));
+        }
+
+        [Test]
+        public void TestExceptionsOnEmpty([Values(0, 1, 2, 1000)] int size)
+        {
+            var data = new Data<int>(Enumerable.Range(0, size));
+
+            Assert.Throws<IndexOutOfRangeException>(() => data[size + 1] += 1);
+            Assert.Throws<IndexOutOfRangeException>(() => data.ValueByRef(size + 1) += 1);
+            Assert.Throws<IndexOutOfRangeException>(() => data.RemoveAt(size + 1));
+            Assert.Throws<IndexOutOfRangeException>(() =>
+            {
+                data.Insert(size + 1, 5);
+            });
+            Assert.Throws<InvalidOperationException>(() => new Data<int>().RemoveLast());
+            Assert.Throws<ArgumentNullException>(() => new Data<int>() {5}.RemoveAll(1, (Func<int, int>)null));
+            Assert.Throws<ArgumentNullException>(() => new Data<int>() {5}.RemoveAll(1, i => i, null));
+            Assert.Throws<ArgumentNullException>(() => new Data<int>() {5}.FindIndex((Predicate<int>)null, 5));
+            Assert.Throws<ArgumentNullException>(() => new Data<int>() {5}.FindLastIndex(1, (Func<int, int>)null, 5));
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                var ints = new Data<int>() { 1, 2, 3 };
+                foreach (var i in ints)
+                {
+                    ints.Add(i);
+                }
+            });
+            
+            Assert.Throws<ArgumentNullException>(() => data.AddRange((IEnumerable<int>)null));
+        }
 
         [Test]
         public void TestCommonCopyToArray([Values(0, 10)] int index)
@@ -1371,7 +1424,7 @@ namespace Konsarpoo.Collections.Tests
 
                 var dataList = new Data<int?>();
 
-                dataList.AddRange(list.Select(i => new int?(i)));
+                dataList.AddRange(list.Select(i => new int?(i)).ToData());
 
                 Assert.False(dataList.HasList);
 
@@ -1454,7 +1507,7 @@ namespace Konsarpoo.Collections.Tests
 
                 var dataList = new Data<int?>();
 
-                dataList.AddRange(list.Select(i => new int?(i)));
+                dataList.AddRange(list.Select(i => new int?(i)).ToData());
 
                 dataList.Ensure(size);
 
@@ -1602,6 +1655,30 @@ namespace Konsarpoo.Collections.Tests
 
                 Assert.AreEqual(dataCount - 1, data.Count);
             }
+        }
+        
+        [Test]
+        public void RemoveAll3()
+        {
+            var data = new Data<int>();
+
+            data.AddRange(Enumerable.Range(1, 100).Select(i => i));
+
+            data.RemoveAll(1, new Comparer<int>((x, y) => 0));
+            
+            Assert.AreEqual(0, data.Count);
+        }
+        
+        [Test]
+        public void RemoveAll4()
+        {
+            var data = new Data<int>();
+
+            data.AddRange(Enumerable.Range(1, 100).Select(i => i));
+
+            data.RemoveAll((x) => true);
+            
+            Assert.AreEqual(0, data.Count);
         }
 
         [Test]
@@ -2003,12 +2080,18 @@ namespace Konsarpoo.Collections.Tests
                 disposableCollection.AddDisposable(disposableTest);
             }
 
+            Assert.Throws<ArgumentNullException>(() => disposableCollection.RemoveDisposable(null));
+
+            Assert.AreEqual(3, disposableCollection.Items.Count);
+
             disposableCollection.RemoveDisposable(disposableTests.Last());
 
             disposableCollection.Dispose();
 
             Assert.True(disposableTests.Take(2).All(d => d.Disposed));
             Assert.False(disposableTests.Last().Disposed);
+            
+            
         }
 
         [Test]

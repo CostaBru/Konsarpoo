@@ -388,5 +388,24 @@ namespace Konsarpoo.Collections.Tests
             
             Assert.True(set == set1);
         }
+        
+        [Test]
+        public void TestCapacityCtr()
+        {
+            var set = new Set<int>(100);
+
+            for (int i = 0; i < 100; i++)
+            {
+                set[i] = i;
+            }
+
+            var set1 = set.ToSet();
+
+            Assert.False(set1 != set);
+
+            set1.Remove(0);
+            
+            Assert.True(set1 != set);
+        }
     }
 }
