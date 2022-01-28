@@ -503,7 +503,7 @@ namespace Konsarpoo.Collections
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
             
             if (m_buckets != null)

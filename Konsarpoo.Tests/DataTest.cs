@@ -280,7 +280,7 @@ namespace Konsarpoo.Collections.Tests
 
                 poolList.Clear();
 
-                Assert.Null(poolList.m_items);
+                Assert.AreEqual(0, poolList.m_items.Length);
                 Assert.AreEqual(0, poolList.m_size);
             }
 
@@ -361,12 +361,12 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestInsert([Values(0, 1, 2, 3, 4, 5, 6, 7, 50, 25000)] int count,
+        public void TestInsert([Values(0, 2, 3, 4, 5, 6, 7, 8, 51, 25001)] int count,
             [Values(0, 1, 2, 3, 4, 5, 6, 7, 50, 25000)] int insertPosition)
         {
             var dataList = Enumerable.Range(0, count).Reverse().ToData();
 
-            if (insertPosition <= dataList.Count)
+            if (insertPosition < dataList.Count)
             {
                 var copy = dataList.ToList();
                 var vector = new std.vector<int>(dataList);
@@ -1153,6 +1153,81 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(val, arrVal);
             }
         }
+        
+        [Test]
+        public void TestSmallCopyToArrayWithCount([Values(2, 1)] int count, [Values(0, 10)] int index)
+        {
+            var array = Enumerable.Range(0, count).ToList();
+
+            var dataList = new Data<int>();
+
+            dataList.AddRange(array);
+
+            Assert.False(dataList.HasList);
+
+            var copyTo1 = new int[100];
+            var copyTo2 = new int[100];
+
+            dataList.CopyTo(0, copyTo1, index, count);
+
+            array.CopyTo(0, copyTo2, index, count);
+
+            for (int i = index; i < copyTo1.Length; i++)
+            {
+                var val = copyTo1[i];
+                var arrVal = copyTo2[i];
+
+                Assert.AreEqual(val, arrVal);
+            }
+        }
+
+        [Test]
+        public void TestSmallCopyTo()
+        {
+            var t = new int[1];
+            new Data<int>() { 1 }.CopyTo(0, t, 0, 1 );
+            Assert.AreEqual(1, t[0]);
+            
+            var t1 = new int[2];
+            new Data<int>() { 1, 2 }.CopyTo(0, t1, 0, 2 );
+            Assert.AreEqual(1, t1[0]);
+            Assert.AreEqual(2, t1[1]);
+            
+            var t3 = new int[2];
+            new Data<int>() { 1, 2 }.CopyTo(1, t3, 0, 1 );
+            Assert.AreEqual(2, t3[0]);
+            
+            var t4 = new int[2];
+            new Data<int>() { 1, 2 }.CopyTo(0, t4, 0, 1 );
+            Assert.AreEqual(1, t4[0]);
+        }
+
+        [Test]
+        public void TestCommonCopyTo()
+        {
+            var list = Enumerable.Range(0, 100).ToList();
+            var data = Enumerable.Range(0, 100).ToData();
+
+            for (int i = 0; i < 10; i++)
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    var copyTo1 = new int[150];
+                    var copyTo2 = new int[150];
+
+                    data.CopyTo(i, copyTo1, j, 5);
+                    list.CopyTo(i, copyTo2, j, 5);
+                    
+                    for (int index = 0; index < copyTo1.Length; index++)
+                    {
+                        var val = copyTo1[index];
+                        var arrVal = copyTo2[index];
+
+                        Assert.AreEqual(val, arrVal);
+                    }
+                }
+            }
+        }
 
         [Test]
         public void TestCommonCopyToArray([Values(0, 10)] int index)
@@ -1240,7 +1315,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestCommonInsert([Values(5000, 4, 3, 2, 1, 0)] int index)
         {
-            var list = Enumerable.Range(0, 5000).ToList();
+            var list = Enumerable.Range(0, 5001).ToList();
 
             var dataList = new Data<int>();
 

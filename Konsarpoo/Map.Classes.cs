@@ -86,7 +86,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_version != m_dictionary.m_version)
                 {
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                 }
             }
 
@@ -94,7 +94,7 @@ namespace Konsarpoo.Collections
             {
                 if ((m_index == 0) || (m_index == (m_dictionary.m_count + 1)))
                 {
-                    throw new InvalidOperationException("Collection was modified during enumeration.");
+                    throw new InvalidOperationException("Map collection was modified during enumeration. ");
                 }
             }
         }
@@ -168,7 +168,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_version != m_dictionary.m_version)
                 {
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                 }
             }
 
@@ -321,7 +321,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                     }
                 }
 
@@ -399,7 +399,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                     }
                 }
 
@@ -550,7 +550,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                     }
                 }
 
@@ -630,7 +630,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
                     }
                 }
 

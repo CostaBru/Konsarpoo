@@ -428,7 +428,7 @@ namespace Konsarpoo.Collections
                     {
                         if (version != m_version)
                         {
-                            throw new InvalidOperationException("Set collection was modified during enumeration.");
+                            throw new InvalidOperationException($"Set collection was modified during enumeration. {version - m_version} time(s). ");
                         }
                         
                         yield return items[i].value;
@@ -443,7 +443,7 @@ namespace Konsarpoo.Collections
                     {
                         if (version != m_version)
                         {
-                            throw new InvalidOperationException("Set collection was modified during enumeration.");
+                            throw new InvalidOperationException($"Set collection was modified during enumeration. {version - m_version} time(s).");
                         }
                         
                         yield return m_slots.ValueByRef(i).value;
@@ -578,7 +578,7 @@ namespace Konsarpoo.Collections
         /// Copies the Set&lt;T&gt; or a portion of it to an array.
         /// </summary>
         /// <param name="array"></param>
-        /// <param name="arrayIndex"></param>
+        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
         /// <param name="count"></param>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
@@ -589,20 +589,25 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentNullException(nameof(array));
             }
-
+            
             if (arrayIndex < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(arrayIndex), "ArgumentOutOfRange_NeedNonNegNum");
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex), "An array index is negative.");
             }
-
-            if (count < 0)
+            
+            if (arrayIndex >= array.Length)
             {
-                throw new ArgumentOutOfRangeException(nameof(count), "ArgumentOutOfRange_NeedNonNegNum");
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"An array index '{arrayIndex}' is greater or equal than array length ({array.Length}).");
             }
-
-            if (arrayIndex > array.Length || count > array.Length - arrayIndex)
+               
+            if (count > m_count)
             {
-                throw new ArgumentException("Arg_ArrayPlusOffTooSmall");
+                throw new ArgumentOutOfRangeException(nameof(count), $"Copy count is greater than the number of elements from start to the end of collection.");
+            }
+            
+            if (count > array.Length - arrayIndex)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count), $"Copy count is greater than the number of elements from arrayIndex to the end of destinationArray");
             }
             
             int num = 0;
@@ -664,7 +669,7 @@ namespace Konsarpoo.Collections
             int newSize = ExpandPrime(m_count);
             if (newSize <= m_count)
             {
-                throw new ArgumentException("Arg_HSCapacityOverflow");
+                throw new ArgumentException($"Set capacity overflow happened. {newSize} is less than {m_count}.");
             }
 
             m_buckets.Clear();

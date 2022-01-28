@@ -214,9 +214,14 @@ namespace Konsarpoo.Collections
         /// <paramref name="index" /> is greater than or equal to the number of elements in the BitArr. </exception>
         public bool Get(int index)
         {
-            if (index < 0 || index >= Length)
+            if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_Index");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
+            }
+
+            if (index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), $"Given index {index} is larger than capacity of BitAr {Length}.");
             }
             
             if (m_array.m_root?.Storage != null)
@@ -233,7 +238,7 @@ namespace Konsarpoo.Collections
         {
             if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_Index");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
             }
 
             if (m_array is null)
@@ -264,9 +269,14 @@ namespace Konsarpoo.Collections
         /// <paramref name="index" /> is greater than or equal to the number of elements in the BitArr. </exception>
         public void Set(int index, bool value)
         {
-            if (index < 0 || index >= Length)
+            if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_Index");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
+            }
+
+            if (index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), $"Given index {index} is larger than capacity of BitAr {Length}.");
             }
 
             EnsureStorage();
@@ -324,7 +334,7 @@ namespace Konsarpoo.Collections
         {
             if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_Index");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
             }
 
             if (m_array == null)
@@ -378,7 +388,7 @@ namespace Konsarpoo.Collections
         {
             if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_Index");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
             }
             
             EnsureStorage();
@@ -470,7 +480,7 @@ namespace Konsarpoo.Collections
 
             if (m_length != value.m_length)
             {
-                throw new ArgumentException("Arg_ArrayLengthsDiffer");
+                throw new ArgumentException(nameof(value),$"Argument array length {value.m_length} is not equal to {m_length}.");
             }
             
             if (m_array == null)
@@ -507,7 +517,7 @@ namespace Konsarpoo.Collections
 
             if (m_length != value.m_length)
             {
-                throw new ArgumentException("Arg_ArrayLengthsDiffer");
+                throw new ArgumentException(nameof(value),$"Argument array length {value.m_length} is not equal to {m_length}.");
             }
             
             if (m_array == null)
@@ -543,7 +553,7 @@ namespace Konsarpoo.Collections
 
             if (m_length != value.m_length)
             {
-                throw new ArgumentException("Arg_ArrayLengthsDiffer");
+                throw new ArgumentException(nameof(value),$"Argument array length {value.m_length} is not equal to {m_length}.");
             }
             
             if (m_array == null)
@@ -595,7 +605,7 @@ namespace Konsarpoo.Collections
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(value), "ArgumentOutOfRange_NeedNonNegNum");
+                    throw new ArgumentOutOfRangeException(nameof(Length), "Length cannot be negative.");
                 }
 
                 var arrayLength = GetArrayLength((uint)value, BitsPerInt32);
@@ -618,7 +628,7 @@ namespace Konsarpoo.Collections
         {
             if (count < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), "ArgumentOutOfRange_NeedNonNegNum");
+                throw new ArgumentOutOfRangeException(nameof(count), "Length cannot be negative.");
             }
 
             m_length = (uint)count;
@@ -650,7 +660,7 @@ namespace Konsarpoo.Collections
             }
             if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), "ArgumentOutOfRange_NeedNonNegNum");
+                throw new ArgumentOutOfRangeException(nameof(index), "Given index is negative.");
             }
             
             if (m_array == null)
@@ -660,38 +670,37 @@ namespace Konsarpoo.Collections
 
             if (array.Rank != 1)
             {
-                throw new ArgumentException("Arg_RankMultiDimNotSupported");
+                throw new ArgumentException("Multi dimensional array is not supported.");
             }
 
             if (array is int[] ia)
             {
                 m_array.CopyTo(ia, index);
             }
-            else if (array is byte[])
+            else if (array is byte[] numArray)
             {
                 var arrayLength = GetArrayLength(m_length, BitsPerByte);
                 if (array.Length - index < arrayLength)
                 {
-                    throw new ArgumentException("Argument_InvalidOffLen");
+                    throw new ArgumentException($"Given index {index} and destination array length {array.Length} do not allow copying data from source array {m_length}.");
                 }
-                byte[] numArray = (byte[]) array;
-                for (int index1 = 0; index1 < arrayLength; ++index1)
+                for (int i = 0; i < arrayLength; ++i)
                 {
-                    var m = m_array.ValueByRef(index1 / BytesPerInt32);
+                    var m = m_array.ValueByRef(i / BytesPerInt32);
 
-                    numArray[index + index1] = (byte) (m >> index1 % BytesPerInt32 * 8 & (int) byte.MaxValue);
+                    numArray[index + i] = (byte) (m >> i % BytesPerInt32 * 8 & byte.MaxValue);
                 }
             }
             else
             {
                 if (!(array is bool[]))
                 {
-                    throw new ArgumentException("Arg_BitArrayTypeUnsupported");
+                    throw new ArgumentException($"Not supported type {array.GetType()}.");
                 }
 
                 if (array.Length - index < m_length)
                 {
-                    throw new ArgumentException("Argument_InvalidOffLen");
+                    throw new ArgumentException($"Given index {index} and destination array length {array.Length} do not allow copying data from source array {m_length}.");
                 }
                 bool[] flagArray = (bool[]) array;
                 for (int index1 = 0; index1 < m_length; ++index1)
@@ -760,7 +769,7 @@ namespace Konsarpoo.Collections
             {
                 if (version != m_version)
                 {
-                    throw new InvalidOperationException("BitArr was modified during enumeration.");
+                    throw new InvalidOperationException($"BitArr was modified during enumeration. {m_version - version} time(s).");
                 }
 
                 yield return Get(i);

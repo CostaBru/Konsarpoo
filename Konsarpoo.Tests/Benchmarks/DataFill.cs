@@ -15,11 +15,11 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         {
             public Config()
             {
-                AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(50));
+                AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(10));
             }
         }
         
-        [Params(2, 1000, 1000_000)]
+        [Params(10, 1000, 1000_000)]
         public int N;
         
         [Params(16, 1024 * 1024)]

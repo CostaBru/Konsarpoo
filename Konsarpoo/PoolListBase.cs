@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
@@ -17,9 +18,11 @@ namespace Konsarpoo.Collections
 
         internal readonly int m_maxCapacity;
         
+        [NotNull] 
         protected readonly IArrayPool<T> m_arrayPool;
 
-        public T[] m_items;
+        [NotNull] 
+        public T[] m_items = Array.Empty<T>();
 
         public int m_size;
 
@@ -73,7 +76,7 @@ namespace Konsarpoo.Collections
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached.");
             }
             
-            if (m_items == null)
+            if (m_items.Length == 0)
             {
                 T[] vals = m_arrayPool.Rent(Math.Max(4, m_size * 2));
 
@@ -156,7 +159,7 @@ namespace Konsarpoo.Collections
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached");
             }
             
-            if (m_items == null)
+            if (m_items.Length == 0)
             {
                 T[] vals = m_arrayPool.Rent(Math.Max(4, m_size * 2));
 
@@ -292,12 +295,12 @@ namespace Konsarpoo.Collections
         
         private void ReturnArray()
         {
-            if (m_items != null)
+            if (m_items.Length > 0)
             {
                 m_arrayPool.Return(m_items, clearArray: true);
             }
 
-            m_items = null;
+            m_items = Array.Empty<T>();
         }
     }
 }

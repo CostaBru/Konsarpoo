@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -285,7 +284,7 @@ namespace Konsarpoo.Collections
                 switch (m_count)
                 {
                     case 0:
-                        throw new IndexOutOfRangeException();
+                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
 
                     case 1:
 
@@ -294,7 +293,7 @@ namespace Konsarpoo.Collections
                             return ref m_val0;
                         }
 
-                        throw new IndexOutOfRangeException();
+                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
                     case 2:
                     {
                         switch (index)
@@ -305,11 +304,11 @@ namespace Konsarpoo.Collections
                                 return ref m_val1;
                         }
 
-                        throw new IndexOutOfRangeException();
+                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
                     }
                 }
 
-                throw new IndexOutOfRangeException();
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
             }
 
             return ref m_root[index];
@@ -424,7 +423,7 @@ namespace Konsarpoo.Collections
             if (m_root is StoreNode node)
             {
                 //inlined method StoreNode.Insert 
-                if (node.m_items == null)
+                if (node.m_items.Length == 0)
                 {
                     var count = Math.Max(4, node.m_size * 2);
 
@@ -467,6 +466,12 @@ namespace Konsarpoo.Collections
 
         private void InsertSlow(int index, T item)
         {
+            if (index == m_count)
+            {
+                Add(item);
+                return;
+            }
+            
             if (m_root == null)
             {
                 switch (m_count)
@@ -492,7 +497,10 @@ namespace Konsarpoo.Collections
                                 Add(item);
                                 break;
                             }
-                            default: throw new IndexOutOfRangeException();
+                            default:
+                            {
+                                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+                            }
                         }
 
                         break;
@@ -511,7 +519,10 @@ namespace Konsarpoo.Collections
                             case 2:
                                 Add(item);
                                 break;
-                            default: throw new IndexOutOfRangeException();
+                            default:
+                            {
+                                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+                            }
                         }
 
                         break;
@@ -519,6 +530,11 @@ namespace Konsarpoo.Collections
             }
             else
             {
+                if (index > m_count)
+                {
+                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+                }
+                
                 T current = item;
 
                 for (int i = index; i < m_count; ++i)
@@ -679,7 +695,7 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Add 
                 if (node.m_size < node.m_maxCapacity)
                 {
-                    if (node.m_items == null)
+                    if (node.m_items.Length == 0)
                     {
                         var items = m_pool.Rent(Math.Max(4, node.m_size * 2));
 
@@ -801,53 +817,96 @@ namespace Konsarpoo.Collections
         /// Copies the Data&lt;T&gt; or a portion of it to an array.
         /// </summary>
         /// <param name="array"></param>
-        /// <param name="arrayIndex"></param>
+        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
         /// <exception cref="IndexOutOfRangeException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CopyTo(T[] array, int arrayIndex)
         {
-            int num = arrayIndex;
+            CopyTo(0, array, arrayIndex, m_count);
+        }
+
+        /// <summary>
+        /// Copies the Data&lt;T&gt; or a portion of it to an array.
+        /// </summary>
+        /// <param name="index">Source index.</param>
+        /// <param name="array">Target array.</param>
+        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
+        /// <param name="count">The number of elements to copy.</param>
+        /// <exception cref="ArgumentNullException"/>
+        /// <exception cref="IndexOutOfRangeException">
+        /// length is greater than the number of elements from sourceIndex to the end of sourceArray.
+        /// -or- length is greater than the number of elements from destinationIndex to the end of destinationArray.
+        /// -or- arrayIndex is greater or equal destinationArray length.
+        /// -or- count is greater than collection size.
+        /// </exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyTo(int index, [NotNull] T[] array, int arrayIndex, int count)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+            
+            if (m_count - index < count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Cannot copy {count} elements from collection with size {m_count} starting at {index} to array with length {array.Length}.");
+            }
 
             if (m_root?.Storage != null)
             {
-                Array.Copy(m_root.Storage, 0, array, num, m_root.Size);
+                Array.Copy(m_root.Storage, index, array, arrayIndex, count);
 
                 return;
             }
 
-            CopyToSlow(array, num);
+            CopyToSlow(index, array, arrayIndex, count);
         }
 
-        private void CopyToSlow(T[] array, int num)
+        private void CopyToSlow(int index, T[] array, int arrayIndex, int count)
         {
+            if (array == null)
+            {
+                throw new ArgumentNullException(nameof(array));
+            }
+            
+            if (arrayIndex < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex),"An array index is negative.");
+            }
+            
+            if (arrayIndex >= array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex),$"An array index '{arrayIndex}' is greater or equal than array length ({array.Length}).");
+            }
+               
+            if (count > m_count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Copy count is greater than the number of elements from start to the end of collection.");
+            }
+            
+            if (count + arrayIndex > array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Copy count is greater than the number of elements from arrayIndex to the end of destinationArray");
+            }
+
+            var cnt = 0;
+            
             if (m_root == null)
             {
-                switch (m_count)
+                for (int i = index; i < array.Length && cnt < count; i++)
                 {
-                    case 0:
-                        break;
-                    case 1:
-                    {
-                        array[num++] = m_val0;
-                        return;
-                    }
-                    case 2:
-                    {
-                        array[num++] = m_val0;
-                        array[num++] = m_val1;
-                        return;
-                    }
-                    default:
-                    {
-                        throw new IndexOutOfRangeException();
-                    }
+                    array[arrayIndex++] = this[i];
+
+                    cnt++;
                 }
             }
             else
             {
-                for (int i = 0; i < m_count; i++)
+                for (int i = index; i < array.Length && cnt < count; i++)
                 {
-                    array[num++] = m_root[i];
+                    array[arrayIndex++] = m_root[i];
+                    
+                    cnt++;
                 }
             }
         }
@@ -916,9 +975,7 @@ namespace Konsarpoo.Collections
                 {
                     ref var listItem = ref ValueByRef(i);
 
-                    var selector = valueSelector(listItem);
-
-                    if (equalityComparer.Equals(selector, value))
+                    if (equalityComparer.Equals(valueSelector(listItem), value))
                     {
                         matchedIndex = i;
                         break;
@@ -1123,7 +1180,10 @@ namespace Konsarpoo.Collections
                         m_val1 = Default;
                         break;
 
-                    default: throw new IndexOutOfRangeException();
+                    default:
+                    {
+                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+                    }
                 }
 
                 m_count--;
@@ -1160,7 +1220,7 @@ namespace Konsarpoo.Collections
         {
             if (m_count == 0)
             {
-                throw new InvalidOperationException("Cannot remove last because collection is empty.");
+                throw new InvalidOperationException("Cannot remove last item because collection is empty.");
             }
             
             if (m_root == null)
@@ -1175,13 +1235,12 @@ namespace Konsarpoo.Collections
                         ++m_version;
                         m_count--;
                         break;
-                    case 2:
+                    default:
                         m_val1 = Default;
                         
                         ++m_version;
                         m_count--;
                         break;
-                    default: throw new ArgumentOutOfRangeException();
                 }
             }
             else
@@ -1249,7 +1308,7 @@ namespace Konsarpoo.Collections
         {
             if (version != m_version)
             {
-                throw new InvalidOperationException($"Data collection was modified during enumeration. ({m_version - version} time(s).)");
+                throw new InvalidOperationException($"Data collection was modified during enumeration. ({m_version - version} time(s).");
             }
         }
 
@@ -1329,9 +1388,7 @@ namespace Konsarpoo.Collections
 
             for (int index = start; index < m_count; ++index)
             {
-                var selector = valueSelector(ValueByRef(index));
-
-                if (equalityComparer.Equals(selector, value))
+                if (equalityComparer.Equals(valueSelector(ValueByRef(index)), value))
                 {
                     return index;
                 }
@@ -1386,9 +1443,7 @@ namespace Konsarpoo.Collections
             {
                 ref var valueByRef = ref ValueByRef(index);
 
-                var selector = valueSelector(valueByRef);
-
-                if (equalityComparer.Equals(selector, value))
+                if (equalityComparer.Equals(valueSelector(valueByRef), value))
                 {
                     return index;
                 }
