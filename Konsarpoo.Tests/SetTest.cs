@@ -156,6 +156,7 @@ namespace Konsarpoo.Collections.Tests
                     Assert.False(newSet.TryAdd(kv, kv));
 
                     Assert.True(newSet.TryGetValue(kv, out var kv1));
+                    Assert.False(newSet.TryGetValue(kv + Guid.NewGuid(), out var kv2));
                 }
 
                 var s3 = new Set<string>();
@@ -459,6 +460,21 @@ namespace Konsarpoo.Collections.Tests
             Assert.False(m3 == m4);
             Assert.False(m3 == m5);
             Assert.False(m3 == m6);
+                
+            Assert.True(m3.Equals(m3));
+            Assert.False(m3.Equals(null));
+            Assert.False(m3.Equals(m6));
+
+            var set1 = new Set<string>(StringComparer.Ordinal) {"1", "2"};
+            var set2 = new Set<string>(StringComparer.OrdinalIgnoreCase) {"1", "2"};
+            
+            Assert.True(set1 == set2);
+
+            var set = new Set<string>();
+
+            set.Add(null);
+            
+            Assert.True(set.Contains(null));
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
@@ -357,8 +358,13 @@ namespace Konsarpoo.Collections
         /// <remarks>It allows to pass lambda func without creating local variable closure and let .net optimize it to static function call.</remarks> 
         /// </summary>
         /// <exception cref="ArgumentNullException"></exception>
-        public static int FindIndex<T, V>(this IReadOnlyList<T> collection, V value, Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
+        public static int FindIndex<T, V>(this IReadOnlyList<T> collection, V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
         {
+            if (valueSelector == null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
+            
             if (equalityComparer == null)
             {
                 throw new ArgumentNullException(nameof(equalityComparer));

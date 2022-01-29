@@ -77,6 +77,8 @@ namespace Konsarpoo.Collections.Tests
 
             Assert.True(list.Any(5, (i, i1) => i.Equals(i1)));
             Assert.True(list.Any(5, (i, i1) => i.Equals(i1), 3));
+
+            Assert.Throws<ArgumentNullException>(() => list.Any(5, (Func<int, int, bool>)null));
         }
 
         [Test]

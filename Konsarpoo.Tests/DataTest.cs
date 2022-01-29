@@ -684,6 +684,10 @@ namespace Konsarpoo.Collections.Tests
                 var binarySearch = list5.BinarySearch(i, i);
 
                 Assert.AreEqual(i, list5[binarySearch]);
+
+                var search = list5.BinarySearch(i, 0, list5.Count, new IntComp());
+                
+                Assert.AreEqual(i, list5[search]);
             }
 
             for (var index = 0; index < list1.Count; index++)
@@ -1989,6 +1993,11 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual(-1, l1.BinarySearchLeft(2, (a, v) => a.CompareTo(v)));
 
             Assert.AreEqual(ll1.FindIndex(0, i => i), ll1.BinarySearchLeft(0, (a, v) => a.CompareTo(v)));
+            
+            Assert.Throws<ArgumentNullException>(() => ll1.FindIndex(0, (Func<int, int>)null));
+            Assert.Throws<ArgumentNullException>(() => ll1.FindIndex(0, (i) => i , (IEqualityComparer<int>)null));
+            Assert.Throws<ArgumentNullException>(() => ll1.FindIndex(0, (Func<int, int, bool>)null));
+            
             Assert.AreEqual(-1, ll1.BinarySearchLeft(2, (a, v) => a.CompareTo(v)));
 
             l1 = _.List(1, 2);
@@ -2216,6 +2225,53 @@ namespace Konsarpoo.Collections.Tests
             res1.MergeAscSorted(data2, data1, (x, y) => x.CompareTo(y));
             
             Assert.True(res == (data1 + data2).OrderBy(r => r).ToData());
+        }
+        
+        [Test]
+        public void TestOp1()
+        {
+            var m1 = (Data<int>)null;
+            var m2 = (Data<int>)null;
+            var m3 = new Data<int>() {  1, 1  };
+            var m4 = new Data<int>() {  1, 2  };
+            var m5 = new Data<int>() {  2, 1  };
+            var m6 = new Data<int>() {  1, 1 , 2, 2};
+            
+            Assert.True(m1 == m2);
+            Assert.False(m1 != m2);
+            Assert.False(m3 == m1);
+            Assert.False(m3 == m2);
+            Assert.False(m3 == m4);
+            Assert.False(m3 == m5);
+            Assert.False(m3 == m6);
+            
+            Assert.True(m3.Equals(m3));
+            Assert.False(m3.Equals(null));
+            Assert.False(m3.Equals(m6));
+        }
+
+
+        [Test]
+        public void TestSet()
+        {
+            var ints = new Data<int>();
+            var data1 = new Data<int>();
+            
+            ints.Ensure(10000);
+            
+            var arr = new int[10000];
+
+            for (int i = 0; i < 10000; i++)
+            {
+                arr[i] = i;
+                ints[i] = i;
+
+                data1.Append(i);
+                
+                Assert.AreEqual(arr[i], ints[i]);
+                Assert.AreEqual(arr[i], ints.ValueByRef(i));
+                Assert.AreEqual(arr[i], data1.ValueByRef(i));
+            }
         }
     }
 }

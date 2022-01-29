@@ -381,7 +381,7 @@ namespace Konsarpoo.Collections
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int IndexOf(T item)
+        int IList<T>.IndexOf(T item)
         {
             //common case
             if (m_root?.Storage != null)

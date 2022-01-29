@@ -17,7 +17,7 @@ namespace Konsarpoo.Collections
     [Serializable]
     public partial class Set<T> : ICollection<T>, IReadOnlyCollection<T>, IAppender<T>, ISerializable, IDeserializationCallback, IDisposable
     {
-        private static readonly bool IsReferenceType = typeof(T).IsByRef;
+        private static readonly bool IsReferenceType = !typeof(T).IsValueType;
 
         [NonSerialized]
         private Data<int> m_buckets;

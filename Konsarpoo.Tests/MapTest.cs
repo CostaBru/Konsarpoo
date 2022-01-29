@@ -624,6 +624,12 @@ namespace Konsarpoo.Collections.Tests
 
             var ints = map.GetOrAdd(1, () => new Data<int>());
             
+            Assert.AreEqual(0,  map.GetOrDefault(1).Count);
+
+            var nullMap = (Map<int, Data<int>>)null;
+
+            Assert.Throws<ArgumentNullException>(() => nullMap.GetOrAdd(1, () => new Data<int>()));
+            
             Assert.AreEqual(0, ints.Count);
             
             map.GetOrAdd(1, () => new Data<int>()).Add(1);
@@ -648,6 +654,35 @@ namespace Konsarpoo.Collections.Tests
             Assert.False(m3 == m4);
             Assert.False(m3 == m5);
             Assert.False(m3 == m6);
+            
+            Assert.True(m3.Equals(m3));
+            Assert.False(m3.Equals(null));
+            Assert.False(m3.Equals(m6));
+
+            var myDict = new MyDict() { { 1, 1 } };
+            
+            Assert.False(m3.Equals(myDict));
+        }
+
+        private class MyDict : Map<int, int>
+        {
+            
+        }
+        
+        [Test]
+        public void TestAddExc()
+        {
+            var m3 = new Map<int, int>() { { 1, 1 } };
+
+            Assert.Throws<ArgumentException>(() => m3.Add(1, 2));
+            
+            var m4 = new Map<string, int>() { { "1", 1 } };
+
+            Assert.Throws<ArgumentNullException>(() => m4.Add(null, 2));
+            
+            m4.Add("2", 3);
+            
+            Assert.AreEqual(3, m4["2"]);
         }
     }
 }
