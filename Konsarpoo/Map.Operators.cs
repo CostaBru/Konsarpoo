@@ -94,6 +94,11 @@ namespace Konsarpoo.Collections
 
         public static bool operator ==([CanBeNull] Map<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
+            if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
+            {
+                return true;
+            }
+            
             if (RuntimeHelpers.Equals(a, b))
             {
                 return true;
@@ -109,11 +114,20 @@ namespace Konsarpoo.Collections
 
         public static bool operator !=([CanBeNull] Map<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
-            if (RuntimeHelpers.Equals(a, b))
+            if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
+            {
                 return false;
+            }
+            
+            if (RuntimeHelpers.Equals(a, b))
+            {
+                return false;
+            }
 
-            if (ReferenceEquals(a, null) ||  ReferenceEquals(b, null))
+            if (ReferenceEquals(a, null) || ReferenceEquals(b, null))
+            {
                 return true;
+            }
 
             return !(a.EqualsDict(b));
         }
@@ -145,11 +159,6 @@ namespace Konsarpoo.Collections
                     if(!(this.TryGetValue(kv.Key, out var otherValue)))
                     {
                         return false; 
-                    }
-                    
-                    if (!(EqualityComparer<TValue>.Default.Equals(kv.Value, otherValue)))
-                    {
-                        return false;
                     }
                 }
 

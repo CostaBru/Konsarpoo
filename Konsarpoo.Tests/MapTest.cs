@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -186,14 +187,32 @@ namespace Konsarpoo.Collections.Tests
 
                     map.Keys.CopyTo(keys1, 0);
                     map.Keys.CopyTo(keys2, 0);
+
+                    var mapKeys = (ICollection<int>)map.Keys;
                     
+                    Assert.True(mapKeys.IsReadOnly);
+
+                    Assert.Throws<NotSupportedException>(() => mapKeys.Remove(1));
+                    Assert.Throws<NotSupportedException>(() => mapKeys.Add(1));
+                    Assert.Throws<NotSupportedException>(() => mapKeys.Clear());
+                    
+                    Assert.True(mapKeys.Contains(i));
+
                     for (int j = 0; j < keys1.Length; j++)
                     {
                         Assert.AreEqual(keys1[j], keys2[j]);
                     }
+
+                    var enumerator = mapKeys.GetEnumerator();
+                    Assert.NotNull(((IEnumerable)mapKeys).GetEnumerator());
+
+                    while (enumerator.MoveNext())
+                    {
+                        Assert.True(map.ContainsKey(enumerator.Current));
+                    }
                 }
 
-                if (i < 1000)
+                if (i < 100)
                 {
                     var values1 = new int[map.Values.Count];
                     var values2 = new int[map.Values.Count];
@@ -204,6 +223,24 @@ namespace Konsarpoo.Collections.Tests
                     for (int j = 0; j < values1.Length; j++)
                     {
                         Assert.AreEqual(values1[j], values2[j]);
+                    }
+                    
+                    var mapValues = (ICollection<int>)map.Values;
+                    
+                    Assert.True(mapValues.IsReadOnly);
+                    
+                    Assert.Throws<NotSupportedException>(() => mapValues.Remove(1));
+                    Assert.Throws<NotSupportedException>(() => mapValues.Add(1));
+                    Assert.Throws<NotSupportedException>(() => mapValues.Clear());
+                    
+                    Assert.True(mapValues.Contains(i));
+
+                    var enumerator = mapValues.GetEnumerator();
+                    Assert.NotNull(((IEnumerable)mapValues).GetEnumerator());
+
+                    while (enumerator.MoveNext())
+                    {
+                        Assert.True(map.ContainsValue(enumerator.Current));
                     }
                 }
                 
@@ -592,6 +629,25 @@ namespace Konsarpoo.Collections.Tests
             map.GetOrAdd(1, () => new Data<int>()).Add(1);
 
             Assert.AreEqual(1, map[1].Count);
+        }
+
+        [Test]
+        public void TestOp1()
+        {
+            var m1 = (Map<int, int>)null;
+            var m2 = (Map<int, int>)null;
+            var m3 = new Map<int, int>() { { 1, 1 } };
+            var m4 = new Map<int, int>() { { 1, 2 } };
+            var m5 = new Map<int, int>() { { 2, 1 } };
+            var m6 = new Map<int, int>() { { 1, 1 }, {2, 2}};
+            
+            Assert.True(m1 == m2);
+            Assert.False(m1 != m2);
+            Assert.False(m3 == m1);
+            Assert.False(m3 == m2);
+            Assert.False(m3 == m4);
+            Assert.False(m3 == m5);
+            Assert.False(m3 == m6);
         }
     }
 }
