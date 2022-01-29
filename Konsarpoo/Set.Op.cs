@@ -54,11 +54,20 @@ namespace Konsarpoo.Collections
         
         public static bool operator ==(Set<T> a, IReadOnlyCollection<T> b)
         {
-            if (RuntimeHelpers.Equals(a, b))
+            if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
+            {
                 return true;
+            }
 
-            if ((object) a == null || (object) b == null)
+            if (RuntimeHelpers.Equals(a, b))
+            {
+                return true;
+            }
+
+            if ((object)a == null || (object)b == null)
+            {
                 return false;
+            }
 
             if (b is Set<T> bs)
             {

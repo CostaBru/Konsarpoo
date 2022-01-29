@@ -316,6 +316,38 @@ namespace Konsarpoo.Collections.Tests
 
             Assert.AreEqual(clone, ba);
         }
-        
+
+        [Test]
+        public void EqualTests()
+        {
+            var length = 100;
+
+            var ba1 = new BitArr(length, true);
+            var ba2 = new BitArr(length, true);
+            
+            Assert.False(ba1.Equals(null));
+            Assert.True(ba1.Equals(ba1));
+            Assert.True(ba1.Equals(ba2));
+        }
+
+       
+        [Test]
+        public void TestCtr()
+        {
+            var ba1 = new BitArr(new bool[0]);
+            
+            Assert.AreEqual(0, ba1.Length);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => ba1.Get(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ba1.Get(1));
+        }
+
+        [Test]
+        public void TestSetAllHuge()
+        {
+            var ba1 = new BitArr(100000);
+
+            ba1.SetAll(true);
+        }
     }
 }

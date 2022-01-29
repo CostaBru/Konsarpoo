@@ -722,16 +722,6 @@ namespace Konsarpoo.Collections
 
         internal static bool HashSetEquals(Set<T> set1, Set<T> set2, IEqualityComparer<T> comparer)
         {
-            if (set1 == null)
-            {
-                return set2 == null;
-            }
-
-            if (set2 == null)
-            {
-                return false;
-            }
-
             if (AreEqualityComparersEqual(set1, set2))
             {
                 if (set1.Count != set2.Count)

@@ -293,6 +293,22 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestICollection()
+        {
+            var set = (ICollection<int>)new Set<int>();
+
+            for (int i = 0; i < 10; i++)
+            {
+                set.Add(i);
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.True(set.Contains(i));
+            }
+        }
+
+        [Test]
         public void TestOp()
         {
             var l1 = new Data<int>(Enumerable.Range(0, 5)).ToSet();
@@ -424,6 +440,25 @@ namespace Konsarpoo.Collections.Tests
                 map.Add(i);
                 dict.Add(i);
             }
+        }
+        
+        [Test]
+        public void TestOp1()
+        {
+            var m1 = (Set<int>)null;
+            var m2 = (Set<int>)null;
+            var m3 = new Set<int>() { 1 };
+            var m4 = new Set<int>() { 2 };
+            var m5 = new Set<int>() { 2, 3 };
+            var m6 = new Set<int>() { 1, 2, 3 };
+            
+            Assert.True(m1 == m2);
+            Assert.False(m1 != m2);
+            Assert.False(m3 == m1);
+            Assert.False(m3 == m2);
+            Assert.False(m3 == m4);
+            Assert.False(m3 == m5);
+            Assert.False(m3 == m6);
         }
     }
 }
