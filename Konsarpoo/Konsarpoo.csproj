@@ -7,6 +7,14 @@
     <SccLocalPath>SAK</SccLocalPath>
     <LangVersion>latestmajor</LangVersion>
     <RootNamespace>Konsarpoo.Collections</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Title>The eco friendly set of array pool based collections for netstandard2.1</Title>
+    <Authors>Konstantin Briukhnov; kooltew@gmail.com</Authors>
+    <Copyright>Konstantin Briukhnov</Copyright>
+    <PackageProjectUrl>https://github.com/CostaBru/Konsarpoo</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/CostaBru/Konsarpoo</RepositoryUrl>
+    <RepositoryType>Library</RepositoryType>
+    <PackageTags>.NET Collections ArrayPool Extensions</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
