@@ -684,5 +684,6 @@ namespace Konsarpoo.Collections.Tests
             
             Assert.AreEqual(3, m4["2"]);
         }
+        
     }
 }
