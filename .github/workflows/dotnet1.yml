@@ -30,12 +30,15 @@ jobs:
         include-prerelease: True
     - name: Restore dependencies
       run: dotnet restore
+    - name: Setup NuGet.exe for use with actions
+      uses: NuGet/setup-nuget@v1.0.5
+    - run: nuget restore Konsarpoo.sln
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore
     - name: Dump ls
-      run: ls /home/runner/ -R
+      run: ls -R
     - name: DotCover Github Actions wrapper
       uses: dodopizza/dotcover-action@v1
       with:
