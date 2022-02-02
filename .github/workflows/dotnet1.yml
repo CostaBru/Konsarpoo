@@ -12,6 +12,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+    - name: Dump ls
+      run: echo "ls -R"
+
     - uses: actions/checkout@v2
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
@@ -28,7 +35,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: /home/runner/work/Konsarpoo/packages/NUnit.ConsoleRunner.3.14.0/tools/nunit3-console.exe /home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/bin/Release/netcoreapp3.1/Konsarpoo.Tests.dll
+      run: dotnet test --no-build --configuration Release --no-restore
     - name: DotCover Github Actions wrapper
       uses: dodopizza/dotcover-action@v1
       with:

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AnalyseParams>
-  <TargetExecutable>/home/runner/work/Konsarpoo/packages\NUnit.ConsoleRunner.3.14.0\tools\nunit3-console.exe</TargetExecutable>
+  <TargetExecutable>/home/runner/work/Konsarpoo/packages/NUnit.ConsoleRunner.3.14.0/tools/nunit3-console.exe</TargetExecutable>
   <TargetArguments>Konsarpoo.Tests.dll</TargetArguments>
   <TargetWorkingDir>/home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/bin/Release/netcoreapp3.1</TargetWorkingDir>
   <Output>CoverageReport.html</Output>
