@@ -35,5 +35,4 @@ jobs:
     - name: Cover set up
       run: dotnet tool install JetBrains.dotCover.GlobalTool -g
     - name: Run cover
-      run: dotnet dotcover test --no-build
-
+      run: dotnet dotcover test --no-build --dcOutput="AppCoverageReport.html"  --dcReportType="HTML"
