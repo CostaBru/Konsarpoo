@@ -15,9 +15,7 @@ jobs:
     - name: Dump GitHub context
       env:
         GITHUB_CONTEXT: ${{ toJson(github) }}
-      run: echo "$GITHUB_CONTEXT"
-    - name: Dump ls
-      run: echo "ls -R"
+      run: echo "$GITHUB_CONTEXT"  
 
     - uses: actions/checkout@v2
     - name: Setup .NET
@@ -36,6 +34,8 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore
+    - name: Dump ls
+      run: ls -R
     - name: DotCover Github Actions wrapper
       uses: dodopizza/dotcover-action@v1
       with:
