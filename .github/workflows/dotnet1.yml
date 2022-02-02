@@ -35,7 +35,7 @@ jobs:
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore
     - name: Dump ls
-      run: ls -R
+      run: ls .. -R
     - name: DotCover Github Actions wrapper
       uses: dodopizza/dotcover-action@v1
       with:
