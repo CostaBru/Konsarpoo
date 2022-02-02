@@ -29,3 +29,6 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-restore --verbosity normal
+    - name: DotCover Github Actions wrapper
+      uses: dodopizza/dotcover-action@v1.2
+
