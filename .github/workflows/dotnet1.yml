@@ -32,6 +32,8 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore
-    - name: Cover
+    - name: Cover set up
+      run: dotnet tool install JetBrains.dotCover.GlobalTool -g
+    - name: Run cover
       run: dotnet dotcover test --no-build
 
