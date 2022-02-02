@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AnalyseParams>
-  <Executable>/home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo/bin/Release/netstandard2.1/Konsarpoo.dll</Executable>
-  <WorkingDir>/home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo/bin/Release/netstandard2.1/</WorkingDir>
+  <Executable>/home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/bin/Release/netcoreapp3.1/Konsarpoo.Tests.dll</Executable>
+  <WorkingDir>/home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/bin/Release/netcoreapp3.1</WorkingDir>
   <Output>output.xml</Output>
 </AnalyseParams>
