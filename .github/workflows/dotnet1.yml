@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: dotnet test --no-restore --verbosity normal
+      run: packages/NUnit.ConsoleRunner.3.14.0/tools/nunit3-console.exe /home/runner/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/bin/Release/netcoreapp3.1/Konsarpoo.Tests.dll
     - name: DotCover Github Actions wrapper
       uses: dodopizza/dotcover-action@v1
       with:
