@@ -6,7 +6,7 @@ The eco friendly set of array pool based collections for ``netstandard2.1``. Con
 
 List of generic collections and APIs supported:
 
-- ``Data``
+- ``List``
 - ``Map``
 - ``Set``
 - ``Stack``
