@@ -1,11 +1,9 @@
-name: .NET
+name: Konsarpoo build, tests and coverage
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    
+
 jobs:
   build:
 
@@ -31,7 +29,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: dotnet test --no-build --configuration Release --no-restore
+      run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
     - name: Cover set up
       run: dotnet tool install JetBrains.dotCover.GlobalTool -g
     - name: Run cover
