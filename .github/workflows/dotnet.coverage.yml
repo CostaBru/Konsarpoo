@@ -1,25 +1,38 @@
-name: .NET
+name: Konsarpoo coverage
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    paths-ignore:
+      - '**.md'
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 5.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0'
+          include-prerelease: True
+      - name: Setup .NET Core 3.1
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.x
+          include-prerelease: True
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Setup NuGet.exe for use with actions
+        uses: NuGet/setup-nuget@v1.0.5
+      - run: nuget restore Konsarpoo.sln
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
+      - name: Cover set up
+        run: dotnet tool install JetBrains.dotCover.GlobalTool -g
+      - name: Run cover
+        run: dotnet dotcover test --no-build --dcOutput="Konsarpoo.CoverageReport.html" --dcReportType="HTML"
+      - name: Dump ls
+        run: cd .. ls -R

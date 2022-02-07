@@ -1,4 +1,4 @@
-name: Konsarpoo build, tests and coverage
+name: Konsarpoo tests
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-          operating-system: [ ubuntu-latest, windows-latest, macOS-latest ]
+          operating-system: [ ubuntu-latest, macOS-latest ]
 
     steps:
     - uses: actions/checkout@v2
@@ -36,7 +36,5 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
-    - name: Cover set up
-      run: dotnet tool install JetBrains.dotCover.GlobalTool -g
-    - name: Run cover
-      run: dotnet dotcover test --no-build --dcOutput="Konsarpoo.CoverageReport.html" --dcReportType="HTML"
+    - name: Dump ls
+      run: ls /home/runner/ -R
