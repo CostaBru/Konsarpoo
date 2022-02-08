@@ -5,7 +5,9 @@ on:
     branches: [ main ]
     paths-ignore:
       - '**.md'
-
+env:
+  COVERAGE: 90
+  
 jobs:
   build:
     runs-on: windows-latest
@@ -43,4 +45,14 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: test-coverage 
-          path: D:\a\Konsarpoo\Konsarpoo\CoverageReport   
+          path: D:\a\Konsarpoo\Konsarpoo\CoverageReport
+      - name: Create the Coverage Badge
+        uses: schneegans/dynamic-badges-action@v1.0.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 53438eb82c2cc9b70de34df4f14a7072
+          filename: Konsarpoo__${{ env.BRANCH }}.json
+          label: Test Coverage
+          message: ${{ env.COVERAGE }}
+          color: green
+          namedLogo: Konsarpoo
