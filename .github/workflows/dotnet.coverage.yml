@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '**.md'
 env:
-  COVERAGE: 90
+  COVERAGE: 91
   
   
 jobs:
