@@ -37,5 +37,5 @@ jobs:
       - name: Go to root
         run: cd /
       - name: dir
-        run: dir /a-D /S 
+        run: ls -R
          
