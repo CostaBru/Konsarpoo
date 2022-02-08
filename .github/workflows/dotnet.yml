@@ -37,9 +37,9 @@ jobs:
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
     - name: Print test folder
-      run: ls ~/ -R
+      run: ls ~/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
     - name: Publish test results
       uses: actions/upload-artifact@v2
       with:
         name: test-results
-        path: ~/Konsarpoo.Tests/TestResults
+        path: ~/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
