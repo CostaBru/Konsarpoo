@@ -38,9 +38,9 @@ jobs:
       - name: Cover set up
         run: dotnet tool install JetBrains.dotCover.GlobalTool -g
       - name: Run cover
-        run: dotnet dotcover test --no-build --dcOutput="Konsarpoo.CoverageReport.html" --dcReportType="HTML"
+        run: dotnet dotcover test --no-build --dcOutput="CoverageReport/Konsarpoo.CoverageReport.html" --dcReportType="HTML"
       - name: Publish test coverage
         uses: actions/upload-artifact@v2
         with:
           name: test-coverage
-          path: D:\a\Konsarpoo\Konsarpoo\Konsarpoo.CoverageReport     
+          path: D:\a\Konsarpoo\Konsarpoo\CoverageReport   
