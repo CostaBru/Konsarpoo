@@ -36,8 +36,6 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results-${{ matrix.operating-system }}.trx"
-    - name: Print test folder
-      run: ls ~/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
     - name: Publish test results
       uses: actions/upload-artifact@v2
       with:

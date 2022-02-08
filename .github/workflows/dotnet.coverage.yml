@@ -29,12 +29,12 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
       - name: Test
-        run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results-windows.trx"
       - name: Publish test results
         uses: actions/upload-artifact@v2
         with:
           name: test-results
-          path: ~/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
+          path: D:\a\Konsarpoo\Konsarpo\Konsarpoo.Tests\TestResults
       - name: Cover set up
         run: dotnet tool install JetBrains.dotCover.GlobalTool -g
       - name: Run cover
@@ -43,10 +43,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: test-coverage
-          path: ~/Konsarpoo/Konsarpoo/Konsarpoo.CoverageReport       
-    
-      - name: Go to root
-        run: cd /
-      - name: dir
-        run: ls ~/
-         
+          path: D:\a\Konsarpoo\Konsarpo\Konsarpoo.CoverageReport     
