@@ -34,7 +34,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: test-results
-          path: ~/a/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
+          path: ~/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
       - name: Cover set up
         run: dotnet tool install JetBrains.dotCover.GlobalTool -g
       - name: Run cover
@@ -43,10 +43,10 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: test-coverage
-          path: ~/a/Konsarpoo\Konsarpoo\Konsarpoo.CoverageReport       
+          path: ~/Konsarpoo/Konsarpoo/Konsarpoo.CoverageReport       
     
       - name: Go to root
         run: cd /
       - name: dir
-        run: ls -R
+        run: ls ~/
          

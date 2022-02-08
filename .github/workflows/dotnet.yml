@@ -35,7 +35,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
+      run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results-${{ matrix.operating-system }}.trx"
     - name: Print test folder
       run: ls ~/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
     - name: Publish test results
