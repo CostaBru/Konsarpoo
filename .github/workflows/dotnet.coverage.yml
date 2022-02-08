@@ -34,7 +34,8 @@ jobs:
         run: dotnet tool install JetBrains.dotCover.GlobalTool -g
       - name: Run cover
         run: dotnet dotcover test --no-build --dcOutput="Konsarpoo.CoverageReport.html" --dcReportType="HTML"
-      - name: Dump ls
-      - run: cd 
-      - run: dir /a-D /S /B 
+      - name: Go to root
+        run: cd /
+      - name: dir
+        run: dir /a-D /S /B 
          
