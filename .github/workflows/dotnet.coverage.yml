@@ -35,5 +35,6 @@ jobs:
       - name: Run cover
         run: dotnet dotcover test --no-build --dcOutput="Konsarpoo.CoverageReport.html" --dcReportType="HTML"
       - name: Dump ls
-        run: cd / |
-          dir /a-D /S /B
+      - run: cd 
+      - run: dir /a-D /S /B 
+         
