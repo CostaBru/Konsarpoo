@@ -1,8 +1,6 @@
 ﻿# Konsarpoo .NET  
 
-[![Konsarpoo build, tests and coverage](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml/badge.svg)](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml)
-
-![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/CostaBru/53438eb82c2cc9b70de34df4f14a7072/raw/Konsarpoo__head.json)
+[![Konsarpoo build, tests and coverage](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml/badge.svg)](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/CostaBru/53438eb82c2cc9b70de34df4f14a7072/raw/Konsarpoo__head.json) ![GitHub Release Date](https://img.shields.io/github/release-date/CostaBru/Konsarpoo) ![Nuget](https://img.shields.io/nuget/dt/Konsarpoo) ![jsDelivr hits (GitHub)](https://img.shields.io/jsdelivr/gh/hy/CostaBru/Konsarpoo?label=views) ![GitHub search hit counter](https://img.shields.io/github/search/CostaBru/Konsarpoo/goto)
 
 The eco friendly set of array pool based collections for ``netstandard2.1``. Container's storage allocated and recycled back to shared memory pool by default. 
 
