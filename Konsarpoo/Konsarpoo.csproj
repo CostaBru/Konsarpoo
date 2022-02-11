@@ -15,6 +15,25 @@
     <RepositoryUrl>https://github.com/CostaBru/Konsarpoo</RepositoryUrl>
     <RepositoryType>Library</RepositoryType>
     <PackageTags>.NET Collections ArrayPool Extensions</PackageTags>
+    <Description>The eco friendly set of array pool based collections for netstandard2.1. Container's storage allocated and recycled back to shared memory pool by default. 
+
+List of generic collections and APIs supported:
+
+- ``List``
+- ``Map``
+- ``Set``
+- ``Stack``
+- ``Queue``
+
+Some extras built in:
+- BitArr
+- std::vector api
+- Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
+- Lambda allocation free enumerable extensions
+
+Each collection is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
+</Description>
+    <PackageLicense>https://opensource.org/licenses/MIT</PackageLicense>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,10 +49,12 @@
   <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" Version="2021.3.0" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
-  </ItemGroup>
+  </ItemGroup>  
 
-  <ItemGroup>
-    <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
-  </ItemGroup> 
+  <PropertyGroup>
+    <PackageId>Konsarpoo</PackageId>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/CostaBru/Konsarpoo</RepositoryUrl>
+  </PropertyGroup>
 
 </Project>
