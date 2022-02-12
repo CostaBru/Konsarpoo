@@ -14,6 +14,11 @@ namespace Konsarpoo.Collections
         [NonSerialized]
         private SerializationInfo m_siInfo;
         
+        /// <summary>
+        /// Deserialization constructor.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
         protected Data(SerializationInfo info, StreamingContext context)
         {
             m_siInfo = info;

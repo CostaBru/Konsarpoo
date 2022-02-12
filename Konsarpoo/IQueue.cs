@@ -9,7 +9,15 @@ namespace Konsarpoo.Collections
     /// <typeparam name="T"></typeparam>
     public interface IDequeue<T>
     {
+        /// <summary>
+        /// Returns and removes item from the queue.
+        /// </summary>
+        /// <returns></returns>
         T Dequeue();
+        /// <summary>
+        /// Returns but does not remove an item from the queue.
+        /// </summary>
+        /// <returns></returns>
         T Peek();
     }
     
@@ -19,7 +27,16 @@ namespace Konsarpoo.Collections
     /// <typeparam name="T"></typeparam>
     public interface IEnqueue<T> : IDequeue<T>
     {
+        /// <summary>
+        /// Adds an element to the queue.
+        /// </summary>
+        /// <param name="item"></param>
         void Enqueue(T item);
+        
+        /// <summary>
+        ///  Adds all elements in given collection to the queue.
+        /// </summary>
+        /// <param name="items"></param>
         void EnqueueRange(IEnumerable<T> items);
     }
 
@@ -29,8 +46,14 @@ namespace Konsarpoo.Collections
     /// <typeparam name="T"></typeparam>
     public interface IQueue<T> : IDequeue<T>, IEnqueue<T>
     {
+        /// <summary>
+        /// Clears the queue.
+        /// </summary>
         void Clear();
         
+        /// <summary>
+        /// Gets the flag indicating whether queue has any element.
+        /// </summary>
         bool Any { get; }
     }
 }

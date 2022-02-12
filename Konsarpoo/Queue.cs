@@ -14,6 +14,11 @@ namespace Konsarpoo.Collections
 
         private int m_startOffset;
 
+        /// <summary>
+        /// Default constructor that takes storage.
+        /// </summary>
+        /// <param name="list"></param>
+        /// <exception cref="ArgumentNullException"></exception>
         public Qu([NotNull] Data<T> list)
         {
             m_list = list ?? throw new ArgumentNullException(nameof(list));

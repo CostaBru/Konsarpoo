@@ -42,12 +42,34 @@ namespace Konsarpoo.Collections
         /// </summary>
         public interface INode : INodeBase 
         {
+            /// <summary>
+            /// Adds item to the node or creates a new node with new item.
+            /// </summary>
+            /// <param name="item"></param>
+            /// <param name="node"></param>
+            /// <param name="capacity"></param>
+            /// <returns></returns>
             bool Add(ref T item, out INode node, int capacity = 16);
 
+            /// <summary>
+            /// Clears node.
+            /// </summary>
             void Clear();
 
+            /// <summary>
+            /// Removes last item.
+            /// </summary>
+            /// <returns></returns>
             bool RemoveLast();
 
+            /// <summary>
+            /// Make sure node has given size or max size. If max size reached return new node.
+            /// </summary>
+            /// <param name="size"></param>
+            /// <param name="defaultValue"></param>
+            /// <param name="node"></param>
+            /// <param name="maxSizeOfArray"></param>
+            /// <returns></returns>
             bool Ensure(ref int size, ref T defaultValue, out INode node,  int maxSizeOfArray);
         }
 

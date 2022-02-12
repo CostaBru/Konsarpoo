@@ -5,6 +5,9 @@ using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
+    /// <summary>
+    /// Allocation free extension class.
+    /// </summary>
     public static class DataExtensions
     {
         /// <summary>
@@ -171,6 +174,13 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <summary>
+        /// Copies list to data.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static Data<T> ToData<T>([NotNull] this IList<T> source)
         {
             if (source == null)
@@ -181,6 +191,13 @@ namespace Konsarpoo.Collections
             return new Data<T>(source);
         }
 
+        /// <summary>
+        /// Copies enumerable to data.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static Data<T> ToData<T>([NotNull] this IEnumerable<T> source)
         {
             if (source == null)
@@ -191,6 +208,13 @@ namespace Konsarpoo.Collections
             return new Data<T>(source);
         }
 
+        /// <summary>
+        ///  Copies data.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static Data<T> ToData<T>([NotNull] this Data<T> source)
         {
             if (source == null)
@@ -201,11 +225,25 @@ namespace Konsarpoo.Collections
             return new Data<T>(source);
         }
 
+        /// <summary>
+        /// Checks that source is null or contains the given value.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="value"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public static bool ListNullOrItemAbsent<T>([CanBeNull] this IReadOnlyCollection<T> source, T value)
         {
             return source == null || !source.Contains(value);
         }
 
+        /// <summary>
+        /// Creates a set from given collection.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static Set<T> ToSet<T>([NotNull] this IReadOnlyCollection<T> source)
         {
             if (source == null)
@@ -221,6 +259,14 @@ namespace Konsarpoo.Collections
             return new Set<T>(source);
         }
         
+        /// <summary>
+        /// Creates a set from given collection.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="comparer"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static Set<T> ToSet<T>([NotNull] this IEnumerable<T> source, IEqualityComparer<T> comparer = null)
         {
             if (source == null)
@@ -231,6 +277,18 @@ namespace Konsarpoo.Collections
             return new Set<T>(source, comparer);
         }
         
+        /// <summary>
+        /// Does binary search using given readonly list. Returns negative insert position if item wasn't found. 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="target"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="count"></param>
+        /// <param name="compare"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static int BinarySearchExact<T, V>(
             [NotNull] this IReadOnlyList<T> array,
             V target, 
@@ -274,11 +332,32 @@ namespace Konsarpoo.Collections
             return ~lo;
         }
 
+        /// <summary>
+        /// Does binary search using given readonly list. Returns left most item index. 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="target"></param>
+        /// <param name="compare"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <returns></returns>
         public static int BinarySearchLeft<T, V>(this IReadOnlyList<T> array, V target, Func<T, V, int> compare)
         {
             return BinarySearchLeft(array, target, 0, array.Count, compare);
         }
 
+        /// <summary>
+        /// Does binary search using given readonly list. Returns left most item index. 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="target"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="count"></param>
+        /// <param name="compare"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static int BinarySearchLeft<T, V>([NotNull] this IReadOnlyList<T> array, V target, int startIndex, int count,
             [NotNull] Func<T, V, int> compare)
         {
@@ -320,11 +399,32 @@ namespace Konsarpoo.Collections
             return res;
         } 
         
+        /// <summary>
+        /// Does binary search using given readonly list. Returns right most index of an element. 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="target"></param>
+        /// <param name="compare"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <returns></returns>
         public static int BinarySearchRight<T, V>(this IReadOnlyList<T> array, V target, Func<T, V, int> compare)
         {
             return BinarySearchRight(array, target, 0, array.Count, compare);
         }
         
+        /// <summary>
+        /// Does binary search using given readonly list. Returns right most index of an element. 
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="target"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="count"></param>
+        /// <param name="compare"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="V"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public static int BinarySearchRight<T, V>([NotNull] this IReadOnlyList<T> array, V target, int startIndex, int count,
             [NotNull] Func<T, V, int> compare)
         {

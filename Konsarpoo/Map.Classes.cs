@@ -22,7 +22,8 @@ namespace Konsarpoo.Collections
             public TKey Key;
             public int ValueRef;
         }
-        
+
+        /// <inheritdoc />
         [Serializable]
         public class Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>
         {
@@ -39,6 +40,7 @@ namespace Konsarpoo.Collections
                 m_current = new KeyValuePair<TKey, TValue>();
             }
 
+            /// <inheritdoc />
             public KeyValuePair<TKey, TValue> Current => m_current;
 
             object IEnumerator.Current
@@ -51,6 +53,7 @@ namespace Konsarpoo.Collections
                 }
             }
 
+            /// <inheritdoc />
             public bool MoveNext()
             {
                 CheckVersion();
@@ -78,6 +81,7 @@ namespace Konsarpoo.Collections
                 m_current = new KeyValuePair<TKey, TValue>();
             }
 
+            /// <inheritdoc />
             public void Dispose()
             {
             }
@@ -99,6 +103,7 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <inheritdoc />
         [Serializable]
         public class ArrayEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
         {
@@ -118,7 +123,8 @@ namespace Konsarpoo.Collections
                 m_index = 0;
                 m_current = default;
             }
-            
+
+            /// <inheritdoc />
             public KeyValuePair<TKey, TValue> Current => m_current;
 
             object IEnumerator.Current
@@ -131,6 +137,7 @@ namespace Konsarpoo.Collections
                 }
             }
 
+            /// <inheritdoc />
             public bool MoveNext()
             {
                 CheckVersion();
@@ -152,6 +159,7 @@ namespace Konsarpoo.Collections
                 return false;
             }
 
+            /// <inheritdoc />
             public void Dispose()
             {
             }
@@ -181,11 +189,17 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <inheritdoc />
         [Serializable]
         public sealed class KeyCollection : ICollection<TKey>, IReadOnlyCollection<TKey>
         {
             private readonly Map<TKey, TValue> m_dictionary;
 
+            /// <summary>
+            /// Constructor.
+            /// </summary>
+            /// <param name="dictionary"></param>
+            /// <exception cref="ArgumentNullException"></exception>
             public KeyCollection(Map<TKey, TValue> dictionary)
             {
                 if (ReferenceEquals(dictionary, null))
@@ -195,6 +209,7 @@ namespace Konsarpoo.Collections
                 m_dictionary = dictionary;
             }
 
+            /// <inheritdoc />
             public void CopyTo(TKey[] array, int index)
             {
                 if (ReferenceEquals(array , null))
@@ -255,10 +270,12 @@ namespace Konsarpoo.Collections
                 return ((ICollection<TKey>)this).GetEnumerator();
             }
 
+            /// <inheritdoc />
             public int Count => m_dictionary.Count;
 
             bool ICollection<TKey>.IsReadOnly => true;
 
+            /// <inheritdoc />
             public struct Enumerator : IEnumerator<TKey>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
@@ -266,6 +283,7 @@ namespace Konsarpoo.Collections
                 private int m_index;
                 private TKey m_currentKey;
 
+                /// <inheritdoc />
                 public TKey Current => m_currentKey;
 
                 object IEnumerator.Current
@@ -286,6 +304,7 @@ namespace Konsarpoo.Collections
                     m_currentKey = default;
                 }
 
+                /// <inheritdoc />
                 public bool MoveNext()
                 {
                     CheckVersion();
@@ -305,6 +324,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                /// <inheritdoc />
                 public void Dispose()
                 {
                 }
@@ -333,7 +353,8 @@ namespace Konsarpoo.Collections
                     }
                 }
             }
-            
+
+            /// <inheritdoc />
             [Serializable]
             public struct ArrayEnumerator : IEnumerator<TKey>
             {
@@ -343,6 +364,7 @@ namespace Konsarpoo.Collections
                 private int m_index;
                 private TKey m_currentKey;
 
+                /// <inheritdoc />
                 public TKey Current => m_currentKey;
 
                 object IEnumerator.Current
@@ -364,6 +386,7 @@ namespace Konsarpoo.Collections
                     m_currentKey = default;
                 }
 
+                /// <inheritdoc />
                 public bool MoveNext()
                 {
                     CheckVersion();
@@ -383,6 +406,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                /// <inheritdoc />
                 public void Dispose()
                 {
                 }
@@ -413,16 +437,23 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <inheritdoc />
         [Serializable]
         public sealed class ValueCollection : ICollection<TValue>, IReadOnlyCollection<TValue>
         {
             private readonly Map<TKey, TValue> m_dictionary;
 
+            /// <summary>
+            /// Constructor.
+            /// </summary>
+            /// <param name="dictionary"></param>
+            /// <exception cref="ArgumentNullException"></exception>
             public ValueCollection(Map<TKey, TValue> dictionary)
             {
                 m_dictionary = dictionary ?? throw new ArgumentNullException("dictionary");
             }
 
+            /// <inheritdoc />
             public void CopyTo(TValue[] array, int index)
             {
                 if (ReferenceEquals(array, null))
@@ -484,10 +515,12 @@ namespace Konsarpoo.Collections
                 return ((ICollection<TValue>)this).GetEnumerator();
             }
 
+            /// <inheritdoc />
             public int Count => m_dictionary.Count;
 
             bool ICollection<TValue>.IsReadOnly => true;
 
+            /// <inheritdoc />
             public struct Enumerator : IEnumerator<TValue>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
@@ -495,6 +528,7 @@ namespace Konsarpoo.Collections
                 private int m_index;
                 private TValue m_currentValue;
 
+                /// <inheritdoc />
                 public TValue Current => m_currentValue;
 
                 object IEnumerator.Current
@@ -515,6 +549,7 @@ namespace Konsarpoo.Collections
                     m_currentValue = default;
                 }
 
+                /// <inheritdoc />
                 public bool MoveNext()
                 {
                     CheckVersion();
@@ -534,6 +569,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                /// <inheritdoc />
                 public void Dispose()
                 {
                 }
@@ -562,7 +598,8 @@ namespace Konsarpoo.Collections
                     }
                 }
             }
-            
+
+            /// <inheritdoc />
             [Serializable]
             public struct ArrayEnumerator : IEnumerator<TValue>
             {
@@ -573,6 +610,7 @@ namespace Konsarpoo.Collections
                 private TValue m_currentValue;
                 private readonly TValue[] m_values;
 
+                /// <inheritdoc />
                 public TValue Current => m_currentValue;
 
                 object IEnumerator.Current
@@ -595,6 +633,7 @@ namespace Konsarpoo.Collections
                     m_currentValue = default;
                 }
 
+                /// <inheritdoc />
                 public bool MoveNext()
                 {
                     CheckVersion();
@@ -614,6 +653,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                /// <inheritdoc />
                 public void Dispose()
                 {
                 }

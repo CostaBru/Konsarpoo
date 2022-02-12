@@ -36,6 +36,11 @@ namespace Konsarpoo.Collections
     {
         private readonly Data<IDisposable> m_list = new ();
      
+        /// <summary>
+        /// Adds disposable.
+        /// </summary>
+        /// <param name="disposable"></param>
+        /// <exception cref="ArgumentNullException"></exception>
         public void AddDisposable([NotNull] IDisposable disposable)
         {
             if (disposable == null)
@@ -46,6 +51,12 @@ namespace Konsarpoo.Collections
             m_list.Add(disposable);
         }
        
+        /// <summary>
+        /// Removes disposable.
+        /// </summary>
+        /// <param name="disposable"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public bool RemoveDisposable([NotNull] IDisposable disposable)
         {
             if (disposable == null)
@@ -56,8 +67,14 @@ namespace Konsarpoo.Collections
             return m_list.Remove(disposable);
         }
        
+        /// <summary>
+        /// Gets all disposable items.
+        /// </summary>
         public IReadOnlyList<IDisposable> Items => m_list;
       
+        /// <summary>
+        /// Dispose all items and clears itself.
+        /// </summary>
         public void Dispose()
         {
             foreach (var disposable in m_list)

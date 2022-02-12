@@ -7,6 +7,12 @@ namespace Konsarpoo.Collections
 {
     public partial class Set<T>
     {
+        /// <summary>
+        /// Gets the distinct union of the set and readonly collection.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static Set<T> operator +(Set<T> a, IReadOnlyCollection<T> b)
         {
             if (ReferenceEquals(a, null))
@@ -27,6 +33,12 @@ namespace Konsarpoo.Collections
             return set;
         }
         
+        /// <summary>
+        /// Gets the set a with missing items in b. 
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static Set<T> operator -(Set<T> a, IReadOnlyCollection<T> b)
         {
             if (ReferenceEquals(a, null))
@@ -52,6 +64,12 @@ namespace Konsarpoo.Collections
             return list;
         }
         
+        /// <summary>
+        /// Checks that both set and readonly collection has the same keys.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static bool operator ==(Set<T> a, IReadOnlyCollection<T> b)
         {
             if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
@@ -77,6 +95,12 @@ namespace Konsarpoo.Collections
             return a.EqualsSet(b);
         }
     
+        /// <summary>
+        /// Checks that both set and readonly collection doesn't have the same keys.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static bool operator !=(Set<T> a, IReadOnlyCollection<T> b)
         {
             if (RuntimeHelpers.Equals(a, b))
@@ -88,6 +112,11 @@ namespace Konsarpoo.Collections
             return !(a.EqualsSet(b));
         }
         
+        /// <summary>
+        /// Checks that this set and readonly collection has the same keys.
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         protected bool EqualsSet(IReadOnlyCollection<T> other)
         {
             if (m_count == other.Count)
@@ -114,6 +143,7 @@ namespace Konsarpoo.Collections
             return false;
         }
 
+        /// <inheritdoc />
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
@@ -134,6 +164,7 @@ namespace Konsarpoo.Collections
             return EqualsSet((Set<T>) obj);
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             unchecked

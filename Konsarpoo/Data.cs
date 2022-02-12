@@ -35,7 +35,14 @@ namespace Konsarpoo.Collections
     [Serializable]
     public partial class Data<T> : IList<T>, IReadOnlyList<T>, ICollection, IList, IAppender<T>, IDisposable, IStack<T>, ISerializable, IDeserializationCallback
     {
+        /// <summary>
+        /// Default T value cached.
+        /// </summary>
         public static readonly T Default = default;
+        
+        /// <summary>
+        /// Returns default array-less size of Data container.
+        /// </summary>
         public const int SmallListCount = 2;
 
         private static volatile int s_maxSizeOfArray = -1;
@@ -49,10 +56,20 @@ namespace Konsarpoo.Collections
         [NonSerialized]
         private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
         
+        /// <summary>
+        /// Tree root.
+        /// </summary>
         [NonSerialized]
         protected internal INode m_root;
         
+        /// <summary>
+        /// Count of items stored.
+        /// </summary>
         protected internal int m_count;
+        
+        /// <summary>
+        /// Current version of container.
+        /// </summary>
         protected internal int m_version;
 
         [NonSerialized]
@@ -237,7 +254,10 @@ namespace Konsarpoo.Collections
 
         bool ICollection.IsSynchronized => false;
 
-        public bool IsReadOnly => false;
+        private bool IsReadOnly => false;
+        
+        bool IList.IsReadOnly => false;
+        bool ICollection<T>.IsReadOnly => false;
 
         bool IList.IsFixedSize => false;
 
@@ -249,6 +269,11 @@ namespace Konsarpoo.Collections
 
         T IReadOnlyList<T>.this[int index] => this[index];
 
+        /// <summary>
+        /// Gets or sets value by zero based index.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
         public T this[int index]
         {
             get => ValueByRef(index);
@@ -1332,6 +1357,9 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <summary>
+        /// Gets the flag indicating whether Data has tree storage initialized. 
+        /// </summary>
         public bool HasList => m_root != null;
 
         IEnumerator IEnumerable.GetEnumerator()

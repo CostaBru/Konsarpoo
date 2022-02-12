@@ -17,13 +17,19 @@ namespace Konsarpoo.Collections
         private const String KeyValuePairsName = "KeyValuePairs";
         private const String ComparerName = "Comparer";
         
+        /// <summary>
+        /// Deserialization constructor.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
         protected Map(SerializationInfo info, StreamingContext context) {
             //We can't do anything with the keys and values until the entire graph has been deserialized
             //and we have a resonable estimate that GetHashCode is not going to fail.  For the time being,
             //we'll just cache this.  The graph is not valid until OnDeserialization has been called.
             HashHelpers.SerializationInfoTable.Add(this, info);
         }
-        
+
+        /// <inheritdoc />
         [System.Security.SecurityCritical]  // auto-generated_required
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context) {
             
@@ -45,7 +51,8 @@ namespace Konsarpoo.Collections
                 info.AddValue(KeyValuePairsName, array, typeof(KeyValuePair<TKey, TValue>[]));
             }
         }
-        
+
+        /// <inheritdoc />
         public virtual void OnDeserialization(object sender) 
         {
             HashHelpers.SerializationInfoTable.TryGetValue(this, out var siInfo);

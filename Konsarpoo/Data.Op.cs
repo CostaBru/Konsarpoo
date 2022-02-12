@@ -91,6 +91,11 @@ namespace Konsarpoo.Collections
             return !(a.EqualsList(b));
         }
         
+        /// <summary>
+        /// Compares with another list.
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         protected bool EqualsList(IReadOnlyList<T> other)
         {
             if (m_count == other.Count)

@@ -7,6 +7,9 @@ namespace Konsarpoo.Collections
     /// </summary>
     public static class ArrayPoolGlobalSetup
     {
+        /// <summary>
+        /// Max size of node for data storage leaf.
+        /// </summary>
         public const int PoolMaxSizeOfArray = 1024 * 1024;
         
         internal static volatile int MaxSizeOfArray = PoolMaxSizeOfArray;

@@ -21,6 +21,9 @@ namespace Konsarpoo.Collections
             m_pool = pool;
         }
 
+        /// <summary>
+        /// Default constructor.
+        /// </summary>
         public DefaultMixedAllocator()
         {
             m_pool = ArrayPool<T>.Shared;

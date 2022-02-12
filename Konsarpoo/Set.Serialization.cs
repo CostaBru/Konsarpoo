@@ -16,12 +16,18 @@ namespace Konsarpoo.Collections
         [NonSerialized]
         private SerializationInfo m_siInfo;
         
+        /// <summary>
+        /// Deserialization constructor.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
         protected Set(SerializationInfo info, StreamingContext context)
         {
             m_siInfo = info;
         }
-        
-          [SecurityCritical]
+
+        /// <inheritdoc />
+        [SecurityCritical]
         [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
         {

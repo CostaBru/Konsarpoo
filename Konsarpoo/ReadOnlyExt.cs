@@ -5,6 +5,9 @@ using System.Linq;
 
 namespace Konsarpoo.Collections
 {
+    /// <summary>
+    /// Useful collection extensions.
+    /// </summary>
     public static class ReadOnlyExt
     {
         /// <summary>

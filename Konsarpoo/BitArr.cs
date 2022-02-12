@@ -29,6 +29,8 @@ namespace Konsarpoo.Collections
             return false;
         }
 
+
+        /// <inheritdoc />
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
@@ -49,6 +51,7 @@ namespace Konsarpoo.Collections
             return EqualsList((BitArr) obj);
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             unchecked
@@ -169,7 +172,6 @@ namespace Konsarpoo.Collections
         /// <param name="bits">The BitArr to copy. </param>
         /// <exception cref="T:System.ArgumentNullException">
         /// <paramref name="bits" /> is <see langword="null" />. </exception>
-
         public BitArr(BitArr bits)
         {
             if (bits == null)
@@ -181,11 +183,17 @@ namespace Konsarpoo.Collections
             m_length = bits.m_length;
         }
 
+        /// <summary>
+        /// Destructor called by GC. Shouldn't be called if instance is properly disposed beforehand.
+        /// </summary>
         ~BitArr()
         {
             Clear();
         }
 
+        /// <summary>
+        /// Clears BitArr.
+        /// </summary>
         public void Clear()
         {
             m_version++;
@@ -234,6 +242,12 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <summary>
+        /// Check that the value exists and set for given index.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         public bool HasAndSet(int index)
         {
             if (index < 0)
@@ -330,6 +344,13 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <summary>
+        /// Tries to set value at given index. If size is greater skips.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         public bool TrySet(int index, bool value)
         {
             if (index < 0)
@@ -384,6 +405,13 @@ namespace Konsarpoo.Collections
             return true;
         }
 
+        
+        /// <summary>
+        /// Set given value at given index or increase internal capacity to be able do this and set the value.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         public void SetOrAdd(int index, bool value)
         {
             if (index < 0)

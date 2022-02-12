@@ -8,6 +8,12 @@ namespace Konsarpoo.Collections
 {
     public partial class  Map<TKey, TValue>
     {
+        /// <summary>
+        /// Returns of union of map and readonly dictionary.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static Map<TKey, TValue> operator +([CanBeNull] Map<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
             if (ReferenceEquals(a, null))
@@ -28,6 +34,11 @@ namespace Konsarpoo.Collections
             return dict;
         }
 
+        /// <summary>
+        ///  Returns of union of map and readonly dictionary.
+        /// </summary>
+        /// <param name="dict"></param>
+        /// <exception cref="ArgumentNullException"></exception>
         public void Union([NotNull] IReadOnlyDictionary<TKey, TValue> dict)
         {
             if (dict == null) throw new ArgumentNullException(nameof(dict));
@@ -38,6 +49,12 @@ namespace Konsarpoo.Collections
             }
         }
 
+        /// <summary>
+        /// Returns a new map with items that absent in another dictionary.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static Map<TKey, TValue> operator -([CanBeNull] Map<TKey, TValue> a,  [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
             if (ReferenceEquals(a, null))
@@ -67,6 +84,12 @@ namespace Konsarpoo.Collections
             return list;
         }
         
+        /// <summary>
+        /// Returns a new map with items that absent in another key collection.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static Map<TKey, TValue> operator -([CanBeNull] Map<TKey, TValue> a,  [CanBeNull] IReadOnlyCollection<TKey> b)
         {
             if (ReferenceEquals(a, null))
@@ -92,6 +115,12 @@ namespace Konsarpoo.Collections
             return list;
         }
 
+        /// <summary>
+        /// Checks that both map and readonly dictionary has the same keys and values.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static bool operator ==([CanBeNull] Map<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
             if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
@@ -112,6 +141,12 @@ namespace Konsarpoo.Collections
             return a.EqualsDict(b);
         }
 
+        /// <summary>
+        /// Checks that both map and readonly dictionary does not have the same keys and values.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static bool operator !=([CanBeNull] Map<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
         {
             if (ReferenceEquals(a, null) && ReferenceEquals(b, null))
@@ -132,6 +167,11 @@ namespace Konsarpoo.Collections
             return !(a.EqualsDict(b));
         }
 
+        /// <summary>
+        /// Checks that this map and readonly dictionary has the same keys and values.
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         protected bool EqualsDict([NotNull] IReadOnlyDictionary<TKey, TValue> other)
         {
             if (other == null)

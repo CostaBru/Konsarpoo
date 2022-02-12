@@ -55,27 +55,45 @@ namespace Konsarpoo.Collections
         [NonSerialized]
         private TValue m_nullRef;
 
-
+        /// <summary>
+        /// Default Map constructor.
+        /// </summary>
         public Map()
             : this(0, null)
         {
         }
 
+        /// <summary>
+        /// Default Map constructor that takes equality comparer.
+        /// </summary>
+        /// <param name="comparer"></param>
         public Map(IEqualityComparer<TKey> comparer)
             : this(0, comparer)
         {
         }
 
+        /// <summary>
+        /// Map constructor that takes initial capacity.
+        /// </summary>
+        /// <param name="capacity"></param>
         public Map(int capacity)
             : this(capacity, null)
         {
         }
 
+        /// <summary>
+        /// Constructor that takes another dictionary.
+        /// </summary>
+        /// <param name="dictionary"></param>
         public Map(IReadOnlyDictionary<TKey, TValue> dictionary)
             : this(dictionary, null)
         {
         }
         
+        /// <summary>
+        /// Copying constructor.
+        /// </summary>
+        /// <param name="dictionary"></param>
         public Map(Map<TKey, TValue> dictionary)
         {
             m_comparer = dictionary.m_comparer;
@@ -93,6 +111,12 @@ namespace Konsarpoo.Collections
             m_version = dictionary.m_version;
         }
 
+       /// <summary>
+       /// Constructor that takes another dictionary and equality comparer.
+       /// </summary>
+       /// <param name="dictionary"></param>
+       /// <param name="comparer"></param>
+       /// <exception cref="ArgumentNullException"></exception>
         public Map(IReadOnlyDictionary<TKey, TValue> dictionary, IEqualityComparer<TKey> comparer)
                     : this(dictionary?.Count ?? 0, comparer)
         {
@@ -106,6 +130,12 @@ namespace Konsarpoo.Collections
             }
         }
 
+       /// <summary>
+       /// Constructor that takes initial capacity and default equality comparer.
+       /// </summary>
+       /// <param name="capacity"></param>
+       /// <param name="comparer"></param>
+       /// <exception cref="ArgumentOutOfRangeException"></exception>
         public Map(int capacity, [CanBeNull] IEqualityComparer<TKey> comparer)
         {
             switch (capacity)

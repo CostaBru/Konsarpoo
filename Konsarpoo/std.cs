@@ -22,16 +22,28 @@ namespace Konsarpoo.Collections
         /// <typeparam name="T"></typeparam>
         public class vector<T> : Data<T>
         {
+            
+            /// <summary>
+            /// The vector constructor accepting an enumerable.
+            /// </summary>
+            /// <param name="items"></param>
             public vector(IEnumerable<T> items)
             : base(items)
             {
             }
             
+            /// <summary>
+            /// The vector constructor accepting an readonly collection.
+            /// </summary>
+            /// <param name="items"></param>
             public vector(IReadOnlyCollection<T> items)
                 : base(items)
             {
             }
 
+            /// <summary>
+            /// Default constructor.
+            /// </summary>
             public vector()
             {
             }
