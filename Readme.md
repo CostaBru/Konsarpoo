@@ -20,6 +20,20 @@ Some extras built in:
 
 Each collection is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
+## Nuget
+
+Please use one of the following commands to install Konsarpoo.
+
+#### Package Manager
+```cmd
+PM> Install-Package Konsarpoo -Version 1.0.1
+```
+
+#### .NET CLI
+```cmd
+> dotnet add package Konsarpoo --version 1.0.1
+```
+
 ### DATA  
 
 The universal random access data container. Supports ``List``, ``Array``, ``Stack`` and ``Queue`` API's. ``Data<T>`` has a minor overhead on adding items using default settings and huge advantage of reusing arrays to reduce ``GC`` collection time.
