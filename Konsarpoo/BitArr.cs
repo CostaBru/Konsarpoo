@@ -804,6 +804,7 @@ namespace Konsarpoo.Collections
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();

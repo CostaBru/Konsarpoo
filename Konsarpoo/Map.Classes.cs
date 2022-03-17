@@ -81,6 +81,7 @@ namespace Konsarpoo.Collections
                 m_current = new KeyValuePair<TKey, TValue>();
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             /// <inheritdoc />
             public void Dispose()
             {
@@ -159,6 +160,7 @@ namespace Konsarpoo.Collections
                 return false;
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             /// <inheritdoc />
             public void Dispose()
             {
@@ -235,21 +237,25 @@ namespace Konsarpoo.Collections
                 }
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             void ICollection<TKey>.Add(TKey item)
             {
                 throw new NotSupportedException();
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             void ICollection<TKey>.Clear()
             {
                 throw new NotSupportedException();
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TKey>.Contains(TKey item)
             {
                 return m_dictionary.ContainsKey(item);
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TKey>.Remove(TKey item)
             {
                 throw new NotSupportedException();
@@ -265,6 +271,7 @@ namespace Konsarpoo.Collections
                 return new Enumerator(m_dictionary);
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             IEnumerator IEnumerable.GetEnumerator()
             {
                 return ((ICollection<TKey>)this).GetEnumerator();
@@ -273,6 +280,7 @@ namespace Konsarpoo.Collections
             /// <inheritdoc />
             public int Count => m_dictionary.Count;
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TKey>.IsReadOnly => true;
 
             /// <inheritdoc />
@@ -324,6 +332,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
                 /// <inheritdoc />
                 public void Dispose()
                 {
@@ -367,6 +376,7 @@ namespace Konsarpoo.Collections
                 /// <inheritdoc />
                 public TKey Current => m_currentKey;
 
+                [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
                 object IEnumerator.Current
                 {
                     get
@@ -406,6 +416,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
                 /// <inheritdoc />
                 public void Dispose()
                 {
@@ -480,21 +491,25 @@ namespace Konsarpoo.Collections
                 }
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             void ICollection<TValue>.Add(TValue item)
             {
                 throw new NotSupportedException();
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             void ICollection<TValue>.Clear()
             {
                 throw new NotSupportedException();
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TValue>.Contains(TValue item)
             {
                 return m_dictionary.ContainsValue(item);
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TValue>.Remove(TValue item)
             {
                 throw new NotSupportedException();
@@ -510,6 +525,7 @@ namespace Konsarpoo.Collections
                 return new Enumerator(m_dictionary);
             }
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             IEnumerator IEnumerable.GetEnumerator()
             {
                 return ((ICollection<TValue>)this).GetEnumerator();
@@ -518,6 +534,7 @@ namespace Konsarpoo.Collections
             /// <inheritdoc />
             public int Count => m_dictionary.Count;
 
+            [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
             bool ICollection<TValue>.IsReadOnly => true;
 
             /// <inheritdoc />
@@ -569,6 +586,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
                 /// <inheritdoc />
                 public void Dispose()
                 {
@@ -653,6 +671,7 @@ namespace Konsarpoo.Collections
                     return false;
                 }
 
+                [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
                 /// <inheritdoc />
                 public void Dispose()
                 {

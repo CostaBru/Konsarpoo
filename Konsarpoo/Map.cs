@@ -697,11 +697,13 @@ namespace Konsarpoo.Collections
             m_entryValues = newEntryValues;
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> pair)
         {
             Add(pair.Key, pair.Value);
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> pair)
         {
             var val = ValueByRef(pair.Key, out var found);
@@ -709,11 +711,13 @@ namespace Konsarpoo.Collections
             return (found && EqualityComparer<TValue>.Default.Equals(val, pair.Value));
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(KeyValuePair<TKey, TValue>[] array, int index)
         {
             CopyTo(array, index);
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> pair)
         {
             var value = ValueByRef(pair.Key, out var found);
@@ -726,8 +730,10 @@ namespace Konsarpoo.Collections
             return false;
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => new Enumerator(this);
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
         /// <summary>
@@ -806,6 +812,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         public int Length => Count;
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
 
         /// <summary>
@@ -813,8 +820,10 @@ namespace Konsarpoo.Collections
         /// </summary>
         public KeyCollection Keys => m_keys ??= new KeyCollection(this);
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => Keys;
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         ICollection<TKey> IDictionary<TKey, TValue>.Keys => Keys;
 
         /// <summary>
@@ -822,8 +831,10 @@ namespace Konsarpoo.Collections
         /// </summary>
         public ValueCollection Values => m_values ??= new ValueCollection(this);
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         ICollection<TValue> IDictionary<TKey, TValue>.Values => Values;
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => Values;
         
         /// <summary>

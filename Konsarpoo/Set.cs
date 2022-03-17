@@ -329,8 +329,10 @@ namespace Konsarpoo.Collections
             return false;
         }
         
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         bool ICollection<T>.IsReadOnly => false;
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         void ICollection<T>.Add(T item)
         {
             Add(item);
@@ -452,11 +454,13 @@ namespace Konsarpoo.Collections
             }
         }
        
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator<T> IEnumerable<T>.GetEnumerator()
         {
             return Values().GetEnumerator();
         }
        
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator IEnumerable.GetEnumerator()
         {
             return Values().GetEnumerator();

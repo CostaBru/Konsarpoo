@@ -42,6 +42,8 @@ namespace Konsarpoo.Collections
                 return;
             }
 
+            ++m_version;
+
             if (m_root == null && size <= SmallListCount)
             {
                 switch (m_count)
@@ -52,7 +54,6 @@ namespace Konsarpoo.Collections
                             m_val1 = defaultValue;
 
                             m_count = size;
-                            ++m_version;
                             return;
                         }
                     case 1:
@@ -60,7 +61,6 @@ namespace Konsarpoo.Collections
                         m_val1 = defaultValue;
 
                         m_count = size;
-                        ++m_version;
                         return;
                     case 2:
 
@@ -96,7 +96,6 @@ namespace Konsarpoo.Collections
                     }
 
                     m_count = storeNode.m_size;
-                    ++m_version;
 
                     m_root = storeNode;
 
