@@ -39,7 +39,7 @@ namespace Konsarpoo.Collections
 
                 while (lo <= hi)
                 {
-                    int index = lo + (hi - lo >> 1);
+                    int index = lo + ((hi - lo) >> 1);
 
                     int order = comparer(value, items[index]);
 
@@ -66,7 +66,7 @@ namespace Konsarpoo.Collections
 
                 while (lo <= hi)
                 {
-                    int index = lo + (hi - lo >> 1);
+                    int index = lo + ((hi - lo) >> 1);
 
                     int order = comparer(value, ValueByRef(index));
 
@@ -187,7 +187,7 @@ namespace Konsarpoo.Collections
 
             while (lo <= hi)
             {
-                int index = lo + (hi - lo >> 1);
+                int index = lo + ((hi - lo) >> 1);
 
                 int order = comparer.Compare(item, ValueByRef(index));
 

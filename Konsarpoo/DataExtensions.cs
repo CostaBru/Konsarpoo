@@ -311,7 +311,7 @@ namespace Konsarpoo.Collections
 
             while (lo <= hi)
             {
-                int index = lo + (hi - lo >> 1);
+                int index = lo + ((hi - lo) >> 1);
 
                 var comp = compare(array[index], target);
 
@@ -377,7 +377,7 @@ namespace Konsarpoo.Collections
             
             while (lo <= hi)
             {
-                int index = lo + (hi - lo >> 1);
+                int index = lo + ((hi - lo) >> 1);
 
                 var comp = compare(array[index], target);
 
@@ -444,7 +444,7 @@ namespace Konsarpoo.Collections
 
             while (lo <= hi)
             {
-                int index = lo + (hi - lo >> 1);
+                int index = lo + ((hi - lo) >> 1);
 
                 var comp = compare(array[index], target);
 
