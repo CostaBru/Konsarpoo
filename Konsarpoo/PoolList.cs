@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="maxCapacity">Max size of list</param>
         /// <param name="capacity"></param>
-        public PoolList(int maxCapacity, int capacity) : base(new DefaultMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
+        public PoolList(int maxCapacity, int capacity) : base(maxCapacity, capacity)
         {
         }
 

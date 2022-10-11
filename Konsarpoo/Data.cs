@@ -12,7 +12,7 @@ namespace Konsarpoo.Collections
 {
     /// <summary>
     /// The universal random access data container. Supports List, Array, Stack and Queue API's. Data&lt;T&gt; has the same performance as the builtin List on defaults, because of hot path\shortcut optimizations made.
-    /// Implemented as a tree of .NET sub arrays. Array allocator and max size of array per node may be set up for each instance, globally or globally for T.
+    /// Implemented as a tree of .NET sub arrays. Array allocator and max size of array per node may be set up globally or globally for T.
     /// The System.Buffers.ArrayPool&lt;T&gt;.Shared instance is the default allocator. 
     /// <remarks>
     /// Link node capacity is set to 1024 to convert outer index to internal subtree index using the circular shift in one cheap operation:
@@ -39,23 +39,13 @@ namespace Konsarpoo.Collections
         /// Default T value cached.
         /// </summary>
         public static readonly T Default = default;
-        
-        /// <summary>
-        /// Returns default array-less size of Data container.
-        /// </summary>
-        public const int SmallListCount = 2;
 
         private static volatile int s_maxSizeOfArray = -1;
-        private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
-        private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
         
-        private readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
-        
-        [NonSerialized]
-        private readonly IArrayPool<T> m_pool = s_pool;
-        [NonSerialized]
-        private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
-        
+        private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
+
+        internal static volatile int s_currentThreadDataInstanceNum;
+
         /// <summary>
         /// Tree root.
         /// </summary>
@@ -70,15 +60,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Current version of container.
         /// </summary>
-        protected internal int m_version;
-
-        [NonSerialized]
-        private T m_val0;
-        [NonSerialized]
-        private T m_val1;
-
-        [NonSerialized]
-        private object m_syncRoot;
+        protected internal byte m_version;
       
         /// <summary>
         /// Sets up global T maximum size of sub array.
@@ -86,68 +68,85 @@ namespace Konsarpoo.Collections
         /// <param name="val">1024 * 1024 is max and 64 is min.</param>
         public static void SetMaxSizeOfArrayBucket(int val)
         {
-            s_maxSizeOfArray = Math.Min(1024 * 1024, Math.Max(64, 1 << (int)Math.Round(Math.Log(val, 2))));
+            var instanceNum = s_currentThreadDataInstanceNum;
+            
+            if (instanceNum > 0)
+            {
+                throw new InvalidOperationException($"Cannot setup a max size of array bucket because there is\\are {instanceNum} instances in use.");
+            }
+
+            if (val < 0)
+            {
+                s_maxSizeOfArray = -1;
+            }
+            else
+            {
+                s_maxSizeOfArray = Math.Min(1024 * 1024, Math.Max(64, 1 << (int)Math.Round(Math.Log(val, 2))));
+            }
         }
         
         /// <summary>
         /// Sets up global T array pool.
         /// </summary>
-        /// <param name="pool"></param>
+        /// <param name="pool">Null to setup default.</param>
         /// <exception cref="ArgumentNullException"></exception>
-        public static void SetArrayPool([NotNull] IArrayPool<T> pool)
+        public static void SetArrayPool([CanBeNull] IArrayPool<T> pool)
         {
-            s_pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            var instanceNum = s_currentThreadDataInstanceNum;
+            
+            if (instanceNum > 0)
+            {
+                throw new InvalidOperationException($"Cannot setup a thread pool because there is\\are {instanceNum} instances in use.");
+            }
+            
+            s_itemsArrayPool = pool ?? new DefaultMixedAllocator<T>();
+
+            PoolListBase<T>.ArrayPool = s_itemsArrayPool;
         }
         
         /// <summary>
         /// Sets up global T array pool for nodes.
         /// </summary>
-        /// <param name="pool"></param>
+        /// <param name="pool">Null to setup default.</param>
         /// <exception cref="ArgumentNullException"></exception>
-        public static void SetNodesArrayPool([NotNull] IArrayPool<INode> pool)
+        public static void SetNodesArrayPool([CanBeNull] IArrayPool<INode> pool)
         {
-            s_nodesPool = pool ?? throw new ArgumentNullException(nameof(pool));
+            var instanceNum = s_currentThreadDataInstanceNum;
+            
+            if (instanceNum > 0)
+            {
+                throw new InvalidOperationException($"Cannot setup a nodes thread pool because there is\\are {instanceNum} instances in use.");
+            }
+            
+            LinkNode.NodesArrayPool = pool ?? new DefaultMixedAllocator<INode>();
+            
+            PoolListBase<INode>.ArrayPool = LinkNode.NodesArrayPool;
         }
         
         /// <summary> Default Data&lt;T&gt; constructor.</summary>
         public Data()
         {
-        }
-
-        /// <summary>
-        /// Data class constructor that allows setup default capacity.
-        /// </summary>
-        /// <param name="capacity"></param>
-        public Data(int capacity) : this(capacity, s_maxSizeOfArray, (null, null))
-        {
+            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
         }
       
         /// <summary>
         /// Data class constructor that allows setup default capacity, instance max size of sub array node and pool instances.
         /// </summary>
         /// <param name="capacity">Default capacity.</param>
-        /// <param name="maxSizeOfArray">Max size of sub array node</param>
-        /// <param name="poolSetup">Pool setup.</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity, int maxSizeOfArray, (IArrayPool<T> dataPool, IArrayPool<INode> nodesPool) poolSetup)
+        public Data(int capacity)
         {
             if (capacity < 0)
             {
                 throw new ArgumentOutOfRangeException();
             }
 
-            m_pool = poolSetup.dataPool ?? s_pool;
-            m_nodesPool = poolSetup.nodesPool ?? s_nodesPool;
+            var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+            var initialCapacity = 1 << (int)Math.Log(capacity > maxSizeOfArray ? maxSizeOfArray : capacity, 2.0);
 
-            var defaultArraySize = s_maxSizeOfArray <= 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
-
-            m_maxSizeOfArray = maxSizeOfArray <= 0
-                ? defaultArraySize
-                : Math.Min(defaultArraySize, Math.Max(4, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2))));
-
-            var initialCapacity = 1 << (int)Math.Log(capacity < SmallListCount ? 2.0 : (capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity), 2.0);
-
-            m_root = new StoreNode(m_pool, m_maxSizeOfArray, initialCapacity);
+            m_root = new StoreNode(maxSizeOfArray, initialCapacity);
+            
+            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
         }
       
         /// <summary>
@@ -155,7 +154,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="enumerable"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        public Data([NotNull] IEnumerable<T> enumerable)
+        public Data([NotNull] IEnumerable<T> enumerable) 
         {
             switch (enumerable)
             {
@@ -163,10 +162,6 @@ namespace Konsarpoo.Collections
                     throw new ArgumentNullException(nameof(enumerable));
                 
                 case Data<T> list:
-                    m_maxSizeOfArray = list.m_maxSizeOfArray;
-                    m_pool = list.m_pool;
-                    m_nodesPool = list.m_nodesPool;
-                
                     CreateFromList(list);
                     break;
                 
@@ -174,6 +169,8 @@ namespace Konsarpoo.Collections
                     AddRange(enumerable);
                     break;
             }
+            
+            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
         }
 
         /// <summary>
@@ -181,18 +178,16 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="source"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        public Data([NotNull] Data<T> source)
+        public Data([NotNull] Data<T> source) 
         {
             if (source == null)
             {
                 throw new ArgumentNullException(nameof(source));
             }
             
-            m_maxSizeOfArray = source.m_maxSizeOfArray;
-            m_pool = source.m_pool;
-            m_nodesPool = source.m_nodesPool;
-            
             CreateFromList(source);
+            
+            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
         }
 
         /// <summary>
@@ -201,16 +196,25 @@ namespace Konsarpoo.Collections
         ~Data()
         {
             Clear();
+            
+            Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
+
+            if (s_currentThreadDataInstanceNum < 0)
+            {
+                Interlocked.Exchange(ref s_currentThreadDataInstanceNum, 0);
+            }
         }
 
         /// <summary>
-        /// Clears container and returns all node arrays back to array allocator. Suppresses instance finalization.
+        /// Clears container and returns all node arrays back to array allocator. Suppresses instance finalization. Do not use this object after dispose.
         /// </summary>
         public void Dispose()
         {
             Clear();
 
             GC.SuppressFinalize(this);
+            
+            Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
         }
 
         /// <summary>
@@ -240,17 +244,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Gets an object that can be used to synchronize access to the Data class instance.
         /// </summary>
-        public object SyncRoot
-        {
-            get
-            {
-                if (this.m_syncRoot == null)
-                {
-                    Interlocked.CompareExchange<object>(ref this.m_syncRoot, new object(), (object)null);
-                }
-                return this.m_syncRoot;
-            }
-        }
+        public object SyncRoot => this;
 
         bool ICollection.IsSynchronized => false;
 
@@ -306,33 +300,6 @@ namespace Konsarpoo.Collections
         {
             if (m_root == null)
             {
-                switch (m_count)
-                {
-                    case 0:
-                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-
-                    case 1:
-
-                        if (index == 0)
-                        {
-                            return ref m_val0;
-                        }
-
-                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                    case 2:
-                    {
-                        switch (index)
-                        {
-                            case 0:
-                                return ref m_val0;
-                            case 1:
-                                return ref m_val1;
-                        }
-
-                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                    }
-                }
-
                 throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
             }
 
@@ -391,9 +358,11 @@ namespace Konsarpoo.Collections
             }
 
             //common case
-            if (m_root?.Storage != null)
+            var rootStorage = m_root?.Storage;
+            
+            if (rootStorage != null)
             {
-                return Array.IndexOf(m_root?.Storage, item, startIndex, m_count - startIndex);
+                return Array.IndexOf(rootStorage, item, startIndex, m_count - startIndex);
             }
 
             return IndexOfSlow(item, startIndex);
@@ -409,9 +378,11 @@ namespace Konsarpoo.Collections
         int IList<T>.IndexOf(T item)
         {
             //common case
-            if (m_root?.Storage != null)
+            var storage = m_root?.Storage;
+            
+            if (storage != null)
             {
-                return Array.IndexOf(m_root?.Storage, item, 0, m_count);
+                return Array.IndexOf(storage, item, 0, m_count);
             }
             
             return IndexOfSlow(item, 0);
@@ -457,7 +428,7 @@ namespace Konsarpoo.Collections
                 {
                     var count = Math.Max(4, node.m_size * 2);
 
-                    node.m_items = m_pool.Rent(count);
+                    node.m_items = s_itemsArrayPool.Rent(count);
                 }
                 else  if (node.m_size < node.m_maxCapacity - 1)
                 {
@@ -465,14 +436,14 @@ namespace Konsarpoo.Collections
                     {
                         int newCapacity = Math.Min(node.m_items.Length == 0 ? 4 : node.m_items.Length * 2, node.m_maxCapacity);
 
-                        T[] vals = m_pool.Rent(newCapacity);
+                        T[] vals = s_itemsArrayPool.Rent(newCapacity);
 
                         if (node.m_size > 0)
                         {
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        m_pool.Return(node.m_items, clearArray: true);
+                        s_itemsArrayPool.Return(node.m_items, clearArray: true);
 
                         node.m_items = vals;
                     }
@@ -486,7 +457,7 @@ namespace Konsarpoo.Collections
                     node.m_size += 1;
 
                     m_count++;
-                    m_version++;
+                    unchecked { ++m_version; }
                     return;
                 }
             }
@@ -504,59 +475,7 @@ namespace Konsarpoo.Collections
 
             if (m_root == null)
             {
-                switch (m_count)
-                {
-                    case 0:
-                        if (index == 0)
-                        {
-                            Add(item);
-                        }
-
-                        break;
-                    case 1:
-                        switch (index)
-                        {
-                            case 0:
-                            {
-                                _.Swap(ref m_val0, ref item);
-                                Add(item);
-                                break;
-                            }
-                            case 1:
-                            {
-                                Add(item);
-                                break;
-                            }
-                            default:
-                            {
-                                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                            }
-                        }
-
-                        break;
-                    case 2:
-                        switch (index)
-                        {
-                            case 0:
-                                _.Swap(ref m_val0, ref item);
-                                _.Swap(ref m_val1, ref item);
-                                Add(item);
-                                break;
-                            case 1:
-                                _.Swap(ref m_val1, ref item);
-                                Add(item);
-                                break;
-                            case 2:
-                                Add(item);
-                                break;
-                            default:
-                            {
-                                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                            }
-                        }
-
-                        break;
-                }
+                Add(item);
             }
             else
             {
@@ -722,7 +641,7 @@ namespace Konsarpoo.Collections
                 {
                     if (node.m_items.Length == 0)
                     {
-                        var items = m_pool.Rent(Math.Max(4, node.m_size * 2));
+                        var items = s_itemsArrayPool.Rent(Math.Max(4, node.m_size * 2));
 
                         node.m_items = items;
                     }
@@ -730,14 +649,14 @@ namespace Konsarpoo.Collections
                     {
                         int newCapacity = Math.Min(node.m_items.Length == 0 ? 4 : node.m_items.Length * 2, node.m_maxCapacity);
                             
-                        T[] vals = m_pool.Rent(newCapacity);
+                        T[] vals = s_itemsArrayPool.Rent(newCapacity);
 
                         if (node.m_size > 0)
                         {
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        m_pool.Return(node.m_items, clearArray: true);
+                        s_itemsArrayPool.Return(node.m_items, clearArray: true);
 
                         node.m_items = vals;
                     }
@@ -746,7 +665,7 @@ namespace Konsarpoo.Collections
 
                     node.m_size++;
 
-                    ++m_version;
+                    unchecked { ++m_version; }
                     ++m_count;
                     return;
                 }
@@ -757,41 +676,21 @@ namespace Konsarpoo.Collections
 
         private void AddSlow(T item)
         {
+            var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
             if (m_root == null)
             {
-                switch (m_count)
-                {
-                    case 0:
-                        m_val0 = item;
-                        ++m_version;
-                        ++m_count;
-                        return;
-                    case 1:
-                        m_val1 = item;
-                        ++m_version;
-                        ++m_count;
-                        return;
-                    default:
-                    {
-                        var storeNode = new StoreNode(m_pool, m_maxSizeOfArray, SmallListCount * 2);
+                var storeNode = new StoreNode( maxSizeOfArray, 2);
 
-                        storeNode.m_items[0] = m_val0;
-                        storeNode.m_items[1] = m_val1;
+                storeNode.m_items[0] = item;
 
-                        storeNode.m_items[SmallListCount] = item;
+                storeNode.m_size = 1;
 
-                        storeNode.m_size = SmallListCount + 1;
+                m_root = storeNode;
 
-                        m_val0 = Default;
-                        m_val1 = Default;
-
-                        m_root = storeNode;
-
-                        ++m_version;
-                        ++m_count;
-                        return;
-                    }
-                }
+                unchecked { ++m_version; }
+                
+                ++m_count;
+                return;
             }
 
             if (m_root != null)
@@ -799,11 +698,11 @@ namespace Konsarpoo.Collections
                 INode node1 = m_root;
                 if (!node1.Add(ref item, out var node2))
                 {
-                    m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesPool, node2);
+                    m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1,  node2);
                 }
             }
 
-            ++m_version;
+            unchecked { ++m_version; }
             ++m_count;
         }
 
@@ -819,12 +718,9 @@ namespace Konsarpoo.Collections
 
             m_root?.Clear();
             m_count = 0;
-            ++m_version;
+            unchecked { ++m_version; }
 
             m_root = null;
-
-            m_val0 = Default;
-            m_val1 = Default;
         }
 
         /// <summary>
@@ -877,9 +773,11 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(count),$"Cannot copy {count} elements from collection with size {m_count} starting at {index} to array with length {array.Length}.");
             }
 
-            if (m_root?.Storage != null)
+            var rootStorage = m_root?.Storage;
+            
+            if (rootStorage != null)
             {
-                Array.Copy(m_root.Storage, index, array, arrayIndex, count);
+                Array.Copy(rootStorage, index, array, arrayIndex, count);
 
                 return;
             }
@@ -915,24 +813,12 @@ namespace Konsarpoo.Collections
             }
 
             var cnt = 0;
-            
-            if (m_root == null)
-            {
-                for (int i = index; i < array.Length && cnt < count; i++)
-                {
-                    array[arrayIndex++] = this[i];
 
-                    cnt++;
-                }
-            }
-            else
+            for (int i = index; i < array.Length && cnt < count; i++)
             {
-                for (int i = index; i < array.Length && cnt < count; i++)
-                {
-                    array[arrayIndex++] = m_root[i];
-                    
-                    cnt++;
-                }
+                array[arrayIndex++] = m_root[i];
+
+                cnt++;
             }
         }
 
@@ -1083,6 +969,8 @@ namespace Konsarpoo.Collections
                     m_count = 0;
                 }
                 
+                unchecked { ++m_version; }
+                
                 return removeAll;
             }
 
@@ -1197,7 +1085,7 @@ namespace Konsarpoo.Collections
                 simpleNode.RemoveAt(index);
 
                 m_count--;
-                ++m_version;
+                unchecked { ++m_version; }
 
                 if (m_count <= 0)
                 {
@@ -1215,34 +1103,15 @@ namespace Konsarpoo.Collections
         {
             if (m_root == null)
             {
-                switch (index)
-                {
-                    case 0:
-                        m_val0 = m_val1;
-                        m_val1 = Default;
-                        break;
-                    case 1:
-                        m_val1 = Default;
-                        break;
-
-                    default:
-                    {
-                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
-                    }
-                }
-
-                m_count--;
-                ++m_version;
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
             }
-            else
+
+            for (int i = index + 1; i < m_count; ++i)
             {
-                for (int i = index + 1; i < m_count; ++i)
-                {
-                    ValueByRef(i - 1) = ValueByRef(i);
-                }
-
-                RemoveLast();
+                ValueByRef(i - 1) = ValueByRef(i);
             }
+
+            RemoveLast();
         }
 
         object IList.this[int index]
@@ -1270,37 +1139,19 @@ namespace Konsarpoo.Collections
             
             if (m_root == null)
             {
-                switch (m_count)
-                {
-                    case 0:
-                        break;
-                    case 1:
-                        m_val0 = Default;
-                        
-                        ++m_version;
-                        m_count--;
-                        break;
-                    default:
-                        m_val1 = Default;
-                        
-                        ++m_version;
-                        m_count--;
-                        break;
-                }
+                return;
             }
-            else
+
+            m_root.RemoveLast();
+
+            unchecked { ++m_version; }
+            m_count--;
+
+            if (m_count <= 0)
             {
-                m_root.RemoveLast();
-
-                ++m_version;
-                m_count--;
-
-                if (m_count <= 0)
-                {
-                    m_root.Clear();
-                    m_root = null;
-                    m_count = 0;
-                }
+                m_root.Clear();
+                m_root = null;
+                m_count = 0;
             }
         }
 
@@ -1310,9 +1161,14 @@ namespace Konsarpoo.Collections
         /// <exception cref="InvalidOperationException"></exception>
         public IEnumerator<T> GetEnumerator()
         {
+            if (m_root == null)
+            {
+                yield break;
+            }
+            
             var version = m_version;
 
-            var storage = m_root?.Storage;
+            var storage = m_root.Storage;
             
             if (storage is not null)
             {
@@ -1322,16 +1178,6 @@ namespace Konsarpoo.Collections
 
                     yield return storage[i];
                 }
-            }
-            else if (m_root is null)
-            {
-                switch (m_count)
-                {
-                    case 0: yield break;
-
-                    case 1: yield return m_val0; break;
-                    case 2: yield return m_val0; CheckState(ref version); yield return m_val1; break;
-                 }
             }
             else
             {
@@ -1349,11 +1195,11 @@ namespace Konsarpoo.Collections
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckState(ref int version)
+        private void CheckState(ref byte version)
         {
             if (version != m_version)
             {
-                throw new InvalidOperationException($"Data collection was modified during enumeration. ({m_version - version} time(s).");
+                throw new InvalidOperationException($"Data collection was modified during enumeration.");
             }
         }
 
@@ -1543,17 +1389,10 @@ namespace Konsarpoo.Collections
                 }
                 else if (source.m_root is LinkNode linkNode)
                 {
-                    m_root = new LinkNode(linkNode, m_nodesPool);
+                    m_root = new LinkNode(linkNode);
 
                     m_count = source.m_count;
                 }
-            }
-            else
-            {
-                m_val0 = source.m_val0;
-                m_val1 = source.m_val1;
-
-                m_count = source.m_count;
             }
         }
     }

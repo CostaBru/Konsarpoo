@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Xml.Linq;
 using NUnit.Framework;
 
@@ -45,44 +46,81 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        [RequiresThread(ApartmentState.MTA)]
+        public void TestCustomAllocatorFail()
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            var ints = new Data<int>();
+            
+            ints.Add(1);
+
+            Assert.Throws<InvalidOperationException>(() => Data<int>.SetArrayPool(new GcArrayAllocator<int>()));
+            Assert.Throws<InvalidOperationException>(() => Data<int>.SetNodesArrayPool(new GcArrayAllocator<Data<int>.INode>()));
+            Assert.Throws<InvalidOperationException>(() => Data<int>.SetMaxSizeOfArrayBucket(16));
+        }
+
+        [Test]
+        [RequiresThread(ApartmentState.MTA)]
         public void TestCustomAllocator()
         {
-            var poolSetup = (new GcArrayAllocator<int>(), new GcArrayAllocator<Data<int>.INode>());
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        
+            Data<int>.SetArrayPool(new GcArrayAllocator<int>());
+            Data<int>.SetNodesArrayPool(new GcArrayAllocator<Data<int>.INode>());
+            Data<int>.SetMaxSizeOfArrayBucket(16);
 
-            var l1 = new Data<int>(0, 16, poolSetup);
-            l1.AddRange(Enumerable.Range(0, 50));
-
-            var l2 = new Data<int>(0, 16, poolSetup);
-            l2.AddRange(Enumerable.Range(50, 50));
-
-            var l3 = l1 + l2;
-
-            var expected = new Data<int>(Enumerable.Range(0, 100));
-
-            var enumerator = expected.GetEnumerator();
-            var enumerator1 = l3.GetEnumerator();
-
-            while (enumerator.MoveNext())
+            try
             {
-                enumerator1.MoveNext();
+                {
+                    var l1 = new Data<int>(0);
+                    l1.AddRange(Enumerable.Range(0, 50));
 
-                Assert.AreEqual(enumerator.Current, enumerator1.Current);
+                    var l2 = new Data<int>(0);
+                    l2.AddRange(Enumerable.Range(50, 50));
+
+                    var l3 = l1 + l2;
+
+                    var expected = new Data<int>(Enumerable.Range(0, 100));
+
+                    var enumerator = expected.GetEnumerator();
+                    var enumerator1 = l3.GetEnumerator();
+
+                    while (enumerator.MoveNext())
+                    {
+                        enumerator1.MoveNext();
+
+                        Assert.AreEqual(enumerator.Current, enumerator1.Current);
+                    }
+
+                    enumerator = expected.GetEnumerator();
+                    enumerator1 = l3.GetEnumerator();
+
+                    while (enumerator1.MoveNext())
+                    {
+                        Assert.True(enumerator.MoveNext());
+
+                        Assert.AreEqual(enumerator.Current, enumerator1.Current);
+                    }
+
+                    Assert.AreEqual(expected, l3);
+
+                    Assert.AreEqual(l2, l3 - l1);
+                    Assert.AreEqual(l1, l3 - l2);
+                }
+                
             }
-
-            enumerator = expected.GetEnumerator();
-            enumerator1 = l3.GetEnumerator();
-
-            while (enumerator1.MoveNext())
+            finally
             {
-                Assert.True(enumerator.MoveNext());
-
-                Assert.AreEqual(enumerator.Current, enumerator1.Current);
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                
+                Data<int>.SetArrayPool(null);
+                Data<int>.SetNodesArrayPool(null);
+                Data<int>.SetMaxSizeOfArrayBucket(-1);
             }
-
-            Assert.AreEqual(expected, l3);
-
-            Assert.AreEqual(l2, l3 - l1);
-            Assert.AreEqual(l1, l3 - l2);
         }
 
         [Test]
@@ -324,6 +362,18 @@ namespace Konsarpoo.Collections.Tests
                 Assert.True(data.Contains(i));
                 Assert.AreEqual(i, data.IndexOf(i));
             }
+            
+            var data1 = (IList)new Data<int>();
+            
+            for (int i = 0; i < count; i++)
+            {
+                data1.Add(i);
+                
+                data1[i] = i;
+
+                Assert.True(data1.Contains(i));
+                Assert.AreEqual(i, data1.IndexOf(i));
+            }
 
             while (data.Count > 0)
             {
@@ -401,40 +451,14 @@ namespace Konsarpoo.Collections.Tests
                 vector.insert(insertPosition, -999);
 
                 Assert.GreaterOrEqual(dataList.IndexOf(-999), 0);
+                Assert.GreaterOrEqual(((IList<int>)dataList).IndexOf(-999), 0);
+                Assert.False(((IList<int>)dataList).IsReadOnly);
 
                 for (int i = 0; i < copy.Count; i++)
                 {
                     Assert.AreEqual(copy[i], dataList[i]);
                     Assert.AreEqual(copy[i], vector.at(i));
                 }
-            }
-        }
-
-        [Test]
-        public void TestCopySmall([Values(2, 1)] int count)
-        {
-            var array = Enumerable.Range(0, count).ToArray();
-
-            var dataList = array.ToData();
-
-            Assert.False(dataList.HasList);
-            Assert.True(dataList.Any);
-
-            var list = dataList.ToData();
-
-            Assert.AreEqual(list.Count, dataList.Count);
-
-            for (int i = 0; i < array.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = array[i];
-                var copiedVal = list[i];
-
-                Assert.AreEqual(val, arrVal);
-                Assert.AreEqual(arrVal, copiedVal);
-
-                dataList[i] = ~arrVal;
-                Assert.AreEqual(~arrVal, dataList[i]);
             }
         }
 
@@ -754,52 +778,6 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestRemoveSmallFirst()
-        {
-            var list = Enumerable.Range(0, Data<int>.SmallListCount).ToList();
-
-            var dataList = list.ToData();
-
-            Assert.False(dataList.HasList);
-
-            list.Remove(0);
-            dataList.Remove(0);
-
-            Assert.AreEqual(list.Count, dataList.Count);
-
-            for (int i = 0; i < list.Count; i++)
-            {
-                var val = dataList[i];
-                var arrVal = list[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestRemoveSmallSome()
-        {
-            var list = Enumerable.Range(0, Data<int>.SmallListCount).ToList();
-
-            var dataList = list.ToData();
-
-            Assert.False(dataList.HasList);
-
-            list.Remove(5);
-            dataList.Remove(5);
-
-            Assert.AreEqual(list.Count, dataList.Count);
-
-            for (int i = 0; i < list.Count; i++)
-            {
-                var val = dataList[i];
-                var arrVal = list[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
         public void TestRemoveCommonSome()
         {
             var list = Enumerable.Range(0, 10000).ToList();
@@ -891,27 +869,6 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(-1, dataList.IndexOf(i));
             }
         }
-
-        [Test]
-        public void TestSmallEnumeration([Values(1, 2)] int count)
-        {
-            var array = Enumerable.Range(0, count).ToArray();
-
-            var dataList = array.ToData();
-
-            Assert.AreEqual(array.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            int i = 0;
-            foreach (var val in dataList)
-            {
-                Assert.AreEqual(val, array[i]);
-
-                i++;
-            }
-        }
-
         [Test]
         public void TestHugeEnumaration()
         {
@@ -950,154 +907,6 @@ namespace Konsarpoo.Collections.Tests
 
 
                 Assert.AreEqual(val, arrVal, "i = " + i);
-            }
-        }
-
-        [Test]
-        public void TestSortSmall6()
-        {
-            var ints = new int[Data<int>.SmallListCount] { -1, 5 };
-
-            var dataList = ints.ToData();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-
-        [Test]
-        public void TestSortSmall5()
-        {
-            var ints = new int[Data<int>.SmallListCount] { -1, 1000 };
-
-            var dataList = ints.ToData();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestSortSmall4()
-        {
-            var ints = new int[Data<int>.SmallListCount] { 8, 1000 };
-
-            var dataList = ints.ToData();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-
-        [Test]
-        public void TestSortSmall3()
-        {
-            var ints = new int[Data<int>.SmallListCount] { -1, 8 };
-
-            var dataList = ints.ToData();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-
-        [Test]
-        public void TestSortSmall2([Values(1000, -1000)] int value)
-        {
-            var ints = new int[Data<int>.SmallListCount] { 10, value };
-
-            var dataList = ints.ToData();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-
-        [Test]
-        public void TestSortSmall1()
-        {
-            var ints = new int[1] { 10 };
-
-            var dataList = ints.ToData();
-
-            Assert.False(dataList.HasList);
-
-            Array.Sort(ints);
-
-            dataList.Sort();
-
-            Assert.AreEqual(ints.Length, dataList.Count);
-
-            for (int i = 0; i < ints.Length; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
             }
         }
 
@@ -1168,81 +977,6 @@ namespace Konsarpoo.Collections.Tests
 
                 Assert.AreEqual(val, arrVal);
             }
-        }
-
-        [Test]
-        public void TestSmallCopyToArray([Values(2, 1)] int count, [Values(0, 10)] int index)
-        {
-            var array = Enumerable.Range(0, count).ToArray();
-
-            var dataList = new Data<int>();
-
-            dataList.AddRange(array);
-
-            Assert.False(dataList.HasList);
-
-            var copyTo1 = new int[100];
-            var copyTo2 = new int[100];
-
-            dataList.CopyTo(copyTo1, index);
-
-            array.CopyTo(copyTo2, index);
-
-            for (int i = index; i < copyTo1.Length; i++)
-            {
-                var val = copyTo1[i];
-                var arrVal = copyTo2[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-        
-        [Test]
-        public void TestSmallCopyToArrayWithCount([Values(2, 1)] int count, [Values(0, 10)] int index)
-        {
-            var array = Enumerable.Range(0, count).ToList();
-
-            var dataList = new Data<int>();
-
-            dataList.AddRange(array);
-
-            Assert.False(dataList.HasList);
-
-            var copyTo1 = new int[100];
-            var copyTo2 = new int[100];
-
-            dataList.CopyTo(0, copyTo1, index, count);
-
-            array.CopyTo(0, copyTo2, index, count);
-
-            for (int i = index; i < copyTo1.Length; i++)
-            {
-                var val = copyTo1[i];
-                var arrVal = copyTo2[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestSmallCopyTo()
-        {
-            var t = new int[1];
-            new Data<int>() { 1 }.CopyTo(0, t, 0, 1 );
-            Assert.AreEqual(1, t[0]);
-            
-            var t1 = new int[2];
-            new Data<int>() { 1, 2 }.CopyTo(0, t1, 0, 2 );
-            Assert.AreEqual(1, t1[0]);
-            Assert.AreEqual(2, t1[1]);
-            
-            var t3 = new int[2];
-            new Data<int>() { 1, 2 }.CopyTo(1, t3, 0, 1 );
-            Assert.AreEqual(2, t3[0]);
-            
-            var t4 = new int[2];
-            new Data<int>() { 1, 2 }.CopyTo(0, t4, 0, 1 );
-            Assert.AreEqual(1, t4[0]);
         }
 
         [Test]
@@ -1380,35 +1114,6 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestSmallInsert([Values(2, 1, 0)] int count, [Values(1, 0)] int index)
-        {
-            if (index < count || (count == 0 && index == 0))
-            {
-                var list = Enumerable.Range(0, count).ToList();
-
-                var dataList = new Data<int>();
-
-                dataList.AddRange(list);
-
-                Assert.False(dataList.HasList);
-
-                list.Insert(index, -500);
-                dataList.Insert(index, -500);
-
-                Assert.AreEqual(list.Count, dataList.Count);
-
-                for (int i = index; i < list.Count; i++)
-                {
-                    var val = list[i];
-                    var arrVal = dataList[i];
-
-                    Assert.AreEqual(val, arrVal);
-                }
-            }
-        }
-
-
-        [Test]
         public void TestCommonInsert([Values(5000, 4, 3, 2, 1, 0)] int index)
         {
             var list = Enumerable.Range(0, 5001).ToList();
@@ -1455,42 +1160,6 @@ namespace Konsarpoo.Collections.Tests
                 var arrVal = dataList[i];
 
                 Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestSmallEnsure([Values(2, 1, 0)] int count, [Values(1, 0)] int size)
-        {
-            if (count <= size)
-            {
-                var list = Enumerable.Range(0, count).ToList();
-
-                var dataList = new Data<int?>();
-
-                dataList.AddRange(list.Select(i => new int?(i)).ToData());
-
-                Assert.False(dataList.HasList);
-
-                dataList.Ensure(size);
-
-                Assert.AreEqual(dataList.Count, size);
-
-                for (int i = 0; i < size; i++)
-                {
-                    if (i < count)
-                    {
-                        var arrVal = dataList[i];
-                        var val = list[i];
-
-                        Assert.AreEqual(val, arrVal);
-                    }
-                    else
-                    {
-                        var arrVal = dataList[i];
-
-                        Assert.Null(arrVal);
-                    }
-                }
             }
         }
 
@@ -1572,87 +1241,6 @@ namespace Konsarpoo.Collections.Tests
                         Assert.Null(arrVal);
                     }
                 }
-            }
-        }
-
-        [Test]
-        public void TestRemoveAllSmall([Values(2, 1)] int count, [Values(999999, -1)] int item)
-        {
-            var array = Enumerable.Range(0, count).ToList();
-
-            var dataList = array.ToData();
-
-            Assert.False(dataList.HasList);
-
-            dataList.RemoveAll(r => r == item);
-            array.RemoveAll(r => r == item);
-
-            Assert.AreEqual(dataList.Count, dataList.Count);
-
-            for (int i = 0; i < array.Count; i++)
-            {
-                var val = dataList[i];
-                var arrVal = array[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestRemoveAllSmall2([Values(2, 1)] int count, [Values(3, 2)] int item)
-        {
-            var ints = new List<int>();
-
-            for (int i = 0; i < count / 2; i++)
-            {
-                ints.Add(i);
-                ints.Add(i);
-            }
-
-            var dataList = ints.ToData();
-
-            Assert.False(dataList.HasList);
-
-            dataList.RemoveAll(r => r == item);
-            ints.RemoveAll(r => r == item);
-
-            Assert.AreEqual(dataList.Count, dataList.Count);
-
-            for (int i = 0; i < ints.Count; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
-            }
-        }
-
-        [Test]
-        public void TestRemoveAllItemSmall([Values(2, 1)] int count, [Values(1, 0)] int item)
-        {
-            var ints = new List<int>();
-
-            for (int i = 0; i < count / 2; i++)
-            {
-                ints.Add(i);
-                ints.Add(i);
-            }
-
-            var dataList = ints.ToData();
-
-            Assert.False(dataList.HasList);
-
-            dataList.RemoveAll(item);
-            ints.RemoveAll(r => r == item);
-
-            Assert.AreEqual(dataList.Count, dataList.Count);
-
-            for (int i = 0; i < ints.Count; i++)
-            {
-                var val = dataList[i];
-                var arrVal = ints[i];
-
-                Assert.AreEqual(val, arrVal);
             }
         }
 

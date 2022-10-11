@@ -72,8 +72,12 @@ namespace Konsarpoo.Collections
                     ValueByRef(index) = objArray[index];
                 }
             }
-         
-            m_version = m_siInfo.GetInt32(VersionName);
+
+            unchecked
+            {
+                m_version = (byte)m_siInfo.GetInt32(VersionName);
+            }
+
             m_siInfo = null;
         }
     }

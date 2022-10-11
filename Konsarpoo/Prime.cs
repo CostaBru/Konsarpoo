@@ -7,7 +7,7 @@ namespace Konsarpoo.Collections
     {
         private static readonly int[] s_primes =
         {
-            Data<int>.SmallListCount,
+            2,
             31,
             61,
             127,

@@ -25,16 +25,28 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Params(16, 1024 * 1024)]
         public int NodeSize;
 
+        [IterationSetup]
+        public void IterationSetup()
+        {
+            Data<int>.SetMaxSizeOfArrayBucket(NodeSize);
+        }
+        
+        [IterationCleanup]
+        public void IterationCleanup()
+        {
+            Data<int>.SetMaxSizeOfArrayBucket(-1);
+        }
+
         [Benchmark]
         public int Data_Add()
         {
-            var data = new Data<int>(0, NodeSize, (null, null));
+            var data = new Data<int>(0);
 
             for (int i = 0; i < N; i++)
             {
                 data.Add(i);
             }
-            
+
             data.Dispose();
 
             return data.Count;
@@ -43,7 +55,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Benchmark]
         public int Data_Ensure()
         {
-            var data = new Data<int>(0, NodeSize, (null, null));
+            var data = new Data<int>(0);
 
             data.Ensure(N);
             

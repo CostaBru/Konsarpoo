@@ -75,7 +75,8 @@ namespace Konsarpoo.Collections
             {
                 Array.Sort(list.m_root.Storage, 0, list.m_root.Size, new Comparer(comparison));
 
-                ++list.m_version;
+                unchecked { list.m_version += 1; }
+                
                 return;
             }
 
@@ -84,35 +85,18 @@ namespace Konsarpoo.Collections
 
         private static void SortSlow(Data<T> list, Comparison<T> comparison)
         {
-            if (list.m_root == null && list.m_count <= SmallListCount)
-            {
-                switch (list.m_count)
-                {
-                    case SmallListCount:
-                    {
-                        if (comparison(list.m_val0, list.m_val1) > 0)
-                        {
-                            _.Swap(ref list.m_val0, ref list.m_val1);
-                        }
-
-                        ++list.m_version;
-                        return;
-                    }
-                }
-            }
-
             SortSlowCore(list, comparison);
 
-            ++list.m_version;
+            unchecked { ++list.m_version; }
         }
 
         private static void SortSlowCore(Data<T> list,  Comparison<T> comparison)
         {
-            var temp = new Data<T>(list.m_count, list.m_maxSizeOfArray, (list.m_pool, list.m_nodesPool));
+            var temp = new Data<T>(list.m_count);
 
             temp.AddRange(list.OrderBy(x => x, new Comparer(comparison)));
 
-            list.m_version += 1;
+            unchecked { list.m_version += 1; }
 
             list.m_root?.Clear();
             list.m_root = temp.m_root;

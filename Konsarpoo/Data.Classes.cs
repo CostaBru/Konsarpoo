@@ -81,11 +81,12 @@ namespace Konsarpoo.Collections
         {
             private const int c_intermediateCapacity = 1024;
             
+            public static IArrayPool<INode> NodesArrayPool = new DefaultMixedAllocator<INode>();
+            
             private readonly PoolListBase<INode> m_nodes;
             private readonly int m_level;
             private readonly int m_stepBase;
             private readonly int m_leafCapacity;
-            private readonly IArrayPool<INode> m_nodesPool;
 
             public int Level => m_level;
 
@@ -110,15 +111,14 @@ namespace Konsarpoo.Collections
 
             public int Size => m_nodes.m_size;
 
-            public LinkNode(int level, int leafCapacity, INode child1, IArrayPool<INode> nodesPool, INode child2 = null)
+            public LinkNode(int level, int leafCapacity, INode child1,  INode child2 = null)
             {
                 m_level = level;
                 m_leafCapacity = leafCapacity;
-                m_nodesPool = nodesPool;
 
                 m_stepBase = (int)Math.Log(Math.Pow(c_intermediateCapacity, m_level - 1) * m_leafCapacity, 2);
 
-                m_nodes = new PoolListBase<INode>(nodesPool, c_intermediateCapacity, capacity: 16);
+                m_nodes = new PoolListBase<INode>(c_intermediateCapacity, capacity: 16);
                 m_nodes.Add(child1);
 
                 if (child2 != null)
@@ -127,20 +127,19 @@ namespace Konsarpoo.Collections
                 }
             }
 
-            public LinkNode(LinkNode linkNode, IArrayPool<INode> nodesPool)
+            public LinkNode(LinkNode linkNode)
             {
                 m_level = linkNode.m_level;
                 m_leafCapacity = linkNode.m_leafCapacity;
                 m_stepBase = linkNode.m_stepBase;
-                m_nodesPool = nodesPool;
 
-                m_nodes = new PoolListBase<INode>(m_nodesPool, c_intermediateCapacity, capacity: linkNode.m_nodes.m_size);
+                m_nodes = new PoolListBase<INode>(c_intermediateCapacity, capacity: linkNode.m_nodes.m_size);
 
                 foreach (var node in linkNode.m_nodes)
                 {
                     if (node is LinkNode ln)
                     {
-                        m_nodes.Add(new LinkNode(ln, nodesPool));
+                        m_nodes.Add(new LinkNode(ln));
                     }
                     else if (node is StoreNode sn)
                     {
@@ -155,7 +154,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_nodes.m_size == c_intermediateCapacity)
                     {
-                        node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesPool);
+                        node = new LinkNode(m_level, m_leafCapacity, node1);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -170,7 +169,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_nodes.m_size == c_intermediateCapacity)
                     {
-                        node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesPool);
+                        node = new LinkNode(m_level, m_leafCapacity, node1);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -242,7 +241,7 @@ namespace Konsarpoo.Collections
 
             public int Size => m_size;
 
-            public StoreNode(IArrayPool<T> pool, int maxCapacity, int capacity) : base(pool, maxCapacity, capacity)
+            public StoreNode(int maxCapacity, int capacity) : base( maxCapacity, capacity)
             {
             }
 
@@ -250,8 +249,8 @@ namespace Konsarpoo.Collections
             {
             }
 
-            public StoreNode(IArrayPool<T> pool, int maxCapacity, int capacity, T item)
-              : base(pool, maxCapacity, capacity)
+            public StoreNode(int maxCapacity, int capacity, T item)
+              : base(maxCapacity, capacity)
             {
                 AddItem(item);
             }
@@ -260,7 +259,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_size == m_maxCapacity)
                 {
-                    node = new StoreNode(base.m_arrayPool, m_maxCapacity, capacity, item);
+                    node = new StoreNode(m_maxCapacity, capacity, item);
                     return false;
                 }
                 AddItem(item);
@@ -306,7 +305,7 @@ namespace Konsarpoo.Collections
 
                     extraSize -= arraySize;
 
-                    var storeNode = new StoreNode(base.m_arrayPool, m_maxCapacity, arraySize) { m_size = arraySize };
+                    var storeNode = new StoreNode(m_maxCapacity, arraySize) { m_size = arraySize };
 
                     if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                     {
@@ -325,11 +324,11 @@ namespace Konsarpoo.Collections
 
             private void Ensure(T defaultValue, int newSize)
             {
-                T[] vals = base.m_arrayPool.Rent(newSize);
+                T[] vals = ArrayPool.Rent(newSize);
 
                 Array.Copy(m_items, 0, vals, 0, m_size);
 
-                base.m_arrayPool.Return(m_items, clearArray: true);
+                ArrayPool.Return(m_items, clearArray: true);
 
                 m_items = vals;
 

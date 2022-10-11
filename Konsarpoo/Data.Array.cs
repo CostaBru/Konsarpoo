@@ -42,86 +42,42 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            ++m_version;
+            unchecked { ++m_version; }
 
-            if (m_root == null && size <= SmallListCount)
+            var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+            if (m_root == null)
             {
-                switch (m_count)
+                //common case
+                var storeNode = new StoreNode(maxSizeOfArray, size);
+
+                int startIndex = 0;
+
+                m_count = storeNode.m_size;
+
+                m_root = storeNode;
+
+                var setupDefaultValueForArray = EqualityComparer<T>.Default.Equals(defaultValue, Default) == false;
+
+                if (setupDefaultValueForArray)
                 {
-                    case 0:
-                        {
-                            m_val0 = defaultValue;
-                            m_val1 = defaultValue;
-
-                            m_count = size;
-                            return;
-                        }
-                    case 1:
-
-                        m_val1 = defaultValue;
-
-                        m_count = size;
-                        return;
-                    case 2:
-
-                        m_count = size;
-                        return;
+                    Array.Fill(storeNode.m_items, defaultValue, startIndex, m_count - startIndex);
                 }
-            }
-            else
-            {
-                if (m_root == null)
+
+                var restSize = size - m_count;
+
+                while (restSize > 0)
                 {
-                    //common case
-                    var storeNode = new StoreNode(m_pool, m_maxSizeOfArray, size);
-
-                    int startIndex = 0;
-
-                    if (m_count > 0)
+                    INode node1 = m_root;
+                    INode node2;
+                    if (node1.Ensure(ref restSize, ref defaultValue, out node2, maxSizeOfArray) == false)
                     {
-                        storeNode.m_items[0] = m_val0;
-                        m_val0 = Default;
-
-                        startIndex++;
-                        storeNode.m_size++;
-
-                        if (m_count > 1)
-                        {
-                            storeNode.m_items[1] = m_val1;
-                            m_val1 = Default;
-
-                            startIndex++;
-                            storeNode.m_size++;
-                        }
+                        m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1,  node2);
                     }
-
-                    m_count = storeNode.m_size;
-
-                    m_root = storeNode;
-
-                    var setupDefaultValueForArray = EqualityComparer<T>.Default.Equals(defaultValue, Default) == false;
-
-                    if (setupDefaultValueForArray)
-                    {
-                        Array.Fill(storeNode.m_items, defaultValue, startIndex, m_count - startIndex);
-                    }
-
-                    var restSize = size - m_count;
-
-                    while (restSize > 0)
-                    {
-                        INode node1 = m_root;
-                        INode node2;
-                        if (node1.Ensure(ref restSize, ref defaultValue, out node2, m_maxSizeOfArray) == false)
-                        {
-                            m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesPool, node2);
-                        }
-                    }
-                    
-                    m_count = size;
-
-                    return;
                 }
+
+                m_count = size;
+
+                return;
             }
 
             if (m_root != null)
@@ -132,9 +88,9 @@ namespace Konsarpoo.Collections
                 {
                     INode node1 = m_root;
                     INode node2;
-                    if (node1.Ensure(ref restSize, ref defaultValue, out node2, m_maxSizeOfArray) == false)
+                    if (node1.Ensure(ref restSize, ref defaultValue, out node2, maxSizeOfArray) == false)
                     {
-                        m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesPool, node2);
+                        m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1,  node2);
                     }
                 }
             }
