@@ -68,9 +68,8 @@ namespace Konsarpoo.Collections
             /// <param name="size"></param>
             /// <param name="defaultValue"></param>
             /// <param name="node"></param>
-            /// <param name="maxSizeOfArray"></param>
             /// <returns></returns>
-            bool Ensure(ref int size, ref T defaultValue, out INode node,  int maxSizeOfArray);
+            bool Ensure(ref int size, ref T defaultValue, out INode node);
         }
 
         /// <summary>
@@ -163,9 +162,9 @@ namespace Konsarpoo.Collections
                 return true;
             }
             
-            public bool Ensure(ref int size, ref T defaultValue, out INode node, int maxSizeOfArray)
+            public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
-                if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1, maxSizeOfArray) == false)
+                if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
                 {
                     if (m_nodes.m_size == c_intermediateCapacity)
                     {
@@ -241,7 +240,7 @@ namespace Konsarpoo.Collections
 
             public int Size => m_size;
 
-            public StoreNode(int maxCapacity, int capacity) : base( maxCapacity, capacity)
+            public StoreNode(int maxCapacity, int capacity) : base(maxCapacity, capacity)
             {
             }
 
@@ -267,9 +266,9 @@ namespace Konsarpoo.Collections
                 return true;
             }
 
-            public bool Ensure(ref int extraSize, ref T defaultValue, out INode node, int maxSizeOfArray)
+            public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)
             {
-                var restOfThis = maxSizeOfArray - m_size;
+                var restOfThis = s_maxSizeOfArray - m_size;
 
                 //can extend this
                 if (extraSize <= restOfThis)
@@ -301,7 +300,7 @@ namespace Konsarpoo.Collections
                 if(extraSize > 0)
                 //allocate new with rest
                 {
-                    var arraySize = Math.Min(maxSizeOfArray, extraSize);
+                    var arraySize = Math.Min(s_maxSizeOfArray, extraSize);
 
                     extraSize -= arraySize;
 
@@ -328,7 +327,7 @@ namespace Konsarpoo.Collections
 
                 Array.Copy(m_items, 0, vals, 0, m_size);
 
-                ArrayPool.Return(m_items, clearArray: true);
+                ArrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
 

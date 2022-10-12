@@ -54,124 +54,76 @@ namespace Konsarpoo.Collections
 
             if (result.m_root is Data<T>.StoreNode r)
             {
+                var items = r.m_items;
+                
                 if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(s1.m_items[i], s2.m_items[j]) < 0)
-                        {
-                            r.m_items[k++] = s1.m_items[i++];
-                        }
-                        else
-                        {
-                            r.m_items[k++] = s2.m_items[j++];
-                        }
-                    }
-
-                    while (i < n1) r.m_items[k++] = s1.m_items[i++];
-                    while (j < n2) r.m_items[k++] = s2.m_items[j++];
+                    MergeTo(comparer, n1, n2, s1.m_items, s2.m_items, items);
                 }
                 else if (list1.m_root is Data<T>.StoreNode ss1)
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(ss1.m_items[i], list2[j]) < 0)
-                        {
-                            r.m_items[k++] = ss1.m_items[i++];
-                        }
-                        else
-                        {
-                            r.m_items[k++] = list2[j++];
-                        }
-                    }
-
-                    while (i < n1) r.m_items[k++] = ss1.m_items[i++];
-                    while (j < n2) r.m_items[k++] = list2[j++];
+                    MergeTo(comparer, n1, n2, ss1.m_items, list2, items);
                 }
                 else
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(list1[i], list2[j]) < 0)
-                        {
-                            r.m_items[k++] = list1[i++];
-                        }
-                        else
-                        {
-                            r.m_items[k++] = list2[j++];
-                        }
-                    }
-
-                    while (i < n1) r.m_items[k++] = list1[i++];
-                    while (j < n2) r.m_items[k++] = list2[j++];
+                    MergeTo(comparer, n1, n2, list1, list2, items);
                 }
             }
             else
             {
                 if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(s1.m_items[i], s2.m_items[j]) < 0)
-                        {
-                            result[k++] = s1.m_items[i++];
-                        }
-                        else
-                        {
-                            result[k++] = s2.m_items[j++];
-                        }
-                    }
-
-                    while (i < n1) result[k++] = s1.m_items[i++];
-                    while (j < n2) result[k++] = s2.m_items[j++];
+                    MergeTo(comparer, n1, n2, s1.m_items, s2.m_items, result);
                 }
                 else if (list1.m_root is Data<T>.StoreNode ss1)
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(ss1.m_items[i], list2[j]) < 0)
-                        {
-                            result[k++] = ss1.m_items[i++];
-                        }
-                        else
-                        {
-                            result[k++] = list2[j++];
-                        }
-                    }
-
-                    while (i < n1) result[k++] = ss1.m_items[i++];
-                    while (j < n2) result[k++] = list2[j++];
+                    MergeTo(comparer, n1, n2, ss1.m_items, list2, result);
                 }
                 else
                 {
-                    int i = 0, j = 0, k = 0;
-
-                    while (i < n1 && j < n2)
-                    {
-                        if (comparer(list1[i], list2[j]) < 0)
-                        {
-                            result[k++] = list1[i++];
-                        }
-                        else
-                        {
-                            result[k++] = list2[j++];
-                        }
-                    }
-
-                    while (i < n1) result[k++] = list1[i++];
-                    while (j < n2) result[k++] = list2[j++];
+                    MergeTo(comparer, n1, n2, list1, list2, result);
                 }
             }
+        }
+
+        private static void MergeTo<T>(Func<T, T, int> comparer, int n1, int n2, T[] s1Items, T[] s2Items, T[] items)
+        {
+            int i = 0, j = 0, k = 0;
+
+            while (i < n1 && j < n2)
+            {
+                if (comparer(s1Items[i], s2Items[j]) < 0)
+                {
+                    items[k++] = s1Items[i++];
+                }
+                else
+                {
+                    items[k++] = s2Items[j++];
+                }
+            }
+
+            while (i < n1) items[k++] = s1Items[i++];
+            while (j < n2) items[k++] = s2Items[j++];
+        }
+        
+        private static void MergeTo<T>(Func<T, T, int> comparer, int n1, int n2, IList<T> s1Items, IList<T> s2Items, IList<T> items)
+        {
+            int i = 0, j = 0, k = 0;
+
+            while (i < n1 && j < n2)
+            {
+                if (comparer(s1Items[i], s2Items[j]) < 0)
+                {
+                    items[k++] = s1Items[i++];
+                }
+                else
+                {
+                    items[k++] = s2Items[j++];
+                }
+            }
+
+            while (i < n1) items[k++] = s1Items[i++];
+            while (j < n2) items[k++] = s2Items[j++];
         }
 
         /// <summary>

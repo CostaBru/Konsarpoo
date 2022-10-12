@@ -279,7 +279,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestPoolList([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
             {
-                var poolList = new PoolList<int>(count, count);
+                var poolList = new PoolList<int>(count, 0);
 
                 for (int i = 0; i < count; i++)
                 {
@@ -310,7 +310,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestPoolList2([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
             {
-                var poolList = new PoolList<int>(count, count);
+                var poolList = new PoolList<int>(count, 0);
 
                 for (int i = 0; i < count; i++)
                 {
@@ -322,31 +322,33 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(0, poolList.m_items.Length);
                 Assert.AreEqual(0, poolList.m_size);
             }
-
+           
             GC.Collect();
         }
         
         [Test]
         public void TestPoolListInsert([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
-            var poolList = new PoolList<int>(count, 0);
-            var list = new List<int>(count);
-
-            for (int i = 0; i < count; i++)
             {
-                poolList.Insert(0, i);
-                list.Insert(0, i);
+                var poolList = new PoolList<int>(count, 0);
+                var list = new List<int>(count);
 
-                Assert.AreEqual(list[i], poolList[i]);
-            }
+                for (int i = 0; i < count; i++)
+                {
+                    poolList.Insert(0, i);
+                    list.Insert(0, i);
 
-            var enumerator = ((IEnumerable)poolList).GetEnumerator();
-            enumerator.MoveNext();
+                    Assert.AreEqual(list[i], poolList[i]);
+                }
 
-            foreach (var i in list)
-            {
-                Assert.AreEqual(i, enumerator.Current);
+                var enumerator = ((IEnumerable)poolList).GetEnumerator();
                 enumerator.MoveNext();
+
+                foreach (var i in list)
+                {
+                    Assert.AreEqual(i, enumerator.Current);
+                    enumerator.MoveNext();
+                }
             }
         }
 

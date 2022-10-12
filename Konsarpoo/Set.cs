@@ -23,8 +23,6 @@ namespace Konsarpoo.Collections
         private Data<int> m_buckets;
         [NonSerialized]
         private Data<Slot> m_slots;
-        [NonSerialized]
-        private object m_syncRoot;
         
         private IEqualityComparer<T> m_comparer;
 
@@ -156,22 +154,11 @@ namespace Konsarpoo.Collections
         /// </summary>
         public int Length => m_count;
         
-        
         /// <summary>
         /// Gets an object that can be used to synchronize access to the Set&lt;T&gt; class instance.
         /// </summary>
-        public object SyncRoot
-        {
-            get
-            {
-                if (m_syncRoot == null)
-                {
-                    Interlocked.CompareExchange<object>(ref m_syncRoot, new object(), null);
-                }
-                return m_syncRoot;
-            }
-        }
-        
+        public object SyncRoot => this;
+
         /// <summary>
         /// Python List API. Adds new item to the end of the Set&lt;T&gt;.
         /// </summary>

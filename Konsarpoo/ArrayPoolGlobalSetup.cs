@@ -13,6 +13,16 @@ namespace Konsarpoo.Collections
         public const int PoolMaxSizeOfArray = 1024 * 1024;
         
         internal static volatile int MaxSizeOfArray = PoolMaxSizeOfArray;
+
+        /// <summary>
+        /// Sets up default array pool behaviour.
+        /// </summary>
+        public static volatile bool ClearArrayOnReturn = true;
+        
+        /// <summary>
+        /// Sets up default array pool behaviour.
+        /// </summary>
+        public static volatile bool ClearArrayOnRequest = true;
         
         /// <summary> Sets up max subarray leaf size. 1048576 is the max value for now and 16 is min. </summary>
         /// <param name="val"></param>

@@ -20,6 +20,8 @@ namespace Konsarpoo.Collections
 
         internal readonly int m_maxCapacity;
         
+        internal static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
+        
         [NotNull] 
         public T[] m_items = Array.Empty<T>();
 
@@ -33,7 +35,7 @@ namespace Konsarpoo.Collections
             {
                 if (index >= m_size)
                 {
-                    throw new IndexOutOfRangeException();
+                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_size}).");
                 }
 
                 return ref m_items[index];
@@ -44,7 +46,7 @@ namespace Konsarpoo.Collections
         {
             m_maxCapacity = maxCapacity;
             
-            m_items = ArrayPool.Rent(Math.Min(capacity, maxCapacity));
+            m_items = ArrayPool.Rent(Math.Min(capacity, m_maxCapacity));
         }
 
         public PoolListBase(PoolListBase<T> poolList)
@@ -74,13 +76,13 @@ namespace Konsarpoo.Collections
             
             if (m_items.Length == 0)
             {
-                T[] vals = ArrayPool.Rent(Math.Max(4, m_size * 2));
+                T[] vals = ArrayPool.Rent(2);
 
                 m_items = vals;
             }
             else if (m_size == m_items.Length)
             {
-                int newCapacity = Math.Min(m_items.Length == 0 ? 4 : m_items.Length * 2, m_maxCapacity);
+                int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
 
                 T[] vals = ArrayPool.Rent(newCapacity);
 
@@ -89,7 +91,7 @@ namespace Konsarpoo.Collections
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                ArrayPool.Return(m_items, clearArray: true);
+                ArrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -157,13 +159,13 @@ namespace Konsarpoo.Collections
             
             if (m_items.Length == 0)
             {
-                T[] vals = ArrayPool.Rent(Math.Max(4, m_size * 2));
+                T[] vals = ArrayPool.Rent(2);
 
                 m_items = vals;
             }
             else if (m_size == m_items.Length)
             {
-                int newCapacity = Math.Min(m_items.Length == 0 ? 4 : m_items.Length * 2, m_maxCapacity);
+                int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
 
                 T[] vals = ArrayPool.Rent(newCapacity);
 
@@ -172,7 +174,7 @@ namespace Konsarpoo.Collections
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                ArrayPool.Return(m_items, clearArray: true);
+                ArrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -293,7 +295,7 @@ namespace Konsarpoo.Collections
         {
             if (m_items.Length > 0)
             {
-                ArrayPool.Return(m_items, clearArray: true);
+                ArrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
             }
 
             m_items = Array.Empty<T>();

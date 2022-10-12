@@ -29,18 +29,22 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         public void IterationSetup()
         {
             Data<int>.SetMaxSizeOfArrayBucket(NodeSize);
+            Data<int>.SetClearArrayOnReturn(false);
+            DefaultMixedAllocator<int>.ClearArrayOnRequest = false;
         }
         
         [IterationCleanup]
         public void IterationCleanup()
         {
             Data<int>.SetMaxSizeOfArrayBucket(-1);
+            Data<int>.SetClearArrayOnReturn(true);
+            DefaultMixedAllocator<int>.ClearArrayOnRequest = true;
         }
 
         [Benchmark]
         public int Data_Add()
         {
-            var data = new Data<int>(0);
+            var data = new Data<int>();
 
             for (int i = 0; i < N; i++)
             {
@@ -55,7 +59,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Benchmark]
         public int Data_Ensure()
         {
-            var data = new Data<int>(0);
+            var data = new Data<int>();
 
             data.Ensure(N);
             

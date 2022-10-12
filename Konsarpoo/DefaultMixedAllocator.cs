@@ -13,20 +13,29 @@ namespace Konsarpoo.Collections
         private readonly ArrayPool<T> m_pool;
 
         /// <summary>
+        /// Sets up default array pool behaviour.
+        /// </summary>
+        public static volatile bool ClearArrayOnRequest = ArrayPoolGlobalSetup.ClearArrayOnRequest;
+
+        private readonly int m_gcCount;
+        
+        /// <summary>
         /// Class constructor.
         /// </summary>
         /// <param name="pool"></param>
-        public DefaultMixedAllocator(ArrayPool<T> pool)
+        public DefaultMixedAllocator(ArrayPool<T> pool, int gcCount = 64)
         {
             m_pool = pool;
+            m_gcCount = gcCount;
         }
 
         /// <summary>
         /// Default constructor.
         /// </summary>
-        public DefaultMixedAllocator()
+        public DefaultMixedAllocator(int gcCount = 64)
         {
             m_pool = ArrayPool<T>.Shared;
+            m_gcCount = gcCount;
         }
 
         /// <summary>
@@ -36,14 +45,17 @@ namespace Konsarpoo.Collections
         [NotNull]
         public T[] Rent(int count)
         {
-            if (count <= 64)
+            if (count <= m_gcCount)
             {
                 return new T[count];
             }
 
             var rent = m_pool.Rent(count);
-            
-            Array.Clear(rent, 0, count);
+
+            if (ClearArrayOnRequest)
+            {
+                Array.Clear(rent, 0, count);
+            }
             
             return rent;
         }
@@ -56,7 +68,7 @@ namespace Konsarpoo.Collections
         /// <exception cref="ArgumentNullException"></exception>
         public void Return([NotNull] T[] array, bool clearArray = false)
         {
-            if (array.Length <= 64)
+            if (array.Length <= m_gcCount)
             {
                 return;
             }

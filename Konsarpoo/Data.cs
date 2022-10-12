@@ -40,7 +40,9 @@ namespace Konsarpoo.Collections
         /// </summary>
         public static readonly T Default = default;
 
-        private static volatile int s_maxSizeOfArray = -1;
+        private static volatile int s_maxSizeOfArray = ArrayPoolGlobalSetup.MaxSizeOfArray;
+        
+        private static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
         
         private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
 
@@ -60,7 +62,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Current version of container.
         /// </summary>
-        protected internal byte m_version;
+        protected internal ushort m_version;
       
         /// <summary>
         /// Sets up global T maximum size of sub array.
@@ -77,12 +79,21 @@ namespace Konsarpoo.Collections
 
             if (val < 0)
             {
-                s_maxSizeOfArray = -1;
+                s_maxSizeOfArray = ArrayPoolGlobalSetup.MaxSizeOfArray;
             }
             else
             {
                 s_maxSizeOfArray = Math.Min(1024 * 1024, Math.Max(64, 1 << (int)Math.Round(Math.Log(val, 2))));
             }
+        }
+        
+        /// <summary>
+        /// Sets recycling behaviour if set to true array is subject to clear before returning back to pool.
+        /// </summary>
+        public static void SetClearArrayOnReturn(bool? val)
+        {
+            s_clearArrayOnReturn = val ?? ArrayPoolGlobalSetup.ClearArrayOnRequest;
+            PoolList<T>.s_clearArrayOnReturn = s_clearArrayOnReturn;
         }
         
         /// <summary>
@@ -141,7 +152,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+            var maxSizeOfArray = s_maxSizeOfArray;
             var initialCapacity = 1 << (int)Math.Log(capacity > maxSizeOfArray ? maxSizeOfArray : capacity, 2.0);
 
             m_root = new StoreNode(maxSizeOfArray, initialCapacity);
@@ -215,6 +226,11 @@ namespace Konsarpoo.Collections
             GC.SuppressFinalize(this);
             
             Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
+
+            if (s_currentThreadDataInstanceNum < 0)
+            {
+                Interlocked.Exchange(ref s_currentThreadDataInstanceNum, 0);
+            }
         }
 
         /// <summary>
@@ -248,9 +264,8 @@ namespace Konsarpoo.Collections
 
         bool ICollection.IsSynchronized => false;
 
-        private bool IsReadOnly => false;
-        
         bool IList.IsReadOnly => false;
+        
         bool ICollection<T>.IsReadOnly => false;
 
         bool IList.IsFixedSize => false;
@@ -283,14 +298,16 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ValueByRef(int index)
         {
-            if (m_root?.Storage != null)
+            var storage = m_root?.Storage;
+            
+            if (storage != null)
             {
                 if (index >= m_root.Size)
                 {
                     throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_root.Size}).");
                 }
 
-                return ref m_root.Storage[index];
+                return ref storage[index];
             }
 
             return ref ValueByRefSlow(index);
@@ -313,9 +330,11 @@ namespace Konsarpoo.Collections
         public void Reverse()
         {
             //common case
-            if (m_root?.Storage != null)
+            var storage = m_root?.Storage;
+            
+            if (storage != null)
             {
-                Array.Reverse(m_root.Storage, 0, m_count);
+                Array.Reverse(storage, 0, m_count);
 
                 return;
             }
@@ -358,11 +377,11 @@ namespace Konsarpoo.Collections
             }
 
             //common case
-            var rootStorage = m_root?.Storage;
+            var storage = m_root?.Storage;
             
-            if (rootStorage != null)
+            if (storage != null)
             {
-                return Array.IndexOf(rootStorage, item, startIndex, m_count - startIndex);
+                return Array.IndexOf(storage, item, startIndex, m_count - startIndex);
             }
 
             return IndexOfSlow(item, startIndex);
@@ -426,15 +445,13 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Insert 
                 if (node.m_items.Length == 0)
                 {
-                    var count = Math.Max(4, node.m_size * 2);
-
-                    node.m_items = s_itemsArrayPool.Rent(count);
+                    node.m_items = s_itemsArrayPool.Rent(2);
                 }
                 else  if (node.m_size < node.m_maxCapacity - 1)
                 {
                     if (node.m_size == node.m_items.Length)
                     {
-                        int newCapacity = Math.Min(node.m_items.Length == 0 ? 4 : node.m_items.Length * 2, node.m_maxCapacity);
+                        int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
 
                         T[] vals = s_itemsArrayPool.Rent(newCapacity);
 
@@ -443,7 +460,7 @@ namespace Konsarpoo.Collections
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        s_itemsArrayPool.Return(node.m_items, clearArray: true);
+                        s_itemsArrayPool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                         node.m_items = vals;
                     }
@@ -535,9 +552,11 @@ namespace Konsarpoo.Collections
                 
                     Ensure(newCount);
 
-                    if (m_root?.Storage != null)
+                    var rootStorage = m_root?.Storage;
+                    
+                    if (rootStorage != null)
                     {
-                        arr.CopyTo(m_root.Storage, count);
+                        arr.CopyTo(rootStorage, count);
                     }
                     else
                     {
@@ -557,11 +576,13 @@ namespace Konsarpoo.Collections
                 
                     Ensure(newCount);
 
-                    if (m_root?.Storage != null)
+                    var rootStorage = m_root?.Storage;
+                    
+                    if (rootStorage != null)
                     {
                         for (int i = 0; i < rList.Count; i++)
                         {
-                            m_root.Storage[count + i] = rList[i];
+                            rootStorage[count + i] = rList[i];
                         }
                     }
                     else
@@ -583,14 +604,16 @@ namespace Konsarpoo.Collections
                     Ensure(newCount);
 
                     using var enumerator = rColl.GetEnumerator();
-                
-                    if (m_root?.Storage != null)
+
+                    var rootStorage = m_root?.Storage;
+                    
+                    if (rootStorage != null)
                     {
                         for (int i = count; i < newCount; i++)
                         {
                             enumerator.MoveNext();
                         
-                            m_root.Storage[i] = enumerator.Current;
+                            rootStorage[i] = enumerator.Current;
                         }
                     }
                     else
@@ -641,13 +664,13 @@ namespace Konsarpoo.Collections
                 {
                     if (node.m_items.Length == 0)
                     {
-                        var items = s_itemsArrayPool.Rent(Math.Max(4, node.m_size * 2));
+                        var items = s_itemsArrayPool.Rent(2);
 
                         node.m_items = items;
                     }
                     else if (node.m_size == node.m_items.Length)
                     {
-                        int newCapacity = Math.Min(node.m_items.Length == 0 ? 4 : node.m_items.Length * 2, node.m_maxCapacity);
+                        int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
                             
                         T[] vals = s_itemsArrayPool.Rent(newCapacity);
 
@@ -656,7 +679,7 @@ namespace Konsarpoo.Collections
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        s_itemsArrayPool.Return(node.m_items, clearArray: true);
+                        s_itemsArrayPool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                         node.m_items = vals;
                     }
@@ -676,10 +699,13 @@ namespace Konsarpoo.Collections
 
         private void AddSlow(T item)
         {
-            var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
-            if (m_root == null)
+            var maxSizeOfArray = s_maxSizeOfArray;
+            
+            var root = m_root;
+            
+            if (root == null)
             {
-                var storeNode = new StoreNode( maxSizeOfArray, 2);
+                var storeNode = new StoreNode(maxSizeOfArray, 2);
 
                 storeNode.m_items[0] = item;
 
@@ -693,13 +719,10 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            if (m_root != null)
+            INode node1 = root;
+            if (!node1.Add(ref item, out var node2))
             {
-                INode node1 = m_root;
-                if (!node1.Add(ref item, out var node2))
-                {
-                    m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1,  node2);
-                }
+                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, node2);
             }
 
             unchecked { ++m_version; }
@@ -718,6 +741,7 @@ namespace Konsarpoo.Collections
 
             m_root?.Clear();
             m_count = 0;
+            
             unchecked { ++m_version; }
 
             m_root = null;
@@ -1145,6 +1169,7 @@ namespace Konsarpoo.Collections
             m_root.RemoveLast();
 
             unchecked { ++m_version; }
+            
             m_count--;
 
             if (m_count <= 0)
@@ -1195,7 +1220,7 @@ namespace Konsarpoo.Collections
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckState(ref byte version)
+        private void CheckState(ref ushort version)
         {
             if (version != m_version)
             {

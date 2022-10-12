@@ -14,7 +14,6 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Default constructor.
         /// </summary>
-        /// <param name="maxCapacity">Max size of list</param>
         /// <param name="capacity"></param>
         public PoolList(int maxCapacity, int capacity) : base(maxCapacity, capacity)
         {

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Threading;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
@@ -47,10 +46,8 @@ namespace Konsarpoo.Collections
         private KeyCollection m_keys;
         [NonSerialized]
         private ValueCollection m_values;
+        
         private int m_version;
-
-        [NonSerialized]
-        private object m_syncRoot;
         
         [NonSerialized]
         private TValue m_nullRef;
@@ -848,17 +845,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Gets an object that can be used to synchronize access to the Map&lt;TKey,TValue&gt; class instance.
         /// </summary>
-        public object SyncRoot
-        {
-            get
-            {
-                if (m_syncRoot == null)
-                {
-                    Interlocked.CompareExchange<object>(ref m_syncRoot, new object(), null);
-                }
-                return m_syncRoot;
-            }
-        }
+        public object SyncRoot => this;
 
         /// <summary>
         /// Python List API. Adds new item to the end of the Map&lt;TKey,TValue&gt;.
