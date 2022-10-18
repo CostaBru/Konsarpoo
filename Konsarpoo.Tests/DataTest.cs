@@ -38,11 +38,9 @@ namespace Konsarpoo.Collections.Tests
 
             public void Return(T[] array, bool clearArray = false)
             {
-                if (clearArray)
-                {
-                    Array.Clear(array, 0, array.Length);
-                }
             }
+
+            public bool CleanArrayReturn => true;
         }
 
         [Test]

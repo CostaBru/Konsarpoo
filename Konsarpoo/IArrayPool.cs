@@ -23,5 +23,10 @@ namespace Konsarpoo.Collections
         /// <param name="clearArray"></param>
         /// <exception cref="ArgumentNullException"></exception>
         void Return([NotNull] T[] array, bool clearArray = false);
+
+        /// <summary>
+        /// Flag indicating weather an array returned was cleared.
+        /// </summary>
+        bool CleanArrayReturn { get; }
     }
 }

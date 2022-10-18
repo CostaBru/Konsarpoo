@@ -65,7 +65,7 @@ namespace Konsarpoo.Collections
             /// <summary>
             /// Make sure node has given size or max size. If max size reached return new node.
             /// </summary>
-            /// <param name="size"></param>
+            /// <param name="size">rest size</param>
             /// <param name="defaultValue"></param>
             /// <param name="node"></param>
             /// <returns></returns>
@@ -306,7 +306,7 @@ namespace Konsarpoo.Collections
 
                     var storeNode = new StoreNode(m_maxCapacity, arraySize) { m_size = arraySize };
 
-                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
+                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || s_itemsArrayPool.CleanArrayReturn == false)
                     {
                         Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
                     }
@@ -331,7 +331,7 @@ namespace Konsarpoo.Collections
 
                 m_items = vals;
 
-                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
+                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || s_itemsArrayPool.CleanArrayReturn == false)
                 {
                     Array.Fill(m_items, defaultValue, m_size, newSize - m_size);
                 }

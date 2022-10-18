@@ -208,12 +208,7 @@ namespace Konsarpoo.Collections
         {
             Clear();
             
-            Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
-
-            if (s_currentThreadDataInstanceNum < 0)
-            {
-                Interlocked.Exchange(ref s_currentThreadDataInstanceNum, 0);
-            }
+            FreeInstance();
         }
 
         /// <summary>
@@ -225,6 +220,11 @@ namespace Konsarpoo.Collections
 
             GC.SuppressFinalize(this);
             
+            FreeInstance();
+        }
+
+        private static void FreeInstance()
+        {
             Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
 
             if (s_currentThreadDataInstanceNum < 0)

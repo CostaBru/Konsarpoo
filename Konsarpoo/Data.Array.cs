@@ -59,7 +59,7 @@ namespace Konsarpoo.Collections
 
                 var setupDefaultValueForArray = EqualityComparer<T>.Default.Equals(defaultValue, Default) == false;
 
-                if (setupDefaultValueForArray)
+                if (setupDefaultValueForArray || s_itemsArrayPool.CleanArrayReturn == false)
                 {
                     Array.Fill(storeNode.m_items, defaultValue, startIndex, m_count - startIndex);
                 }

@@ -75,5 +75,8 @@ namespace Konsarpoo.Collections
             
             m_pool.Return(array, clearArray);
         }
+
+        /// <inheritdoc />
+        public bool CleanArrayReturn => ClearArrayOnRequest;
     }
 }
