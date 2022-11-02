@@ -133,6 +133,18 @@ namespace Konsarpoo.Collections.Tests
             Test(dict, map, StringComparer.OrdinalIgnoreCase);
         }
 
+        [Test]
+        public void TestAddHuge()
+        {
+            var testData = new Map<int, int>();
+            
+            for (int i = 0; i < 1000000; i++)
+            {
+                testData.Add(i, i);
+            }
+            
+            testData.Dispose();
+        }
 
         [Test]
         public void TestCommon()
@@ -167,6 +179,49 @@ namespace Konsarpoo.Collections.Tests
             Assert.True(map == dict);
 
             Test(dict, map, StringComparer.Ordinal);
+        }
+        
+        [Test]
+        public void TestDefaultDict()
+        {
+            var map = new Map<string, Data<string>>();
+            
+            map.EnsureValues((k) => new Data<string>());
+            
+            var dict = new Dictionary<string, Data<string>>();
+
+            Assert.False(map.ContainsKey("test0"));
+            
+            map["test0"].Add("val0");
+            
+            Assert.True(map.ContainsKey("test0"));
+            
+            map["test1"].Add( "val1");
+            map["test2"].Add( "val2");
+            map["test3"].Add( "val3");
+            map["test4"].Add( "val4");
+            map["test5"].Add( "val5");
+            map["test6"].Add( "val6");
+
+            Func<Data<string>> valueFactory = () => new Data<string>();
+            
+            dict.GetOrAdd("test0", valueFactory).Add("val0");
+            dict.GetOrAdd("test1", valueFactory).Add( "val1");
+            dict.GetOrAdd("test2", valueFactory).Add( "val2");
+            dict.GetOrAdd("test3", valueFactory).Add( "val3");
+            dict.GetOrAdd("test4", valueFactory).Add( "val4");
+            dict.GetOrAdd("test5", valueFactory).Add( "val5");
+            dict.GetOrAdd("test6", valueFactory).Add( "val6");
+
+            Assert.AreEqual("val0", map["test0"].SingleOrDefault());
+            Assert.AreEqual("val1", map["test1"].SingleOrDefault());
+            Assert.AreEqual("val2", map["test2"].SingleOrDefault());
+            Assert.AreEqual("val3", map["test3"].SingleOrDefault());
+            Assert.AreEqual("val4", map["test4"].SingleOrDefault());
+            Assert.AreEqual("val5", map["test5"].SingleOrDefault());
+            Assert.AreEqual("val6", map["test6"].SingleOrDefault());
+
+            Assert.True(map == dict);
         }
 
         [Test]
@@ -208,7 +263,9 @@ namespace Konsarpoo.Collections.Tests
 
                     while (enumerator.MoveNext())
                     {
-                        Assert.True(map.ContainsKey(enumerator.Current));
+                        var containsKey = map.ContainsKey(enumerator.Current);
+
+                        Assert.True(containsKey, $"Val {enumerator.Current} {map.Length}");
                     }
                 }
 
@@ -582,9 +639,9 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestGetPrime()
         {
-            var prime = Prime.GetPrime(2946901 + 1);
+            var prime = Prime.GetPrime(23575267 + 1);
             
-            Assert.AreEqual(2946907, prime);
+            Assert.AreEqual(23575313, prime);
 
             Assert.Throws<ArgumentException>(() => Prime.GetPrime(-1));
         }

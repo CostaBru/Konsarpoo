@@ -38,11 +38,11 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
             
-            info.AddValue(VersionName, m_version);
+            info.AddValue(VersionName, (int)m_version);
             info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
-            info.AddValue(HashSizeName, m_buckets == null ? 0 : m_buckets.Length); //This is the length of the bucket array.
+            info.AddValue(HashSizeName, m_buckets.Length); //This is the length of the bucket array.
            
-            if( m_buckets != null) 
+            if( m_buckets.m_count > 0) 
             {
                  var array = new KeyValuePair<TKey, TValue>[Count];
                  
@@ -73,13 +73,8 @@ namespace Konsarpoo.Collections
             
             if(hashSize != 0)
             {
-                m_buckets = new();
                 m_buckets.Ensure(hashSize, -1);
-                
-                m_entries = new ();
                 m_entries.Ensure(hashSize);
-                
-                m_entryValues = new ();
                 m_entryValues.Ensure(hashSize);
                 
                 m_freeList = -1;
@@ -90,23 +85,25 @@ namespace Konsarpoo.Collections
                 {
                     throw new SerializationException("Cannot read dict key values from serialization info.");
                 }
- 
+
+                var add = true;
+                
                 for (int i = 0; i < array.Length; i++)
                 {
                     var key = array[i].Key;
                     var value = array[i].Value;
                     
-                    Insert(ref key, ref value, true);
+                    Insert(ref key, ref value, ref add);
                 }
             }
             else 
             {
-                m_buckets = null;
-                m_entries = null;
-                m_entryValues = null;
+                m_buckets.Clear();
+                m_entries.Clear();
+                m_entryValues.Clear();
             }
  
-            m_version = realVersion;
+            m_version = (ushort)realVersion;
             HashHelpers.SerializationInfoTable.Remove(this);
         }
     }

@@ -1,6 +1,5 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
-using Konsarpoo.Collections.Tests;
 using Konsarpoo.Collections.Tests.Benchmarks;
 
 namespace Brudixy.Tests
@@ -10,11 +9,11 @@ namespace Brudixy.Tests
         public static void Main(string[] args)
         {
             BenchmarkRunner
-                .Run<DataFill>(
+                .Run<MapFill>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));
-            
+
             /*BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly)
                 .Run(args, ManualConfig
                     .Create(DefaultConfig.Instance)

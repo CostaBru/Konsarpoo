@@ -9,7 +9,7 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections
 {
     /// <summary>
-    /// The Map&lt;TKey,TValue&gt; generic class provides a mapping from a set of keys to a set of values. Each addition to the Map consists of a value and its associated key. Retrieving a value by using its key is very fast, close to O(1), because the Map&lt;TKey,TValue&gt; class is implemented as a hash table.
+    /// The Map&lt;TKey,TValue&gt; generic class provides a mapping from a set of keys to a set of values. Each addition to the Map consists of a value and its associated key. Retrieving a value by using its key is very fast, close to O(1), because the Map&lt;TKey,TValue&gt; class is implemented as a hash table. It has support of python default dict api (EnsureValues method call sets a missing value factory up)
     /// </summary>
     /// <typeparam name="TKey"></typeparam>
     /// <typeparam name="TValue"></typeparam>
@@ -30,11 +30,11 @@ namespace Konsarpoo.Collections
         private IEqualityComparer<TKey> m_comparer;
         
         [NonSerialized]
-        private Data<int> m_buckets;
+        private readonly Data<int> m_buckets = new ();
         [NonSerialized]
-        private Data<Entry> m_entries;
+        private readonly Data<Entry> m_entries = new ();
         [NonSerialized]
-        private Data<TValue> m_entryValues;
+        private readonly Data<TValue> m_entryValues = new ();
         
         [NonSerialized]
         private int m_count;
@@ -42,15 +42,15 @@ namespace Konsarpoo.Collections
         private int m_freeCount;
         [NonSerialized]
         private int m_freeList;
-        [NonSerialized]
-        private KeyCollection m_keys;
-        [NonSerialized]
-        private ValueCollection m_values;
         
-        private int m_version;
+        private ushort m_version;
         
         [NonSerialized]
-        private TValue m_nullRef;
+        private static TValue s_nullRef;
+
+        [NonSerialized]
+        [CanBeNull]
+        private Func<TKey, TValue> m_missingValueFactory;
 
         /// <summary>
         /// Default Map constructor.
@@ -106,6 +106,7 @@ namespace Konsarpoo.Collections
             m_freeCount = dictionary.m_freeCount;
             m_freeList = dictionary.m_freeList;
             m_version = dictionary.m_version;
+            m_missingValueFactory = dictionary.m_missingValueFactory;
         }
 
        /// <summary>
@@ -140,19 +141,41 @@ namespace Konsarpoo.Collections
                 case < 0:
                     throw new ArgumentOutOfRangeException(nameof(capacity));
                 case > 0:
-                    Initialize(capacity);
+                    Initialize(Prime.GetPrime(capacity));
                     break;
             }
 
             m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         }
+
+       /// <summary>
+       /// Sets a missing value factory delegate up which would be called instead of throwing the KeyNotFound exception.
+       /// </summary>
+       /// <param name="missingValueFactory"></param>
+       public void EnsureValues([CanBeNull] Func<TKey, TValue> missingValueFactory)
+       {
+           m_missingValueFactory = missingValueFactory;
+       }
+       
+       /// <summary>
+       /// Allocates the internal storage to fit a given number of items beforehand.
+       /// </summary>
+       /// <param name="capacity"></param>
+       public void EnsureCapacity(int capacity)
+       {
+           var prime = Prime.GetPrime(capacity);
+
+           m_buckets.Ensure(prime);
+           m_entries.Ensure(prime);
+           m_entryValues.Ensure(prime);
+       }
         
         /// <summary>
         /// Destructor called by GC. Shouldn't be called if instance is properly disposed beforehand.
         /// </summary>
         ~Map()
         {
-            Clear();
+            DisposeCore();
         }
         
         /// <summary>
@@ -160,9 +183,21 @@ namespace Konsarpoo.Collections
         /// </summary>
         public void Dispose()
         {
-            Clear();
+            DisposeCore();
 
             GC.SuppressFinalize(this);
+        }
+
+        private void DisposeCore()
+        {
+            m_buckets.Dispose();
+            m_entries.Dispose();
+            m_entryValues.Dispose();
+
+            m_freeList = -1;
+            m_count = 0;
+            m_freeCount = 0;
+            m_version = ushort.MaxValue;
         }
 
         /// <summary>
@@ -170,23 +205,22 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        /// <exception cref="ArgumentException"></exception>
         public void Add(TKey key, TValue value)
         {
-            Insert(ref key, ref value, true);
+            var add = true;
+            Insert(ref key, ref value, ref add);
         }
         
         /// <summary>
         /// Adds the specified key value pair to the map.
         /// </summary>
         /// <param name="value"></param>
-        /// <exception cref="ArgumentException"></exception>
         public void Add(KeyValuePair<TKey, TValue> value)
         {
             var val = value.Value;
             var key = value.Key;
-            
-            Insert(ref key, ref val, true);
+            var add = true;
+            Insert(ref key, ref val, ref add);
         }
 
         /// <summary>
@@ -199,18 +233,14 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            m_buckets?.Dispose();
-            m_entries?.Dispose();
-            m_entryValues?.Dispose();
-
-            m_buckets = null;
-            m_entries = null;
-            m_entryValues = null;
+            m_buckets.Clear();
+            m_entries.Clear();
+            m_entryValues.Clear();
 
             m_freeList = -1;
             m_count = 0;
             m_freeCount = 0;
-            m_version++;
+            unchecked { ++m_version; }
         }
 
         /// <summary>
@@ -365,16 +395,16 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(key));
             }
             
-            if (m_buckets != null)
+            if (m_buckets.m_count > 0)
             {
-                var keys = m_entries.m_root?.Storage;
-                var values = m_entryValues.m_root?.Storage;
+                var keys = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+                var values = (m_entryValues.m_root as Data<TValue>.StoreNode)?.Storage;
                 
                 if (keys != null && values != null)
                 {
                     var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
 
-                    for (var i = m_buckets[hashCode % m_buckets.Count] - 1; i >= 0 && i < keys.Length; i = keys[i].Next)
+                    for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0 && i < keys.Length; i = keys[i].Next)
                     {
                         ref var storeNodeItem = ref keys[i];
                         if (storeNodeItem.HashCode == hashCode && m_comparer.Equals(storeNodeItem.Key, key))
@@ -388,7 +418,7 @@ namespace Konsarpoo.Collections
                 else
                 {
                     var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
-                    for (var i = m_buckets[hashCode % m_buckets.Count] - 1; i >= 0; )
+                    for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0; )
                     {
                         ref var currentEntry = ref m_entries.ValueByRef(i);
                         if ((currentEntry.HashCode == hashCode) && m_comparer.Equals(currentEntry.Key, key))
@@ -403,7 +433,9 @@ namespace Konsarpoo.Collections
                 }
             }
 
-            return ref m_nullRef;
+            s_nullRef = default;
+            
+            return ref s_nullRef;
         }
 
         /// <summary>
@@ -412,7 +444,7 @@ namespace Konsarpoo.Collections
         /// <returns></returns>
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
-            if (m_entries?.m_root?.Storage != null && m_entryValues?.m_root?.Storage != null)
+            if (m_entries.m_root?.Storage != null && m_entryValues.m_root?.Storage != null)
             {
                 return new ArrayEnumerator(this);
             }
@@ -420,14 +452,8 @@ namespace Konsarpoo.Collections
             return new Enumerator(this);
         }
 
-        private void Initialize(int capacity)
+        private void Initialize(int prime)
         {
-            int prime = Prime.GetPrime(capacity);
-
-            m_buckets = new ();
-            m_entries = new ();
-            m_entryValues = new ();
-
             m_buckets.Ensure(prime);
             m_entries.Ensure(prime);
             m_entryValues.Ensure(prime);
@@ -435,28 +461,32 @@ namespace Konsarpoo.Collections
             m_freeList = -1;
         }
 
-        private void Insert(ref TKey key, ref TValue value, bool add)
+        private void Insert([NotNull] ref TKey key, ref TValue value, ref bool add)
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
-            
-            if (m_buckets == null)
+
+            if (m_buckets.m_count == 0)
             {
-                Initialize(0);
+                Initialize(prime: 2);
             }
 
             int freeList;
-            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
-            int index = hashCode % m_buckets.Count;
             
-            var keys = m_entries.m_root?.Storage;
-            var values = m_entryValues.m_root?.Storage;
+            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+
+            int index = hashCode % m_buckets.m_count;
+            
+            var keys = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+            var values = (m_entryValues.m_root as Data<TValue>.StoreNode)?.Storage;
+
+            var bucket = m_buckets[index] - 1;
 
             if (keys != null && values != null)
             {
-                for (int i = m_buckets[index] - 1; i >= 0; i = keys[i].Next)
+                for (int i = bucket; i >= 0; i = keys[i].Next)
                 {
                     ref Entry keyEntry = ref keys[i];
                     
@@ -468,15 +498,13 @@ namespace Konsarpoo.Collections
                         }
 
                         values[keyEntry.ValueRef] = value;
-                        
-                        m_version++;
                         return;
                     }
                 }
             }
             else
             {
-                for (int i = m_buckets[index] - 1; i >= 0;)
+                for (int i = bucket; i >= 0;)
                 {
                     ref Entry keyEntry = ref m_entries.ValueByRef(i);
                     
@@ -488,7 +516,6 @@ namespace Konsarpoo.Collections
                         }
 
                         m_entryValues.ValueByRef(keyEntry.ValueRef) = value;
-                        m_version++;
                         return;
                     }
 
@@ -504,20 +531,65 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                if (m_count == m_entries.Count)
+                if (m_count == m_entries.m_count)
                 {
                     int prime = Prime.GetPrime(m_count * 2);
 
                     Resize(prime);
-                    index = hashCode % m_buckets.Count;
+                    
+                    index = hashCode % m_buckets.m_count;
+
+                    bucket = m_buckets[index] - 1;
                 }
+                
                 freeList = m_count;
                 m_count++;
             }
-            m_entries[freeList] = new Entry(hashCode, m_buckets[index] - 1, key, freeList);
-            m_entryValues[freeList] = value;
-            m_buckets[index] = freeList + 1;
-            m_version++;
+
+            var entriesArray = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+
+            if (entriesArray != null)
+            {
+                ref var valueByRef = ref entriesArray[freeList];
+            
+                valueByRef.HashCode = hashCode;
+                valueByRef.Next = bucket;
+                valueByRef.Key = key;
+                valueByRef.ValueRef = freeList;
+            }
+            else
+            {
+                ref var valueByRef = ref m_entries.ValueByRef(freeList);
+            
+                valueByRef.HashCode = hashCode;
+                valueByRef.Next = bucket;
+                valueByRef.Key = key;
+                valueByRef.ValueRef = freeList;
+            }
+
+            var valuesArray = (m_entryValues.m_root as Data<TValue>.StoreNode)?.Storage;
+
+            if (valuesArray != null)
+            {
+                valuesArray[freeList] = value;
+            }
+            else
+            {
+                m_entryValues[freeList] = value;
+            }
+            
+            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            
+            if (bucketsArray != null)
+            {
+                bucketsArray[index] = freeList + 1;
+            }
+            else
+            {
+                m_buckets[index] = freeList + 1;
+            }
+            
+            unchecked { ++m_version; }
         }
 
         /// <summary>
@@ -564,7 +636,7 @@ namespace Konsarpoo.Collections
                             entryValues[i] = default;
                             m_freeList = i;
                             m_freeCount++;
-                            m_version++;
+                            unchecked { ++m_version; }
                             return true;
                         }
                         last = i;
@@ -591,7 +663,7 @@ namespace Konsarpoo.Collections
                             m_entryValues[i] = default;
                             m_freeList = i;
                             m_freeCount++;
-                            m_version++;
+                            unchecked { ++m_version; }
                             return true;
                         }
                         last = i;
@@ -602,72 +674,52 @@ namespace Konsarpoo.Collections
             return false;
         }
 
+        
         private void Resize(int prime, bool forceNewHashCodes = false)
         {
-            Data<int> newBuckets = new ();
-            Data<Entry> newEntries = new ();
-            Data<TValue> newEntryValues = new ();
-            
-            newEntries.Ensure(prime);
-            newEntryValues.Ensure(prime);
-            newBuckets.Ensure(prime);
+            var entriesCount = m_entries.m_count;
 
-            if (m_entries.m_root?.Storage != null && m_entryValues.m_root?.Storage != null)
+            m_entries.Ensure(prime);
+            m_entryValues.Ensure(prime);
+
+            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+
+            if (bucketsArray != null)
             {
-                var items = m_entries.m_root.Storage;
-                var values = m_entryValues.m_root.Storage;
+                Array.Clear(bucketsArray, 0, bucketsArray.Length);
+            }
+            else
+            {
+                m_buckets.Clear();
+            }
+            
+            m_buckets.Ensure(prime);
 
-                var newBucketsArr = newBuckets.m_root?.Storage;
-                var newEntriesArr = newEntries.m_root?.Storage;
-                var newEntryValueArr = newEntryValues.m_root?.Storage;
-                
-                if (newEntriesArr != null && newEntryValueArr != null && newBucketsArr != null)
+            var entries = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+            var entriesValues = (m_entryValues.m_root as Data<TValue>.StoreNode)?.Storage;
+            var bucketsValues = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+
+            if (entries != null && entriesValues != null && bucketsValues != null)
+            {
+                for (var i = 0; i < entriesCount && i < entries.Length && i < entriesValues.Length; i++)
                 {
-                    for (var i = 0; i < m_entries.m_count && i < items.Length && i < newEntriesArr.Length && i < newEntryValueArr.Length; i++)
-                    {
-                        ref var keyEntry = ref items[i];
-                        ref var valueEntry = ref values[keyEntry.ValueRef];
-                    
-                        keyEntry.ValueRef = i;
+                    ref var keyEntry = ref entries[i];
 
-                        if (keyEntry.HashCode >= 0)
-                        {
-                            var bucket = keyEntry.HashCode % prime;
-                            keyEntry.Next = newBucketsArr[bucket] - 1;
-                            newBucketsArr[bucket] = i + 1;
-                        }
-                    
-                        newEntriesArr[i] = keyEntry;
-                        newEntryValueArr[i] = valueEntry;
-                    }
-                }
-                else
-                {
-                    for (var i = 0; i < m_entries.m_count && i < items.Length; i++)
-                    {
-                        ref var keyEntry = ref items[i];
-                        ref var valueEntry = ref values[keyEntry.ValueRef];
-                    
-                        keyEntry.ValueRef = i;
+                    keyEntry.ValueRef = i;
 
-                        if (keyEntry.HashCode >= 0)
-                        {
-                            var bucket = keyEntry.HashCode % prime;
-                            keyEntry.Next = newBuckets[bucket] - 1;
-                            newBuckets[bucket] = i + 1;
-                        }
-                    
-                        newEntries.ValueByRef(i) = keyEntry;
-                        newEntryValues.ValueByRef(i) = valueEntry;
+                    if (keyEntry.HashCode >= 0)
+                    {
+                        var bucket = keyEntry.HashCode % prime;
+                        keyEntry.Next = bucketsValues[bucket] - 1;
+                        bucketsValues[bucket] = i + 1;
                     }
                 }
             }
             else
             {
-                for (var i = 0; i < m_entries.m_count; i++)
+                for (var i = 0; i < entriesCount; i++)
                 {
                     ref var keyEntry = ref m_entries.ValueByRef(i);
-                    ref var valueEntry = ref m_entryValues.ValueByRef(keyEntry.ValueRef);
                     
                     keyEntry.ValueRef = i;
                     
@@ -675,23 +727,12 @@ namespace Konsarpoo.Collections
                     {
                         var bucket = keyEntry.HashCode % prime;
 
-                        keyEntry.Next = newBuckets[bucket] - 1;
+                        keyEntry.Next = m_buckets[bucket] - 1;
                         
-                        newBuckets[bucket] = i + 1;
+                        m_buckets[bucket] = i + 1;
                     }
-                    
-                    newEntries.ValueByRef(i) = keyEntry;
-                    newEntryValues.ValueByRef(i) = valueEntry;
                 }
             }
-
-            m_buckets?.Dispose();
-            m_entries?.Dispose();
-            m_entryValues?.Dispose();
-
-            m_buckets = newBuckets;
-            m_entries = newEntries;
-            m_entryValues = newEntryValues;
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -786,11 +827,22 @@ namespace Konsarpoo.Collections
                 {
                     return value;
                 }
+
+                if (m_missingValueFactory != null)
+                {
+                    var newValue = m_missingValueFactory(key);
+                    var set = false;
+                    Insert(ref key, ref newValue, ref set);
+
+                    return newValue;
+                }
+                
                 throw new KeyNotFoundException($"Key '{key}' is not found.");
             }
             set
             {
-                Insert(ref key, ref value, false);
+                var set = false;
+                Insert(ref key, ref value, ref set);
             }
         }
         
@@ -815,7 +867,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Gets a collection containing the keys in the Map&lt;TKey,TValue&gt;.
         /// </summary>
-        public KeyCollection Keys => m_keys ??= new KeyCollection(this);
+        public KeyCollection Keys => new KeyCollection(this);
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => Keys;
@@ -826,7 +878,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Gets a collection containing the values in the Map&lt;TKey,TValue&gt;.
         /// </summary>
-        public ValueCollection Values => m_values ??= new ValueCollection(this);
+        public ValueCollection Values => new ValueCollection(this);
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         ICollection<TValue> IDictionary<TKey, TValue>.Values => Values;
@@ -855,8 +907,8 @@ namespace Konsarpoo.Collections
         {
             var val = value.Value;
             var key = value.Key;
-            
-            Insert(ref key, ref val, true);
+            var add = true;
+            Insert(ref key, ref val, ref add);
         }
         /// <summary>
         /// Determines whether the specified Map&lt;TKey,TValue&gt; instances are considered equal by comparing type, sizes and elements.

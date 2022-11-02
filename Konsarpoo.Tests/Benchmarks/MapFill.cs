@@ -15,26 +15,27 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         {
             public Config()
             {
-                AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(50));
+                AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(10));
             }
         }
+
         
-        [Params(2, 1000, 1000_000)]
+        [Params(1, 2, 10, 100, 1000, 10000, 1000_000)]
         public int N;
 
         [Benchmark]
         public int Map_Add()
         {
-            var data = new Map<int, int>();
-
+            var testData = new Map<int, int>();
+            
             for (int i = 0; i < N; i++)
             {
-                data.Add(i, i);
+                testData.Add(i, i);
             }
             
-            data.Dispose();
-
-            return data.Count;
+            testData.Dispose();
+            
+            return testData.Count;
         }
 
         [Benchmark(Baseline = true)]

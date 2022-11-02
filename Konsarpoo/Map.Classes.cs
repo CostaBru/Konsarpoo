@@ -7,7 +7,7 @@ namespace Konsarpoo.Collections
     public partial class  Map<TKey, TValue>
     {
         [Serializable]
-        private struct Entry
+        public struct Entry
         {
             public Entry(int hashCode, int next, TKey key, int value)
             {
@@ -28,7 +28,7 @@ namespace Konsarpoo.Collections
         public class Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>
         {
             private readonly Map<TKey, TValue> m_dictionary;
-            private readonly int m_version;
+            private readonly ushort m_version;
             private int m_index;
             private KeyValuePair<TKey, TValue> m_current;
 
@@ -91,7 +91,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_version != m_dictionary.m_version)
                 {
-                    throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                    throw new InvalidOperationException($"Map collection was modified during enumeration.");
                 }
             }
 
@@ -111,7 +111,7 @@ namespace Konsarpoo.Collections
             private readonly Map<TKey, TValue> m_dictionary;
             private readonly Entry[] m_entries;
             private readonly TValue[] m_values;
-            private readonly int m_version;
+            private readonly ushort m_version;
             private int m_index;
             private KeyValuePair<TKey, TValue> m_current;
 
@@ -178,7 +178,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_version != m_dictionary.m_version)
                 {
-                    throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                    throw new InvalidOperationException($"Map collection was modified during enumeration.");
                 }
             }
 
@@ -287,7 +287,7 @@ namespace Konsarpoo.Collections
             public struct Enumerator : IEnumerator<TKey>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
-                private readonly int m_version;
+                private readonly ushort m_version;
                 private int m_index;
                 private TKey m_currentKey;
 
@@ -350,7 +350,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                        throw new InvalidOperationException($"Map collection was modified during enumeration.");
                     }
                 }
 
@@ -369,7 +369,7 @@ namespace Konsarpoo.Collections
             {
                 private readonly Map<TKey, TValue> m_dictionary;
                 private readonly Entry[] m_entries;
-                private readonly int m_version;
+                private readonly ushort m_version;
                 private int m_index;
                 private TKey m_currentKey;
 
@@ -434,7 +434,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                        throw new InvalidOperationException($"Map collection was modified during enumeration.");
                     }
                 }
 
@@ -541,7 +541,7 @@ namespace Konsarpoo.Collections
             public struct Enumerator : IEnumerator<TValue>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
-                private readonly int m_version;
+                private readonly ushort m_version;
                 private int m_index;
                 private TValue m_currentValue;
 
@@ -604,7 +604,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                        throw new InvalidOperationException($"Map collection was modified during enumeration.");
                     }
                 }
 
@@ -623,7 +623,7 @@ namespace Konsarpoo.Collections
             {
                 private readonly Map<TKey, TValue> m_dictionary;
                 private readonly Entry[] m_entries;
-                private readonly int m_version;
+                private readonly ushort m_version;
                 private int m_index;
                 private TValue m_currentValue;
                 private readonly TValue[] m_values;
@@ -689,7 +689,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_version != m_dictionary.m_version)
                     {
-                        throw new InvalidOperationException($"Map collection was modified during enumeration. {m_dictionary.m_version - m_version} time(s).");
+                        throw new InvalidOperationException($"Map collection was modified during enumeration.");
                     }
                 }
 

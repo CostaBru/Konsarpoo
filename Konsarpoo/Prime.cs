@@ -18,7 +18,10 @@ namespace Konsarpoo.Collections
             8191,
             131071,
             524287,
-            2946901
+            2946901,
+            5893807,
+            11787631,
+            23575267
         };
 
 
@@ -29,14 +32,23 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentException();
             }
-            for (int i = 0; i < s_primes.Length; i++)
+
+            var inx = Array.BinarySearch(s_primes, 0, s_primes.Length, min);
+
+            if (inx < 0)
             {
-                int prime = s_primes[i];
-                if (prime >= min)
+                inx = ~inx;
+
+                if (inx + 1 < s_primes.Length)
                 {
-                    return prime;
+                    return s_primes[inx + 1];
                 }
             }
+            else
+            {
+                return s_primes[inx];
+            }
+       
             for (int j = min | 1; j < 0x7fffffff; j += 2)
             {
                 if (IsPrime(j))
