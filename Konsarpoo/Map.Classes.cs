@@ -17,10 +17,10 @@ namespace Konsarpoo.Collections
                 ValueRef = value;
             }
 
-            public int HashCode;
-            public int Next;
-            public TKey Key;
-            public int ValueRef;
+            internal int HashCode;
+            internal int Next;
+            internal TKey Key;
+            internal int ValueRef;
         }
 
         /// <inheritdoc />

@@ -20,15 +20,15 @@ namespace Konsarpoo.Collections
         private static readonly bool IsReferenceType = !typeof(T).IsValueType;
 
         [NonSerialized]
-        private Data<int> m_buckets;
+        private readonly Data<int> m_buckets = new ();
         [NonSerialized]
-        private Data<Slot> m_slots;
+        private readonly Data<Slot> m_slots = new ();
         
         private IEqualityComparer<T> m_comparer;
 
         private int m_lastIndex;
         private int m_freeList;
-        private int m_version;
+        private ushort m_version;
         private int m_count;
 
         /// <summary>Initializes a new instance of the Set class that is empty and uses the default equality comparer for the set type.</summary>
@@ -61,7 +61,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            Initialize(capacity);
+            Initialize(Prime.GetPrime(capacity));
         }
 
         /// <summary>Initializes a new instance of the Set class that is empty and uses equality comparer given for the set type.</summary>
@@ -111,11 +111,24 @@ namespace Konsarpoo.Collections
 
             if (collection is Set<T> objSet && AreEqualityComparersEqual(this, objSet))
             {
-                CreateFrom(objSet);
+                int count = objSet.m_count;
+                if (count == 0)
+                {
+                    return;
+                }
+            
+                m_buckets = new(objSet.m_buckets);
+                m_slots = new(objSet.m_slots);
+
+                m_lastIndex = objSet.m_lastIndex;
+                m_freeList = objSet.m_freeList;
+
+                m_count = count;
             }
             else
             {
-                Initialize(!(collection is ICollection<T> objs) ? 0 : objs.Count);
+                int capacity = !(collection is ICollection<T> objs) ? 0 : objs.Count;
+                Initialize(Prime.GetPrime(capacity));
 
                 UnionWith(collection);
             }
@@ -126,7 +139,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         ~Set()
         {
-            Clear();
+            DisposeCore();
         }
 
         /// <summary>
@@ -134,7 +147,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         public void Dispose()
         {
-            Clear();
+            DisposeCore();
 
             GC.SuppressFinalize(this);
         }
@@ -174,18 +187,28 @@ namespace Konsarpoo.Collections
         /// <see langword="true" /> if the element is added to the <see cref="T:System.Collections.Generic.HashSet`1" /> object; <see langword="false" /> if the element is already present.</returns>
         public bool Add(T value)
         {
-            if (m_buckets == null)
+            if (m_buckets.m_count == 0)
             {
-                Initialize(0);
+                Initialize(2);
             }
 
             int hashCode = InternalGetHashCode(ref value);
-            int storageIndex = hashCode % m_buckets.Count;
+            int storageIndex = hashCode % m_buckets.m_count;
             int num = 0;
 
-            var start = m_buckets.ValueByRef(hashCode % m_buckets.Count);
+            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
 
-            var slotArr = m_slots.m_root?.Storage;
+            int start = 0;
+
+            if (bucketsArray != null)
+            {
+                start = bucketsArray[storageIndex];
+            }
+            else
+            {
+                start = m_buckets.ValueByRef(storageIndex);
+            }
 
             if (slotArr != null)
             {
@@ -230,19 +253,50 @@ namespace Konsarpoo.Collections
                 index = m_lastIndex;
                 ++m_lastIndex;
             }
+            
+            bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
 
-            var bucket = m_buckets.ValueByRef(storageIndex);
+            
+            int bucket;
 
-            ref var slot = ref m_slots.ValueByRef(index);
+            if (bucketsArray != null)
+            {
+                bucket = bucketsArray[storageIndex];
+            }
+            else
+            {
+                bucket = m_buckets.ValueByRef(storageIndex);
+            }
 
-            slot.hashCode = hashCode;
-            slot.value = value;
-            slot.next = bucket - 1;
+            if (slotArr != null)
+            {
+                ref var slot = ref slotArr[index];
 
-            m_buckets.ValueByRef(storageIndex) = index + 1;
+                slot.hashCode = hashCode;
+                slot.value = value;
+                slot.next = bucket - 1;
+            }
+            else
+            {
+                ref var slot = ref m_slots.ValueByRef(index);
+
+                slot.hashCode = hashCode;
+                slot.value = value;
+                slot.next = bucket - 1;
+            }
+
+            if (bucketsArray != null)
+            {
+                bucketsArray[storageIndex] = index + 1;
+            }
+            else
+            {
+                m_buckets.ValueByRef(storageIndex) = index + 1;
+            }
 
             ++m_count;
-            ++m_version;
+            unchecked { ++m_version; }
           
             return true;
         }
@@ -250,17 +304,24 @@ namespace Konsarpoo.Collections
         /// <summary>Removes all elements from a Set object.</summary>
         public void Clear()
         {
-            m_slots?.Dispose();
-            m_buckets?.Dispose();
-
-            m_slots = null;
-            m_buckets = null;
+            m_slots.Clear();
+            m_buckets.Clear();
 
             m_lastIndex = 0;
             m_count = 0;
             m_freeList = -1;
             
-            ++m_version;
+            unchecked { ++m_version; }
+        }
+        
+        private void DisposeCore()
+        {
+            m_buckets.Dispose();
+            m_slots.Dispose();
+
+            m_freeList = -1;
+            m_count = 0;
+            m_version = ushort.MaxValue;
         }
 
         /// <summary>
@@ -277,42 +338,57 @@ namespace Konsarpoo.Collections
         /// Determines whether the Set&lt;T&gt; contains the item.
         /// </summary>
         /// <param name="item"></param>
-        /// <exception cref="ArgumentNullException"></exception>
         public bool Contains(T item)
         {
-            if (m_buckets != null)
+            if (m_buckets.m_count == 0)
             {
-                int hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
+                return false;
+            }
+            
+            int hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
 
-                var start = m_buckets.ValueByRef(hashCode % m_buckets.Count);
+            int start;
+            
+            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
 
-                if (m_slots.m_root?.Storage != null)
+            var storageIndex = hashCode % m_buckets.m_count;
+            
+            if (bucketsArray != null)
+            {
+                start = bucketsArray[storageIndex];
+            }
+            else
+            {
+                start = m_buckets.ValueByRef(storageIndex);
+            }
+
+            var slotArray = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
+
+            if (slotArray != null)
+            {
+                for (int? index = start - 1; index >= 0; index = slotArray[index.Value].next)
                 {
-                    var items = m_slots.m_root?.Storage;
+                    ref var slot = ref slotArray[index.Value];
 
-                    for (int? index = start - 1; index >= 0; index = items[index.Value].next)
+                    if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
                     {
-                        ref var slot = ref items[index.Value];
-                        
-                        if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
-                        {
-                            return true;
-                        }
-                    }
-                }
-                else
-                {
-                    for (int? index = start - 1; index >= 0; index = m_slots.ValueByRef(index.Value).next)
-                    {
-                        ref var slot = ref m_slots.ValueByRef(index.Value);
-
-                        if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
                 }
             }
+            else
+            {
+                for (int? index = start - 1; index >= 0; index = m_slots.ValueByRef(index.Value).next)
+                {
+                    ref var slot = ref m_slots.ValueByRef(index.Value);
+
+                    if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
+                    {
+                        return true;
+                    }
+                }
+            }
+
             return false;
         }
         
@@ -407,24 +483,24 @@ namespace Konsarpoo.Collections
         {
             var version = m_version;
             
-            if (m_slots?.m_root?.Storage != null)
+            var slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
+            
+            if (slotArr != null)
             {
-                var items = m_slots.m_root.Storage;
-
-                for (int i = 0; i < m_lastIndex; ++i)
+                for (int i = 0; i < m_lastIndex && i < slotArr.Length; ++i)
                 {
-                    if (items[i].hashCode >= 0)
+                    if (slotArr[i].hashCode >= 0)
                     {
                         if (version != m_version)
                         {
-                            throw new InvalidOperationException($"Set collection was modified during enumeration. {version - m_version} time(s). ");
+                            throw new InvalidOperationException($"Set collection was modified during enumeration.");
                         }
                         
-                        yield return items[i].value;
+                        yield return slotArr[i].value;
                     }
                 }
             }
-            else if(m_slots != null)
+            else 
             {
                 for (int i = 0; i < m_lastIndex; ++i)
                 {
@@ -432,7 +508,7 @@ namespace Konsarpoo.Collections
                     {
                         if (version != m_version)
                         {
-                            throw new InvalidOperationException($"Set collection was modified during enumeration. {version - m_version} time(s).");
+                            throw new InvalidOperationException($"Set collection was modified during enumeration.");
                         }
                         
                         yield return m_slots.ValueByRef(i).value;
@@ -488,7 +564,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            if (other == this)
+            if (ReferenceEquals(other, this) || (other is Set<T> otherSet && HashSetEquals(otherSet, this, this.m_comparer)))
             {
                 Clear();
             }
@@ -642,12 +718,8 @@ namespace Konsarpoo.Collections
             return num;
         }
 
-        private void Initialize(int capacity)
+        private void Initialize(int prime)
         {
-            int prime = Prime.GetPrime(capacity);
-
-            m_buckets = new (prime);
-            m_slots = new (prime);
 
             m_buckets.Ensure(prime);
             m_slots.Ensure(prime);
@@ -668,10 +740,13 @@ namespace Konsarpoo.Collections
             m_buckets.Ensure(newSize);
             m_slots.Ensure(newSize);
 
-            if (m_buckets.m_root?.Storage != null && m_slots.m_root?.Storage != null)
+            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var slotsArray = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
+            
+            if (bucketsArray != null && slotsArray != null)
             {
-                var bucketsArr = m_buckets.m_root?.Storage;
-                var slotsArr = m_slots.m_root?.Storage;
+                var bucketsArr = bucketsArray;
+                var slotsArr = slotsArray;
 
                 for (int slotIndex = 0; slotIndex < m_lastIndex && slotIndex < slotsArr.Length ; ++slotIndex)
                 {
@@ -775,24 +850,7 @@ namespace Konsarpoo.Collections
             return Prime.GetPrime(min);
         }
 
-        private void CreateFrom(Set<T> source)
-        {
-            int count = source.m_count;
-            if (count == 0)
-            {
-                return;
-            }
-            
-            m_buckets = new(source.m_buckets);
-            m_slots = new(source.m_slots);
-
-            m_lastIndex = source.m_lastIndex;
-            m_freeList = source.m_freeList;
-
-            m_count = count;
-        }
-
-        internal struct Slot
+        public struct Slot
         {
             internal int hashCode;
             internal int next;

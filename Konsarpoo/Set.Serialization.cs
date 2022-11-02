@@ -67,10 +67,7 @@ namespace Konsarpoo.Collections
 
             if (capacity != 0)
             {
-                m_buckets = new ();
                 m_buckets.Ensure(capacity);
-                
-                m_slots = new ();
                 m_slots.Ensure(capacity);
                 
                 T[] objArray = (T[])m_siInfo.GetValue(ElementsName, typeof(T[]));
@@ -86,10 +83,10 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                m_buckets = null;
-                m_slots = null;
+                m_buckets.Clear();
+                m_slots.Clear();
             }
-            m_version = m_siInfo.GetInt32(VersionName);
+            m_version = (ushort)m_siInfo.GetInt32(VersionName);
             m_siInfo = null;
         }
     }
