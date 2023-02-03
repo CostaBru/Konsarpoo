@@ -83,37 +83,7 @@ namespace Konsarpoo.Collections
 
             return list;
         }
-        
-        /// <summary>
-        /// Returns a new map with items that absent in another key collection.
-        /// </summary>
-        /// <param name="a"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        public static Map<TKey, TValue> operator -([CanBeNull] Map<TKey, TValue> a,  [CanBeNull] IReadOnlyCollection<TKey> b)
-        {
-            if (ReferenceEquals(a, null))
-            {
-                return null;
-            }
-            
-            if (ReferenceEquals(b, null))
-            {
-                return a.ToMap();
-            }
-
-            var list = new Map<TKey, TValue>(a.m_comparer);
-            
-            foreach (var item in a)
-            {
-                if (!(b.Contains(item.Key)))
-                {
-                    list.Add(item);
-                }  
-            }
-
-            return list;
-        }
+       
 
         /// <summary>
         /// Checks that both map and readonly dictionary has the same keys and values.

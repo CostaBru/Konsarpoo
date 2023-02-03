@@ -75,7 +75,6 @@ namespace Konsarpoo.Collections
             {
                 m_buckets.Ensure(hashSize, -1);
                 m_entries.Ensure(hashSize);
-                m_entryValues.Ensure(hashSize);
                 
                 m_freeList = -1;
  
@@ -100,7 +99,6 @@ namespace Konsarpoo.Collections
             {
                 m_buckets.Clear();
                 m_entries.Clear();
-                m_entryValues.Clear();
             }
  
             m_version = (ushort)realVersion;

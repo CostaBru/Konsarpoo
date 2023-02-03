@@ -526,21 +526,12 @@ namespace Konsarpoo.Collections.Tests
             Map<int, int> l1 = new Data<int>(Enumerable.Range(0, 5)).ToMap(keySelector, elementSelector);
             Map<int, int> l2 = new Data<int>(Enumerable.Range(5, 5)).ToMap(keySelector, elementSelector);
 
-
-            var lk1 = (IReadOnlyCollection<int>)new Data<int>(Enumerable.Range(0, 5))
-                .ToMap(keySelector, elementSelector).Keys.ToData();
-            var lk2 = (IReadOnlyCollection<int>)new Data<int>(Enumerable.Range(5, 5))
-                .ToMap(keySelector, elementSelector).Keys.ToData();
-
             var l3 = l1 + l2;
 
             Assert.AreEqual(new Data<int>(Enumerable.Range(0, 10)).ToMap(keySelector, elementSelector), l3);
 
             Assert.AreEqual(l2, l3 - l1);
             Assert.AreEqual(l1, l3 - l2);
-
-            Assert.AreEqual(l2, l3 - lk1);
-            Assert.AreEqual(l1, l3 - lk2);
 
             Assert.AreEqual(l1.ToMap(), l1 + (IReadOnlyDictionary<int, int>)null);
             Assert.Null((Map<int, int>)null + (IReadOnlyDictionary<int, int>)null);
@@ -620,6 +611,52 @@ namespace Konsarpoo.Collections.Tests
             var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<Map<string, int>>(serializeWithDcs);
 
             Assert.AreEqual(deserializeWithDcs, map);
+        }
+        
+        private class GcArrayAllocator<T> : IArrayPool<T>
+        {
+            public T[] Rent(int count)
+            {
+                return new T[count];
+            }
+
+            public void Return(T[] array, bool clearArray = false)
+            {
+            }
+
+            public bool CleanArrayReturn => true;
+        }
+        
+        [Test]
+        public void TestCustomAllocator()
+        {
+            var poolSetup1 = (new GcArrayAllocator<int>(), new GcArrayAllocator<Data<int>.INode>());
+            var poolSetup2 =  (new GcArrayAllocator<Map<int, int>.Entry>(), new GcArrayAllocator<Data<Map<int, int>.Entry>.INode>());
+            
+            var l1 = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            foreach (var i in Enumerable.Range(0, 50))
+            {
+                l1[i] = i;
+            } 
+
+            var l2 = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            foreach (var i in Enumerable.Range(50, 50))
+            {
+                l2[i] = i;
+            } 
+
+            var l3 = l1 + l2;
+
+            var expected = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            foreach (var i in Enumerable.Range(0, 100))
+            {
+                expected[i] = i;
+            } 
+          
+            Assert.AreEqual(expected, l3);
+
+            Assert.AreEqual(l2, l3 - l1);
+            Assert.AreEqual(l1, l3 - l2);
         }
 
         [Test]

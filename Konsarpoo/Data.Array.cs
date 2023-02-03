@@ -46,10 +46,10 @@ namespace Konsarpoo.Collections
 
             if (m_root == null)
             {
-                var maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+                var maxSizeOfArray = m_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : m_maxSizeOfArray;
 
                 //common case
-                var storeNode = new StoreNode(maxSizeOfArray, size);
+                var storeNode = new StoreNode(m_pool, maxSizeOfArray, size);
 
                 int startIndex = 0;
 
@@ -72,7 +72,7 @@ namespace Konsarpoo.Collections
                     INode node2;
                     if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
                     {
-                        m_root = new LinkNode(node1.Level + 1, s_maxSizeOfArray, node1,  node2);
+                        m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesPool, node2);
                     }
                 }
 
@@ -91,7 +91,7 @@ namespace Konsarpoo.Collections
                     INode node2;
                     if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
                     {
-                        m_root = new LinkNode(node1.Level + 1, s_maxSizeOfArray, node1,  node2);
+                        m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesPool, node2);
                     }
                 }
             }

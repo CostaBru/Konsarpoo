@@ -42,83 +42,47 @@ namespace Konsarpoo.Collections.Tests
 
             public bool CleanArrayReturn => true;
         }
-
+        
+       
         [Test]
-        [RequiresThread(ApartmentState.MTA)]
-        public void TestCustomAllocatorFail()
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
-            var ints = new Data<int>();
-            
-            ints.Add(1);
-
-            Assert.Throws<InvalidOperationException>(() => Data<int>.SetArrayPool(new GcArrayAllocator<int>()));
-            Assert.Throws<InvalidOperationException>(() => Data<int>.SetNodesArrayPool(new GcArrayAllocator<Data<int>.INode>()));
-            Assert.Throws<InvalidOperationException>(() => Data<int>.SetMaxSizeOfArrayBucket(16));
-        }
-
-        [Test]
-        [RequiresThread(ApartmentState.MTA)]
         public void TestCustomAllocator()
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-        
-            Data<int>.SetArrayPool(new GcArrayAllocator<int>());
-            Data<int>.SetNodesArrayPool(new GcArrayAllocator<Data<int>.INode>());
-            Data<int>.SetMaxSizeOfArrayBucket(16);
+            var poolSetup = (new GcArrayAllocator<int>(), new GcArrayAllocator<Data<int>.INode>());
 
-            try
+            var l1 = new Data<int>(0, 16, poolSetup);
+            l1.AddRange(Enumerable.Range(0, 50));
+
+            var l2 = new Data<int>(0, 16, poolSetup);
+            l2.AddRange(Enumerable.Range(50, 50));
+
+            var l3 = l1 + l2;
+
+            var expected = new Data<int>(Enumerable.Range(0, 100));
+
+            var enumerator = expected.GetEnumerator();
+            var enumerator1 = l3.GetEnumerator();
+
+            while (enumerator.MoveNext())
             {
-                {
-                    var l1 = new Data<int>(0);
-                    l1.AddRange(Enumerable.Range(0, 50));
+                enumerator1.MoveNext();
 
-                    var l2 = new Data<int>(0);
-                    l2.AddRange(Enumerable.Range(50, 50));
-
-                    var l3 = l1 + l2;
-
-                    var expected = new Data<int>(Enumerable.Range(0, 100));
-
-                    var enumerator = expected.GetEnumerator();
-                    var enumerator1 = l3.GetEnumerator();
-
-                    while (enumerator.MoveNext())
-                    {
-                        enumerator1.MoveNext();
-
-                        Assert.AreEqual(enumerator.Current, enumerator1.Current);
-                    }
-
-                    enumerator = expected.GetEnumerator();
-                    enumerator1 = l3.GetEnumerator();
-
-                    while (enumerator1.MoveNext())
-                    {
-                        Assert.True(enumerator.MoveNext());
-
-                        Assert.AreEqual(enumerator.Current, enumerator1.Current);
-                    }
-
-                    Assert.AreEqual(expected, l3);
-
-                    Assert.AreEqual(l2, l3 - l1);
-                    Assert.AreEqual(l1, l3 - l2);
-                }
-                
+                Assert.AreEqual(enumerator.Current, enumerator1.Current);
             }
-            finally
+
+            enumerator = expected.GetEnumerator();
+            enumerator1 = l3.GetEnumerator();
+
+            while (enumerator1.MoveNext())
             {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                
-                Data<int>.SetArrayPool(null);
-                Data<int>.SetNodesArrayPool(null);
-                Data<int>.SetMaxSizeOfArrayBucket(-1);
+                Assert.True(enumerator.MoveNext());
+
+                Assert.AreEqual(enumerator.Current, enumerator1.Current);
             }
+
+            Assert.AreEqual(expected, l3);
+
+            Assert.AreEqual(l2, l3 - l1);
+            Assert.AreEqual(l1, l3 - l2);
         }
 
         [Test]

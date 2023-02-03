@@ -7,20 +7,18 @@ namespace Konsarpoo.Collections
     public partial class  Map<TKey, TValue>
     {
         [Serializable]
-        public struct Entry
+        public struct KeyEntry
         {
-            public Entry(int hashCode, int next, TKey key, int value)
+            public KeyEntry(int hashCode, int next, TKey key)
             {
                 HashCode = hashCode;
                 Next = next;
                 Key = key;
-                ValueRef = value;
             }
 
             internal int HashCode;
             internal int Next;
             internal TKey Key;
-            internal int ValueRef;
         }
 
         /// <inheritdoc />
@@ -60,9 +58,11 @@ namespace Konsarpoo.Collections
 
                 while (m_index < m_dictionary.m_count)
                 {
-                    if (m_dictionary.m_entries[m_index].HashCode >= 0)
+                    var entry = m_dictionary.m_entries[m_index];
+                    
+                    if (entry.Key.HashCode >= 0)
                     {
-                        m_current = new KeyValuePair<TKey, TValue>(m_dictionary.m_entries[m_index].Key, m_dictionary.m_entryValues[m_dictionary.m_entries[m_index].ValueRef]);
+                        m_current = new KeyValuePair<TKey, TValue>(entry.Key.Key, entry.Value);
                         m_index++;
                         return true;
                     }
@@ -110,7 +110,6 @@ namespace Konsarpoo.Collections
         {
             private readonly Map<TKey, TValue> m_dictionary;
             private readonly Entry[] m_entries;
-            private readonly TValue[] m_values;
             private readonly ushort m_version;
             private int m_index;
             private KeyValuePair<TKey, TValue> m_current;
@@ -118,7 +117,6 @@ namespace Konsarpoo.Collections
             internal ArrayEnumerator(Map<TKey, TValue> dictionary)
             {
                 m_entries = ((Data<Entry>.StoreNode) dictionary.m_entries.m_root).m_items;
-                m_values = ((Data<TValue>.StoreNode) dictionary.m_entryValues.m_root).m_items;
                 m_dictionary = dictionary;
                 m_version = dictionary.m_version;
                 m_index = 0;
@@ -145,9 +143,11 @@ namespace Konsarpoo.Collections
 
                 while (m_index < m_dictionary.m_count)
                 {
-                    if (m_entries[m_index].HashCode >= 0)
+                    var entry = m_entries[m_index];
+                    
+                    if (entry.Key.HashCode >= 0)
                     {
-                        m_current = new KeyValuePair<TKey, TValue>(m_entries[m_index].Key, m_values[m_entries[m_index].ValueRef]);
+                        m_current = new KeyValuePair<TKey, TValue>(entry.Key.Key, entry.Value);
                         m_index++;
                         return true;
                     }
@@ -193,7 +193,7 @@ namespace Konsarpoo.Collections
 
         /// <inheritdoc />
         [Serializable]
-        public sealed class KeyCollection : ICollection<TKey>, IReadOnlyCollection<TKey>
+        public sealed class KeyCollection : ICollection<TKey>, IReadOnlyCollection<TKey>, IEnumerable<TKey>
         {
             private readonly Map<TKey, TValue> m_dictionary;
 
@@ -227,12 +227,14 @@ namespace Konsarpoo.Collections
                     throw new ArgumentException();
                 }
                 int count = m_dictionary.m_count;
-                IList<Entry> entries = m_dictionary.m_entries;
+                var entries = m_dictionary.m_entries;
                 for (int i = 0; i < count; i++)
                 {
-                    if (entries[i].HashCode >= 0)
+                    var entry = entries[i];
+                    
+                    if (entry.Key.HashCode >= 0)
                     {
-                        array[index++] = entries[i].Key;
+                        array[index++] = entry.Key.Key;
                     }
                 }
             }
@@ -261,7 +263,7 @@ namespace Konsarpoo.Collections
                 throw new NotSupportedException();
             }
 
-            IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
+            public IEnumerator<TKey> GetEnumerator()
             {
                 if (m_dictionary.m_entries?.m_root is Data<Entry>.StoreNode)
                 {
@@ -319,9 +321,10 @@ namespace Konsarpoo.Collections
 
                     while (m_index < m_dictionary.m_count)
                     {
-                        if (m_dictionary.m_entries[m_index].HashCode >= 0)
+                        var entry = m_dictionary.m_entries[m_index];
+                        if (entry.Key.HashCode >= 0)
                         {
-                            m_currentKey = m_dictionary.m_entries[m_index].Key;
+                            m_currentKey = entry.Key.Key;
                             m_index++;
                             return true;
                         }
@@ -403,9 +406,9 @@ namespace Konsarpoo.Collections
 
                     while (m_index < m_dictionary.m_count)
                     {
-                        if (m_entries[m_index].HashCode >= 0)
+                        if (m_entries[m_index].Key.HashCode >= 0)
                         {
-                            m_currentKey = m_entries[m_index].Key;
+                            m_currentKey = m_entries[m_index].Key.Key;
                             m_index++;
                             return true;
                         }
@@ -481,12 +484,13 @@ namespace Konsarpoo.Collections
                 }
                 int count = m_dictionary.m_count;
                 IList<Entry> entries = m_dictionary.m_entries;
-                IList<TValue> entryValues = m_dictionary.m_entryValues;
                 for (int i = 0; i < count; i++)
                 {
-                    if (entries[i].HashCode >= 0)
+                    var entry = entries[i];
+                    
+                    if (entry.Key.HashCode >= 0)
                     {
-                        array[index++] = entryValues[entries[i].ValueRef];
+                        array[index++] = entry.Value;
                     }
                 }
             }
@@ -517,7 +521,7 @@ namespace Konsarpoo.Collections
 
             IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator()
             {
-                if (m_dictionary.m_entries?.m_root?.Storage != null && m_dictionary.m_entryValues?.m_root?.Storage != null)
+                if (m_dictionary.m_entries?.m_root?.Storage != null)
                 {
                     return new ArrayEnumerator(m_dictionary);
                 }
@@ -573,9 +577,11 @@ namespace Konsarpoo.Collections
 
                     while (m_index < m_dictionary.m_count)
                     {
-                        if (m_dictionary.m_entries[m_index].HashCode >= 0)
+                        var dictionaryEntry = m_dictionary.m_entries[m_index];
+                        
+                        if (dictionaryEntry.Key.HashCode >= 0)
                         {
-                            m_currentValue = m_dictionary.m_entryValues[m_dictionary.m_entries[m_index].ValueRef];
+                            m_currentValue = dictionaryEntry.Value;
                             m_index++;
                             return true;
                         }
@@ -626,7 +632,6 @@ namespace Konsarpoo.Collections
                 private readonly ushort m_version;
                 private int m_index;
                 private TValue m_currentValue;
-                private readonly TValue[] m_values;
 
                 /// <inheritdoc />
                 public TValue Current => m_currentValue;
@@ -644,7 +649,6 @@ namespace Konsarpoo.Collections
                 internal ArrayEnumerator(Map<TKey, TValue> dictionary)
                 {
                     m_entries = ((Data<Entry>.StoreNode)dictionary.m_entries.m_root).m_items;
-                    m_values = ((Data<TValue>.StoreNode)dictionary.m_entryValues.m_root).m_items;
                     m_dictionary = dictionary;
                     m_version = dictionary.m_version;
                     m_index = 0;
@@ -658,9 +662,10 @@ namespace Konsarpoo.Collections
 
                     while (m_index < m_dictionary.m_count)
                     {
-                        if (m_entries[m_index].HashCode >= 0)
+                        var entry = m_entries[m_index];
+                        if (entry.Key.HashCode >= 0)
                         {
-                            m_currentValue = m_values[m_entries[m_index].ValueRef];
+                            m_currentValue = entry.Value;
                             m_index++;
                             return true;
                         }

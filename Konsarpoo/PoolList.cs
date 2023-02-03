@@ -15,7 +15,15 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(int maxCapacity, int capacity) : base(maxCapacity, capacity)
+        public PoolList(int maxCapacity, int capacity) : base(new DefaultMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
+        {
+        }
+        
+        /// <summary>
+        /// Default constructor.
+        /// </summary>
+        /// <param name="capacity"></param>
+        public PoolList(IArrayPool<T> pool, int maxCapacity, int capacity) : base(pool, maxCapacity, capacity)
         {
         }
 

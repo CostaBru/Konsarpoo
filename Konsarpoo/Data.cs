@@ -40,13 +40,20 @@ namespace Konsarpoo.Collections
         /// </summary>
         public static readonly T Default = default;
 
-        private static volatile int s_maxSizeOfArray = ArrayPoolGlobalSetup.MaxSizeOfArray;
+        private static volatile int s_maxSizeOfArray = -1;
         
         private static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
         
         private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
-
-        internal static volatile int s_currentThreadDataInstanceNum;
+        private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
+        private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
+        
+        [NonSerialized]
+        private readonly IArrayPool<T> m_pool = s_pool;
+        [NonSerialized]
+        private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
+        
+        private readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
 
         /// <summary>
         /// Tree root.
@@ -70,13 +77,6 @@ namespace Konsarpoo.Collections
         /// <param name="val">1024 * 1024 is max and 64 is min.</param>
         public static void SetMaxSizeOfArrayBucket(int val)
         {
-            var instanceNum = s_currentThreadDataInstanceNum;
-            
-            if (instanceNum > 0)
-            {
-                throw new InvalidOperationException($"Cannot setup a max size of array bucket because there is\\are {instanceNum} instances in use.");
-            }
-
             if (val < 0)
             {
                 s_maxSizeOfArray = ArrayPoolGlobalSetup.MaxSizeOfArray;
@@ -103,16 +103,7 @@ namespace Konsarpoo.Collections
         /// <exception cref="ArgumentNullException"></exception>
         public static void SetArrayPool([CanBeNull] IArrayPool<T> pool)
         {
-            var instanceNum = s_currentThreadDataInstanceNum;
-            
-            if (instanceNum > 0)
-            {
-                throw new InvalidOperationException($"Cannot setup a thread pool because there is\\are {instanceNum} instances in use.");
-            }
-            
-            s_itemsArrayPool = pool ?? new DefaultMixedAllocator<T>();
-
-            PoolListBase<T>.ArrayPool = s_itemsArrayPool;
+            s_pool = pool ?? new DefaultMixedAllocator<T>();
         }
         
         /// <summary>
@@ -122,42 +113,48 @@ namespace Konsarpoo.Collections
         /// <exception cref="ArgumentNullException"></exception>
         public static void SetNodesArrayPool([CanBeNull] IArrayPool<INode> pool)
         {
-            var instanceNum = s_currentThreadDataInstanceNum;
-            
-            if (instanceNum > 0)
-            {
-                throw new InvalidOperationException($"Cannot setup a nodes thread pool because there is\\are {instanceNum} instances in use.");
-            }
-            
-            LinkNode.NodesArrayPool = pool ?? new DefaultMixedAllocator<INode>();
-            
-            PoolListBase<INode>.ArrayPool = LinkNode.NodesArrayPool;
+            s_nodesPool = pool ?? new DefaultMixedAllocator<INode>();
         }
         
         /// <summary> Default Data&lt;T&gt; constructor.</summary>
         public Data()
         {
-            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
+        }
+        
+        /// <summary>
+        /// Data class constructor that allows setup default capacity.
+        /// </summary>
+        /// <param name="capacity"></param>
+        public Data(int capacity) : this(capacity, s_maxSizeOfArray, (null, null))
+        {
         }
       
         /// <summary>
         /// Data class constructor that allows setup default capacity, instance max size of sub array node and pool instances.
         /// </summary>
         /// <param name="capacity">Default capacity.</param>
+        /// <param name="maxSizeOfArray">Max size of sub array node</param>
+        /// <param name="poolSetup">Pool setup.</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity)
+        public Data(int capacity, int maxSizeOfArray, (IArrayPool<T> dataPool, IArrayPool<INode> nodesPool) poolSetup)
         {
             if (capacity < 0)
             {
                 throw new ArgumentOutOfRangeException();
             }
-
-            var maxSizeOfArray = s_maxSizeOfArray;
-            var initialCapacity = 1 << (int)Math.Log(capacity > maxSizeOfArray ? maxSizeOfArray : capacity, 2.0);
-
-            m_root = new StoreNode(maxSizeOfArray, initialCapacity);
             
-            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
+            m_pool = poolSetup.dataPool ?? s_pool;
+            m_nodesPool = poolSetup.nodesPool ?? s_nodesPool;
+
+            var defaultArraySize = s_maxSizeOfArray <= 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+            
+            m_maxSizeOfArray = maxSizeOfArray <= 0
+                ? defaultArraySize
+                : Math.Min(defaultArraySize, Math.Max(4, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2))));
+            
+            var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
+
+            m_root = new StoreNode(m_pool, m_maxSizeOfArray, initialCapacity);
         }
       
         /// <summary>
@@ -173,6 +170,9 @@ namespace Konsarpoo.Collections
                     throw new ArgumentNullException(nameof(enumerable));
                 
                 case Data<T> list:
+                    m_maxSizeOfArray = list.m_maxSizeOfArray;
+                    m_pool = list.m_pool;
+                    m_nodesPool = list.m_nodesPool;
                     CreateFromList(list);
                     break;
                 
@@ -180,8 +180,6 @@ namespace Konsarpoo.Collections
                     AddRange(enumerable);
                     break;
             }
-            
-            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
         }
 
         /// <summary>
@@ -196,9 +194,11 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(source));
             }
             
-            CreateFromList(source);
+            m_maxSizeOfArray = source.m_maxSizeOfArray;
+            m_pool = source.m_pool;
+            m_nodesPool = source.m_nodesPool;
             
-            Interlocked.Increment(ref s_currentThreadDataInstanceNum);
+            CreateFromList(source);
         }
 
         /// <summary>
@@ -207,8 +207,6 @@ namespace Konsarpoo.Collections
         ~Data()
         {
             Clear();
-            
-            FreeInstance();
         }
 
         /// <summary>
@@ -219,20 +217,8 @@ namespace Konsarpoo.Collections
             Clear();
 
             GC.SuppressFinalize(this);
-            
-            FreeInstance();
         }
-
-        private static void FreeInstance()
-        {
-            Interlocked.Decrement(ref s_currentThreadDataInstanceNum);
-
-            if (s_currentThreadDataInstanceNum < 0)
-            {
-                Interlocked.Exchange(ref s_currentThreadDataInstanceNum, 0);
-            }
-        }
-
+      
         /// <summary>
         /// Returns the internal tree root. 
         /// </summary>
@@ -699,13 +685,13 @@ namespace Konsarpoo.Collections
 
         private void AddSlow(T item)
         {
-            var maxSizeOfArray = s_maxSizeOfArray;
+            var maxSizeOfArray = m_maxSizeOfArray;
             
             var root = m_root;
             
             if (root == null)
             {
-                var storeNode = new StoreNode(maxSizeOfArray, 2);
+                var storeNode = new StoreNode(m_pool, maxSizeOfArray, 2);
 
                 storeNode.m_items[0] = item;
 
@@ -722,7 +708,7 @@ namespace Konsarpoo.Collections
             INode node1 = root;
             if (!node1.Add(ref item, out var node2))
             {
-                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, node2);
+                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesPool, node2);
             }
 
             unchecked { ++m_version; }
