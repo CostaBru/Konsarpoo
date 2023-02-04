@@ -70,6 +70,12 @@ namespace Konsarpoo.Collections
         /// Current version of container.
         /// </summary>
         protected internal ushort m_version;
+
+        
+        /// <summary>
+        /// Current version of container.
+        /// </summary>
+        public int Version => m_version;
       
         /// <summary>
         /// Sets up global T maximum size of sub array.

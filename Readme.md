@@ -11,6 +11,7 @@ List of generic collections and APIs supported:
 - ``Set``
 - ``Stack``
 - ``Queue``
+- ``Lfu Cache``
 
 Some extras built in:
 - BitArr
@@ -89,6 +90,12 @@ The ``Konsarpoo.Collection.Data`` class supports ``Stack`` and ``Queue`` API wit
 ### BITARR
 
 It is a compact array of bit values, which are represented as Booleans. It uses ``Data<int>`` as internal storage.
+
+### LFUCACHE
+
+A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. 
+
+https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
 
 # Performance
 

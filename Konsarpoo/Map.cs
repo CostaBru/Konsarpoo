@@ -51,6 +51,11 @@ namespace Konsarpoo.Collections
         private int m_freeList;
         
         private ushort m_version;
+
+        /// <summary>
+        /// Current version of container.
+        /// </summary>
+        public int Version => m_version;
         
         [NonSerialized]
         private static TValue s_nullRef;

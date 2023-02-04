@@ -29,6 +29,12 @@ namespace Konsarpoo.Collections
         private int m_lastIndex;
         private int m_freeList;
         private ushort m_version;
+
+        /// <summary>
+        /// Current version of container.
+        /// </summary>
+        public int Version => m_version;
+        
         private int m_count;
 
         /// <summary>Initializes a new instance of the Set class that is empty and uses the default equality comparer for the set type.</summary>
