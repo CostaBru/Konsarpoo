@@ -52,7 +52,7 @@ public class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Access cached item using O(1).
+    /// Access cached item.
     /// </summary>
     /// <returns></returns>
     public bool TryGetValue([NotNull] TKey key, out TValue value)
@@ -191,7 +191,7 @@ public class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Adds or updates cache item using O(1).
+    /// Adds or updates cache item.
     /// </summary>
     /// <param name="key"></param>
     /// <param name="value"></param>
@@ -221,7 +221,7 @@ public class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Removes cache item using O(1).
+    /// Removes cache item.
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
@@ -256,14 +256,11 @@ public class LfuCache<TKey, TValue> :
     {
         throw new NotSupportedException();
     }
-    
+
     /// <inheritdoc />
     public void Clear()
     {
-        while (Count > 0)
-        {
-            RemoveLfuItems();
-        }
+        RemoveLfuItems(Count);
     }
 
     /// <inheritdoc />
@@ -293,22 +290,56 @@ public class LfuCache<TKey, TValue> :
     bool ICollection<TKey>.IsReadOnly => false;
 
     /// <summary>
-    /// Removes all least frequently used items from cache using O(1).
+    /// Removes all least frequently used items from cache.
     /// </summary>
-    public void RemoveLfuItems()
+    public int RemoveLfuItems(int? count = null)
     {
         if (m_map.Count == 0)
         {
-            return;
+            return 0;
         }
 
-        var leastFreqUsedItemsNode = m_root.NextNode;
-
-        var keys = leastFreqUsedItemsNode.Keys.ToArray();
-        
-        foreach (var key in keys)
+        if (count.HasValue)
         {
-            RemoveKey(key);
+            var toRemove = Math.Min(m_map.Count, count.Value);
+
+            var removedCount = toRemove;
+            
+            while (toRemove > 0)
+            {
+                var leastFreqUsedItemsNode = m_root.NextNode;
+
+                var keys = leastFreqUsedItemsNode.Keys.ToArray();
+
+                foreach (var key in keys)
+                {
+                    RemoveKey(key);
+                    toRemove--;
+                    if (toRemove <= 0)
+                    {
+                        break;
+                    }
+                }
+            }
+            
+            return removedCount;
+        }
+        else
+        {
+            var leastFreqUsedItemsNode = m_root.NextNode;
+
+            var keys = leastFreqUsedItemsNode.Keys.ToArray();
+
+            int removedCount = 0;
+            foreach (var key in keys)
+            {
+                if (RemoveKey(key))
+                {
+                    removedCount++;
+                }
+            }
+
+            return removedCount;
         }
     }
 

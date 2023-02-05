@@ -47,11 +47,9 @@ namespace Konsarpoo.Collections
         private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
-        
-        [NonSerialized]
-        private readonly IArrayPool<T> m_pool = s_pool;
-        [NonSerialized]
-        private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
+
+        [NonSerialized] private readonly IArrayPool<T> m_pool = s_pool;
+        [NonSerialized] private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
         
         private readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
 
@@ -157,10 +155,13 @@ namespace Konsarpoo.Collections
             m_maxSizeOfArray = maxSizeOfArray <= 0
                 ? defaultArraySize
                 : Math.Min(defaultArraySize, Math.Max(4, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2))));
-            
-            var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
 
-            m_root = new StoreNode(m_pool, m_maxSizeOfArray, initialCapacity);
+            if (capacity > 0)
+            {
+                var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
+
+                m_root = new StoreNode(m_pool, m_maxSizeOfArray, initialCapacity);
+            }
         }
       
         /// <summary>
@@ -437,7 +438,7 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Insert 
                 if (node.m_items.Length == 0)
                 {
-                    node.m_items = s_itemsArrayPool.Rent(2);
+                    node.m_items = m_pool.Rent(2);
                 }
                 else  if (node.m_size < node.m_maxCapacity - 1)
                 {
@@ -445,14 +446,14 @@ namespace Konsarpoo.Collections
                     {
                         int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
 
-                        T[] vals = s_itemsArrayPool.Rent(newCapacity);
+                        T[] vals = m_pool.Rent(newCapacity);
 
                         if (node.m_size > 0)
                         {
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        s_itemsArrayPool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+                        m_pool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                         node.m_items = vals;
                     }
@@ -642,6 +643,8 @@ namespace Konsarpoo.Collections
             Add(item);
         }
 
+        private Action<T, StoreNode, Data<T>> m_addAction;
+
         /// <summary>
         /// List API. Adds an object to the end of the Data&lt;T&gt;.
         /// </summary>
@@ -652,44 +655,48 @@ namespace Konsarpoo.Collections
             if (m_root is StoreNode node)
             {
                 //inlined method StoreNode.Add 
-                if (node.m_size < node.m_maxCapacity)
+                if (node.m_items.Length == 0)
                 {
-                    if (node.m_items.Length == 0)
-                    {
-                        var items = s_itemsArrayPool.Rent(2);
+                    var items = m_pool.Rent(2);
 
-                        node.m_items = items;
-                    }
-                    else if (node.m_size == node.m_items.Length)
-                    {
-                        int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
-                            
-                        T[] vals = s_itemsArrayPool.Rent(newCapacity);
-
-                        if (node.m_size > 0)
-                        {
-                            Array.Copy(node.m_items, 0, vals, 0, node.m_size);
-                        }
-
-                        s_itemsArrayPool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
-
-                        node.m_items = vals;
-                    }
-
-                    node.m_items[node.m_size] = item;
-
-                    node.m_size++;
-
-                    unchecked { ++m_version; }
-                    ++m_count;
-                    return;
+                    node.m_items = items;
                 }
+                else if (node.m_size == node.m_items.Length)
+                {
+                    if (node.m_size == node.m_maxCapacity)
+                    {
+                        AddSlow(ref item);
+                        return;
+                    }
+
+                    int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
+
+                    T[] vals = m_pool.Rent(newCapacity);
+
+                    if (node.m_size > 0)
+                    {
+                        Array.Copy(node.m_items, 0, vals, 0, node.m_size);
+                    }
+
+                    m_pool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+
+                    node.m_items = vals;
+                }
+
+                node.m_items[node.m_size] = item;
+
+                node.m_size++;
+
+                unchecked { ++m_version; }
+
+                ++m_count;
+                return;
             }
 
-            AddSlow(item);
+            AddSlow(ref item);
         }
 
-        private void AddSlow(T item)
+        private void AddSlow(ref T item)
         {
             var maxSizeOfArray = m_maxSizeOfArray;
             

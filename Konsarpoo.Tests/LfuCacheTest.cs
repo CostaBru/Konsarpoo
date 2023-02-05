@@ -58,9 +58,17 @@ public class LfuCacheTest
         
         Assert.AreEqual(0, lfuCache.Count);
         
-        lfuCache[1] = 2;
+        lfuCache[1] = 1;
         lfuCache[2] = 2;
         lfuCache[3] = 3;
+
+        var i = lfuCache[1]; i = lfuCache[1];
+        var i2 = lfuCache[2];
+
+        lfuCache.RemoveLfuItems(2);
+        
+        Assert.AreEqual(1, lfuCache.Count);
+        Assert.AreEqual(1, lfuCache[1]);
         
         lfuCache.Dispose();
         Assert.AreEqual(0, lfuCache.Count);

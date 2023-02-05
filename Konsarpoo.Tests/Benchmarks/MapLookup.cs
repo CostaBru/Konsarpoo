@@ -2,16 +2,26 @@
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
 
 namespace Konsarpoo.Collections.Tests.Benchmarks
 {
+    [Config(typeof(Config))]
     [Orderer(SummaryOrderPolicy.FastestToSlowest)]
     [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
     public class MapLookup
     {
         private static Map<int, int>[] m_map;
         private static Dictionary<int, int>[] m_dict;
+        
+        private class Config : ManualConfig
+        {
+            public Config()
+            {
+                AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(10));
+            }
+        }
 
         [GlobalSetup]
         public void Setup()
