@@ -24,7 +24,20 @@ namespace Konsarpoo.Collections
             /// </summary>
             /// <param name="index"></param>
             ref T this[int index] { get; }
-            
+
+            /// <summary>
+            /// Gets item by zero based index.
+            /// </summary>
+            /// <param name="index"></param>
+            T Get(int index);
+
+            /// <summary>
+            /// Sets item by zero based index.
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="value"></param>
+            void Set(int index, T value);
+
             /// <summary>
             /// Returns internal storage array if node is store node otherwise null.
             /// </summary>
@@ -76,7 +89,7 @@ namespace Konsarpoo.Collections
         /// Tree Leaf/link node class
         /// </summary>
         [DebuggerDisplay("Link. Nodes: {m_nodes.Count}, Level: {Level}")]
-        private sealed class LinkNode : INode
+        protected sealed class LinkNode : INode
         {
             private const int c_intermediateCapacity = 1024;
             
@@ -104,6 +117,16 @@ namespace Konsarpoo.Collections
 
                     return ref m_nodes.m_items[current][next];
                 }
+            }
+
+            public T Get(int index)
+            {
+                return this[index];
+            }
+
+            public void Set(int index, T value)
+            {
+                this[index] = value;
             }
 
             public T[] Storage => null;

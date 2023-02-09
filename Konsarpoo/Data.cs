@@ -43,15 +43,15 @@ namespace Konsarpoo.Collections
         private static volatile int s_maxSizeOfArray = -1;
         
         private static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
-        
-        private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
+
+        protected static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
 
-        [NonSerialized] private readonly IArrayPool<T> m_pool = s_pool;
-        [NonSerialized] private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
-        
-        private readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+        [NonSerialized] protected readonly IArrayPool<T> m_pool = s_pool;
+        [NonSerialized] protected readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
+
+        protected readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
 
         /// <summary>
         /// Tree root.

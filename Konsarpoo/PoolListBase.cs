@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections
         public static readonly T Default = default(T);
         
         [NotNull] 
-        protected readonly IArrayPool<T> m_arrayPool;
+        public readonly IArrayPool<T> m_arrayPool;
 
         internal readonly int m_maxCapacity;
         
@@ -41,6 +41,17 @@ namespace Konsarpoo.Collections
                 return ref m_items[index];
             }
         }
+        
+        public T Get(int index)
+        {
+            return this[index];
+        }
+
+        public void Set(int index, T value)
+        {
+            this[index] = value;
+        }
+
 
         public PoolListBase(IArrayPool<T> pool, int maxCapacity, int capacity)
         {
@@ -48,18 +59,25 @@ namespace Konsarpoo.Collections
             
             m_arrayPool = pool;
 
-            m_items = m_arrayPool.Rent(Math.Min(capacity, maxCapacity));
+            if (capacity > 0)
+            {
+                m_items = m_arrayPool.Rent(Math.Min(capacity, maxCapacity));
+            }
         }
 
         public PoolListBase(PoolListBase<T> poolList)
         {
             m_arrayPool = poolList.m_arrayPool;
 
-            var newArr = m_arrayPool.Rent(poolList.m_items.Length);
+            if (poolList.m_items.Length > 0)
+            {
+                var newArr = m_arrayPool.Rent(poolList.m_items.Length);
 
-            Array.Copy(poolList.m_items, 0, newArr, 0, poolList.m_size);
+                Array.Copy(poolList.m_items, 0, newArr, 0, poolList.m_size);
 
-            m_items = newArr;
+                m_items = newArr;
+            }
+
             m_size = poolList.m_size;
             m_maxCapacity = poolList.m_maxCapacity;
         }
