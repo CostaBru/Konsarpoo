@@ -1738,6 +1738,16 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void VersionTest()
+        {
+            var ints = new Data<int>();
+            ints.Ensure(5);
+            var version = ints.Version;
+            ints.Ensure(5);
+            Assert.AreEqual(version, ints.Version);
+        }
+
+        [Test]
         public void ResizeTest()
         {
             var list = _.List(0);
