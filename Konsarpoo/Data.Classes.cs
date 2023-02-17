@@ -70,6 +70,15 @@ namespace Konsarpoo.Collections
             /// <param name="node"></param>
             /// <returns></returns>
             bool Ensure(ref int size, ref T defaultValue, out INode node);
+
+            /// <summary>
+            /// Tries to insert item into existing node. Returns true if node can fit new item. Returns false if lastItem is required to push into next index.
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="item"></param>
+            /// <param name="lastItem"></param>
+            /// <returns></returns>
+            bool TryInsert(int index, ref T item, out T lastItem);
         }
 
         /// <summary>
@@ -163,7 +172,37 @@ namespace Konsarpoo.Collections
                 node = this;
                 return true;
             }
-            
+
+            public bool TryInsert(int index, ref T item, out T lastItem)
+            {
+                var current = index >> m_stepBase;
+                var next = index - (current << m_stepBase);
+
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    throw new IndexOutOfRangeException(
+                        $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                }
+
+                lastItem = default;
+
+                for (int i = current; i < m_nodes.m_items.Length && i < m_nodes.m_size; i++)
+                {
+                    var node = m_nodes.m_items[i];
+                    
+                    if (node.TryInsert(next, ref item, out lastItem))
+                    {
+                        return true;
+                    }
+
+                    item = lastItem;
+                    
+                    next = 0;
+                }
+
+                return false;
+            }
+
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
                 if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
@@ -266,6 +305,50 @@ namespace Konsarpoo.Collections
                 AddItem(item);
                 node = this;
                 return true;
+            }
+            
+            public bool TryInsert(int index, ref T item, out T lastItem)
+            { 
+                if (m_size < m_maxCapacity - 1)
+                {
+                    if (m_size == m_items.Length)
+                    {
+                        int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
+
+                        T[] vals = m_arrayPool.Rent(newCapacity);
+
+                        if (m_size > 0)
+                        {
+                            Array.Copy(m_items, 0, vals, 0, m_size);
+                        }
+
+                        m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+
+                        m_items = vals;
+                    }
+
+                    if (index < m_size)
+                    {
+                        Array.Copy(m_items, index, m_items, index + 1, m_size - index);
+                    }
+
+                    m_items[index] = item;
+                    m_size += 1;
+
+                    lastItem = default;
+
+                    return true;
+                }
+                else
+                {
+                    lastItem = m_items[m_size - 1];
+
+                    Array.Copy(m_items, index, m_items, index + 1, m_size - index - 1);
+
+                    m_items[index] = item;
+
+                    return false;
+                }
             }
 
             public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)

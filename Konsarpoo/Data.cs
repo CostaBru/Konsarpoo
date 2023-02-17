@@ -489,16 +489,15 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                T current = item;
-
-                for (int i = index; i < m_count; ++i)
+                if (m_root.TryInsert(index, ref item, out var lastItem) == false)
                 {
-                    T toMove = ValueByRef(i);
-                    ValueByRef(i) = current;
-                    current = toMove;
+                    AddSlow(ref lastItem);
                 }
-
-                Add(current);
+                else
+                {
+                    m_count++;
+                    unchecked { ++m_version; }
+                }
             }
         }
 
