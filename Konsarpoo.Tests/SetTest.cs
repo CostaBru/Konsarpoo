@@ -42,6 +42,14 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestRemoveIfEmpty()
+        {
+            var set = new Set<int>();
+
+            Assert.False(set.Remove(0));
+        }
+
+        [Test]
         public void TestSmallDict()
         {
             var hashSet = new Map<int, int>();

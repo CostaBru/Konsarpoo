@@ -107,11 +107,8 @@ namespace Konsarpoo.Collections
         {
             m_comparer = dictionary.m_comparer;
 
-            if (dictionary.m_buckets != null)
-            {
-                m_buckets = new(dictionary.m_buckets);
-                m_entries = new(dictionary.m_entries);
-            }
+            m_buckets = new(dictionary.m_buckets);
+            m_entries = new(dictionary.m_entries);
 
             m_count = dictionary.m_count;
             m_freeCount = dictionary.m_freeCount;
@@ -596,6 +593,22 @@ namespace Konsarpoo.Collections
         }
 
         /// <summary>
+        /// Copies contents to Data.
+        /// </summary>
+        public IEnumerable<KeyValuePair<TKey, TValue>> ToData()
+        {
+            return this.ToData<KeyValuePair<TKey, TValue>>();
+        }
+
+        /// <summary>
+        /// Returns true if any item exits in map.
+        /// </summary>
+        public bool Any()
+        {
+            return this.Count > 0;
+        }
+
+        /// <summary>
         /// Removes the value with the specified key from the Map&lt;TKey,TValue&gt;.
         /// </summary>
         /// <param name="key"></param>
@@ -608,7 +621,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(key));
             }
             
-            if (m_buckets != null)
+            if (m_buckets.Count > 0)
             {
                 int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
                 

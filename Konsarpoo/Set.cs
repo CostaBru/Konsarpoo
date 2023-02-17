@@ -426,7 +426,7 @@ namespace Konsarpoo.Collections
         /// <exception cref="ArgumentNullException"></exception>
         public bool Remove(T item)
         {
-            if (m_buckets != null)
+            if (m_buckets.Count > 0)
             {
                 int hashCode = InternalGetHashCode(ref item);
                 int index1 = hashCode % m_buckets.Count;

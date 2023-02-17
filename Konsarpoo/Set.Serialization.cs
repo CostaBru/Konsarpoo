@@ -40,7 +40,7 @@ namespace Konsarpoo.Collections
             info.AddValue(CapacityName, m_buckets?.Count ?? 0);
             info.AddValue(VersionName, m_version);
 
-            if (m_buckets == null)
+            if (m_buckets.Count == 0)
             {
                 return;
             }

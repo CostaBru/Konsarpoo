@@ -23,6 +23,14 @@ namespace Konsarpoo.Collections.Tests
         {
             ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
+        
+        [Test]
+        public void TestRemoveIfEmpty()
+        {
+            var map = new Map<int,int>();
+
+            Assert.False(map.Remove(0));
+        }
 
         [Test]
         public void TestSmall()
