@@ -595,7 +595,7 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Copies contents to Data.
         /// </summary>
-        public IEnumerable<KeyValuePair<TKey, TValue>> ToData()
+        public Data<KeyValuePair<TKey, TValue>> ToData()
         {
             return this.ToData<KeyValuePair<TKey, TValue>>();
         }
