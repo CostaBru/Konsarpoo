@@ -11,13 +11,13 @@ List of generic collections and APIs supported:
 - ``Set``
 - ``Stack``
 - ``Queue``
-- ``Lfu Cache``
 
 Some extras built in:
 - BitArr
 - std::vector api
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
+- Lfu Cache
 
 Each collection (except ``Lfu Cache``) is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
@@ -65,8 +65,8 @@ The Map uses ``Data Array API`` to initialize or resize its storage to correct s
 ```csharp
 private void Initialize(int capacity)
 {
-     m_buckets.Ensure(prime);
-     m_entries.Ensure(prime);
+     m_buckets.Ensure(capacity);
+     m_entries.Ensure(capacity);
 
      m_freeList = -1;
  }
