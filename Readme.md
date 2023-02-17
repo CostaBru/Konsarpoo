@@ -21,6 +21,10 @@ Some extras built in:
 
 Each collection (except ``Lfu Cache``) is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
+Possible use cases:
+- Avoid allocating arrays in LOH
+- Manage the available memory by providing custom allocator
+
 ## Nuget
 
 Please use one of the following commands to install Konsarpoo.
