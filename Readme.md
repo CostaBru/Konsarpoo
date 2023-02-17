@@ -31,12 +31,12 @@ Please use one of the following commands to install Konsarpoo.
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 1.0.1
+PM> Install-Package Konsarpoo -Version 2.0.4
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 1.0.1
+> dotnet add package Konsarpoo --version 2.0.4
 ```
 
 ### DATA  

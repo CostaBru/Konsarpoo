@@ -37,7 +37,7 @@ namespace Konsarpoo.Collections
         /// <param name="defaultValue"></param>
         public void Ensure(int size, T defaultValue = default)
         {
-            if (m_count > size)
+            if (m_count >= size)
             {
                 return;
             }
