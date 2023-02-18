@@ -24,8 +24,6 @@ namespace Konsarpoo.Collections
                                              IAppender<KeyValuePair<TKey, TValue>>,
                                              ISerializable, 
                                              IDeserializationCallback,
-                                             IReadOnlyCollection<TKey>,
-                                             ICollection<TKey>,
                                              IDisposable
     {
         [NonSerialized]
@@ -590,22 +588,6 @@ namespace Konsarpoo.Collections
             }
             
             unchecked { ++m_version; }
-        }
-
-        /// <summary>
-        /// Copies contents to Data.
-        /// </summary>
-        public Data<KeyValuePair<TKey, TValue>> ToData()
-        {
-            return this.ToData<KeyValuePair<TKey, TValue>>();
-        }
-
-        /// <summary>
-        /// Returns true if any item exits in map.
-        /// </summary>
-        public bool Any()
-        {
-            return this.Count > 0;
         }
 
         /// <summary>
