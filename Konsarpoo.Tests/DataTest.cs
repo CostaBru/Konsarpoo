@@ -811,6 +811,28 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(-1, dataList.IndexOf(i));
             }
         }
+        
+        [Test]
+        public void TestRemoveCommonAllReverse()
+        {
+            var list = Enumerable.Range(0, 1000).ToList();
+
+            var dataList = list.ToData();
+
+            Assert.AreEqual(list.Count, dataList.Count);
+
+            var array = list.ToArray();
+
+            foreach (var i in array.Reverse())
+            {
+                dataList.Remove(i);
+            }
+
+            foreach (var i in array)
+            {
+                Assert.AreEqual(-1, dataList.IndexOf(i));
+            }
+        }
 
         [Test]
         public void TestRemoveHugeAll()

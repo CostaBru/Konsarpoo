@@ -78,7 +78,15 @@ namespace Konsarpoo.Collections
             /// <param name="item"></param>
             /// <param name="lastItem"></param>
             /// <returns></returns>
-            bool TryInsert(int index, ref T item, out T lastItem);
+            bool TryInsertAndPush(int index, ref T item, out T lastItem);
+
+            /// <summary>
+            /// Removes item at specified index. If node was full then newLastItem replaces the last item in the node
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="newLastValue"></param>
+            /// <returns>First item in the node.</returns>
+            T RemoveAtAndPop(int index, ref T newLastValue);
         }
 
         /// <summary>
@@ -97,7 +105,6 @@ namespace Konsarpoo.Collections
             private readonly int m_leafCapacity;
 
             public int Level => m_level;
-
             
             public ref T this[int index]
             {
@@ -173,7 +180,7 @@ namespace Konsarpoo.Collections
                 return true;
             }
 
-            public bool TryInsert(int index, ref T item, out T lastItem)
+            public bool TryInsertAndPush(int index, ref T item, out T lastItem)
             {
                 var current = index >> m_stepBase;
                 var next = index - (current << m_stepBase);
@@ -190,7 +197,7 @@ namespace Konsarpoo.Collections
                 {
                     var node = m_nodes.m_items[i];
                     
-                    if (node.TryInsert(next, ref item, out lastItem))
+                    if (node.TryInsertAndPush(next, ref item, out lastItem))
                     {
                         return true;
                     }
@@ -201,6 +208,48 @@ namespace Konsarpoo.Collections
                 }
 
                 return false;
+            }
+
+            public T RemoveAtAndPop(int index, ref T newLastValue)
+            {
+                var current = index >> m_stepBase;
+                var next = index - (current << m_stepBase);
+
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    throw new IndexOutOfRangeException(
+                        $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                }
+
+                T pushBack = default;
+                
+                for (int i = m_nodes.m_size - 1; i >= current; i--)
+                {
+                    var node = m_nodes.m_items[i];
+
+                    if (i != current)
+                    {
+                        pushBack = node.RemoveAtAndPop(0, ref newLastValue);
+                        
+                        if(node.Size == 0)
+                        {
+                            m_nodes.RemoveAt(i);
+                        }
+                    }
+                    else
+                    {
+                        pushBack = node.RemoveAtAndPop(next, ref newLastValue);
+                        
+                        if(node.Size == 0)
+                        {
+                            m_nodes.RemoveAt(i);
+                        }
+                    }
+                  
+                    newLastValue = pushBack;
+                }
+
+                return pushBack;
             }
 
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
@@ -307,7 +356,7 @@ namespace Konsarpoo.Collections
                 return true;
             }
             
-            public bool TryInsert(int index, ref T item, out T lastItem)
+            public bool TryInsertAndPush(int index, ref T item, out T lastItem)
             { 
                 if (m_size < m_maxCapacity - 1)
                 {
@@ -349,6 +398,22 @@ namespace Konsarpoo.Collections
 
                     return false;
                 }
+            }
+
+            public T RemoveAtAndPop(int index, ref T newLastValue)
+            {
+                var pushBackValue = this.m_items[index];
+
+                var wasFull = m_size == m_maxCapacity;
+                
+                RemoveAt(index);
+
+                if (wasFull)
+                {
+                    Add(newLastValue);
+                }
+
+                return pushBackValue;
             }
 
             public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)

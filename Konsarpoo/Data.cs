@@ -489,7 +489,7 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                if (m_root.TryInsert(index, ref item, out var lastItem) == false)
+                if (m_root.TryInsertAndPush(index, ref item, out var lastItem) == false)
                 {
                     AddSlow(ref lastItem);
                 }
@@ -1128,12 +1128,23 @@ namespace Konsarpoo.Collections
                 throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
             }
 
-            for (int i = index + 1; i < m_count; ++i)
-            {
-                ValueByRef(i - 1) = ValueByRef(i);
-            }
+            T newLastItem = default;
 
-            RemoveLast();
+            m_root.RemoveAtAndPop(index, ref newLastItem);
+            
+            if (m_root.Size == 0)
+            {
+                m_root = null;
+            }
+            
+            m_count--;
+            unchecked { ++m_version; }
+
+            if (m_count <= 0)
+            {
+                m_root = null;
+                m_count = 0;
+            }
         }
 
         object IList.this[int index]
