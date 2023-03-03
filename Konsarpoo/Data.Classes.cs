@@ -87,6 +87,13 @@ namespace Konsarpoo.Collections
             /// <param name="newLastValue"></param>
             /// <returns>First item in the node.</returns>
             T RemoveAtAndPop(int index, ref T newLastValue);
+
+            /// <summary>
+            /// Determines the index of a specific item in the Node.
+            /// </summary>
+            /// <param name="item"></param>
+            /// <param name="startIndex"></param>
+            int IndexOf(ref T item, int startIndex);
         }
 
         /// <summary>
@@ -252,6 +259,33 @@ namespace Konsarpoo.Collections
                 return pushBack;
             }
 
+            public int IndexOf(ref T item, int startIndex)
+            {
+                var current = startIndex >> m_stepBase;
+                var next = startIndex - (current << m_stepBase);
+                
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    return -1;
+                }
+
+                for (int i = current; i < m_nodes.m_size; i++)
+                {
+                    var node = m_nodes[i];
+
+                    var subIndex = node.IndexOf(ref item, next);
+
+                    if (subIndex >= 0)
+                    {
+                        return subIndex + (i << m_stepBase);
+                    }
+
+                    next = 0;
+                }
+
+                return -1;
+            }
+
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
                 if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
@@ -414,6 +448,11 @@ namespace Konsarpoo.Collections
                 }
 
                 return pushBackValue;
+            }
+
+            public int IndexOf(ref T item, int startIndex)
+            {
+                return Array.IndexOf(m_items, item, startIndex, m_size - startIndex);
             }
 
             public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)

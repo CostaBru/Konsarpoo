@@ -402,21 +402,7 @@ namespace Konsarpoo.Collections
         
         private int IndexOfSlow(T item, int startIndex)
         {
-            var comparer = EqualityComparer<T>.Default;
-
-            int num = 0;
-
-            for (int i = startIndex; i < m_count; i++)
-            {
-                if (comparer.Equals(ValueByRef(i), item))
-                {
-                    return num;
-                }
-
-                ++num;
-            }
-
-            return -1;
+            return m_root?.IndexOf(ref item, startIndex) ?? -1;
         }
 
         /// <summary>

@@ -324,7 +324,7 @@ namespace Konsarpoo.Collections.Tests
                 data.Add(i);
 
                 Assert.True(data.Contains(i));
-                Assert.AreEqual(i, data.IndexOf(i));
+                Assert.AreEqual(i, data.IndexOf(i), i);
             }
             
             var data1 = (IList)new Data<int>();
