@@ -705,6 +705,21 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestSort2()
+        {
+            Data<int> data = new Data<int>(0, 16);
+            
+            int j = 0;
+            for (int i = (1024 * 100) - 1; i >= 0; i--)
+            {
+                data.Add(i);
+                j++;
+            }
+            
+            data.Sort();
+        }
+
+        [Test]
         public void TestOp()
         {
             var l1 = new Data<int>(Enumerable.Range(0, 5));

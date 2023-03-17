@@ -132,7 +132,17 @@ namespace Konsarpoo.Collections
         public Data(int capacity) : this(capacity, s_maxSizeOfArray, (null, null))
         {
         }
-      
+
+        /// <summary>
+        /// Data class constructor that allows setup default capacity, instance max size of sub array node and pool instances.
+        /// </summary>
+        /// <param name="capacity">Default capacity.</param>
+        /// <param name="maxSizeOfArray">Max size of sub array node</param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public Data(int capacity, int maxSizeOfArray) : this(capacity, maxSizeOfArray, (null, null))
+        {
+        }
+
         /// <summary>
         /// Data class constructor that allows setup default capacity, instance max size of sub array node and pool instances.
         /// </summary>
@@ -154,7 +164,7 @@ namespace Konsarpoo.Collections
             
             m_maxSizeOfArray = maxSizeOfArray <= 0
                 ? defaultArraySize
-                : Math.Min(defaultArraySize, Math.Max(4, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2))));
+                : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
 
             if (capacity > 0)
             {

@@ -7,15 +7,31 @@ namespace Konsarpoo.Collections
     public partial class Data<T>
     {
         /// <summary>
-        /// Sorts the elements or a portion of the elements in the Data&lt;T&gt; using default IComparer&lt;T&gt; implementation. 
+        /// Sorts the elements in the Data&lt;T&gt; using default IComparer&lt;T&gt; implementation. 
         /// </summary>
         public void Sort()
         {
-            Sort(this);
+            if (m_count < 2)
+            {
+                return;
+            }
+
+            var rootStorage = m_root?.Storage;
+            
+            if (rootStorage != null)
+            {
+                Array.Sort(rootStorage, 0, m_count);
+
+                unchecked { m_version += 1; }
+                
+                return;
+            }
+           
+            SortSlow(this, Comparer<T>.Default.Compare);
         }
 
         /// <summary>
-        /// Sorts the elements or a portion of the elements in the Data&lt;T&gt; using the specified IComparer&lt;T&gt; implementation. 
+        /// Sorts the elements in the Data&lt;T&gt; using the specified IComparer&lt;T&gt; implementation. 
         /// </summary>
         public void Sort(IComparer<T> comparer)
         {
@@ -23,7 +39,7 @@ namespace Konsarpoo.Collections
         }
 
         /// <summary>
-        /// Sorts the elements or a portion of the elements in the Data&lt;T&gt; using the provided Comparison&lt;T&gt; delegate to compare data elements. 
+        /// Sorts the elements in the Data&lt;T&gt; using the provided Comparison&lt;T&gt; delegate to compare data elements. 
         /// </summary>
         public void Sort(Comparison<T> comparison)
         {
@@ -83,7 +99,7 @@ namespace Konsarpoo.Collections
             SortSlow(list, comparison);
         }
 
-        private static void SortSlow(Data<T> list, Comparison<T> comparison)
+        internal static void SortSlow(Data<T> list, Comparison<T> comparison)
         {
             SortSlowCore(list, comparison);
 
