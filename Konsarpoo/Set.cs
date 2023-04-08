@@ -856,6 +856,7 @@ namespace Konsarpoo.Collections
             return Prime.GetPrime(min);
         }
 
+        [Serializable]
         public struct Slot
         {
             internal int hashCode;

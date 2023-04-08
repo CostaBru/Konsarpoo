@@ -672,12 +672,16 @@ namespace Konsarpoo.Collections.Tests
         {
             var map = new Map<string, int>(StringComparer.OrdinalIgnoreCase);
 
-            map.Add("qwerty", 123);
-            map.Add("test", 421);
+           foreach (var i in Enumerable.Range(1, 1024))
+           {
+               map.Add(i.ToString(), i);
+           }
 
-            var clone = SerializeHelper.Clone<Map<string, int>>(map);
+            Map<string, int> clone1 = SerializeHelper.Clone<Map<string, int>>(map);
 
-            Assert.AreEqual(clone, map);
+            var b = clone1 == map;
+
+            Assert.AreEqual(clone1, map);
         }
 
 

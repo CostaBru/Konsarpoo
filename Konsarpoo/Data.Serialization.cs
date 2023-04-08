@@ -109,7 +109,6 @@ namespace Konsarpoo.Collections
         
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
         /// <param name="sender">The source of the deserialization event.</param>
-        /// <exception cref="T:System.Runtime.Serialization.SerializationException">The <see cref="T:System.Runtime.Serialization.SerializationInfo" /> object associated with the current <see cref="T:System.Collections.Generic.HashSet`1" /> object is invalid.</exception>
         public virtual void OnDeserialization(object sender)
         {
             if (m_siInfo == null)

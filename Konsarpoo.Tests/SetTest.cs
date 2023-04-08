@@ -391,10 +391,14 @@ namespace Konsarpoo.Collections.Tests
         {
             var set = new Set<string>(StringComparer.OrdinalIgnoreCase);
 
-            set.Add("qwerty");
-            set.Add("test");
+            foreach (var i in Enumerable.Range(0, 1024))
+            {
+                set.Add(i.ToString());
+            }
 
             var clone = SerializeHelper.Clone<Set<string>>(set);
+            
+            var b = clone == set;
 
             Assert.AreEqual(clone, set);
         }
