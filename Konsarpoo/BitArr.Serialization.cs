@@ -6,7 +6,7 @@ using System.Security.Permissions;
 namespace Konsarpoo.Collections
 {
     [Serializable]
-    [KnownType(typeof(bool[]))]
+    [KnownType(typeof(Data<int>))]
     public partial class BitArr : ISerializable, IDeserializationCallback
     {
         private const string CapacityName = "Capacity";
@@ -36,10 +36,7 @@ namespace Konsarpoo.Collections
             
             info.AddValue(CapacityName, Count);
             info.AddValue(VersionName, m_version);
-          
-            var array = new bool[m_length];
-            CopyTo(array, 0);
-            info.AddValue(ElementsName, array, typeof(bool[]));
+            info.AddValue(ElementsName, new Data<int>(m_array), typeof(Data<int>));
         }
         
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
@@ -47,25 +44,28 @@ namespace Konsarpoo.Collections
         /// <exception cref="T:System.Runtime.Serialization.SerializationException">The <see cref="T:System.Runtime.Serialization.SerializationInfo" /> object associated with the current <see cref="T:System.Collections.Generic.HashSet`1" /> object is invalid.</exception>
         public void OnDeserialization(object sender)
         {
-            if (m_siInfo == null)
+            var siInfo = m_siInfo;
+            
+            if (siInfo == null)
             {
                 return;
             }
 
-            int capacity = m_siInfo.GetInt32(CapacityName);
+            int capacity = siInfo.GetInt32(CapacityName);
 
             if (capacity != 0)
             {
-                bool[] objArray = (bool[])m_siInfo.GetValue(ElementsName, typeof(bool[]));
-                if (objArray == null)
+                var data = (Data<int>)siInfo.GetValue(ElementsName, typeof(Data<int>));
+                if (data == null)
                 {
                     throw new SerializationException("Cannot read BitArr values from serialization info.");
                 }
-                
-                CreateFromBoolArr(objArray);
+
+                m_array = data;
             }
-         
-            m_version = m_siInfo.GetInt32(VersionName);
+
+            m_version = siInfo.GetInt32(VersionName);
+            m_length = (uint)capacity;
             m_siInfo = null;
         }
     }

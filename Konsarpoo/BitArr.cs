@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.Serialization;
 using System.Threading;
 
 namespace Konsarpoo.Collections
@@ -28,7 +29,19 @@ namespace Konsarpoo.Collections
 
             return false;
         }
+        
+        public bool All(Func<bool, bool> predicate)
+        {
+            foreach (bool element in this)
+            {
+                if (!predicate(element))
+                {
+                    return false;
+                }
+            }
 
+            return true;
+        }
 
         /// <inheritdoc />
         public override bool Equals(object obj)
@@ -48,7 +61,7 @@ namespace Konsarpoo.Collections
                 return false;
             }
             
-            return EqualsList((BitArr) obj);
+            return EqualsList(((BitArr) obj));
         }
 
         /// <inheritdoc />
@@ -76,8 +89,6 @@ namespace Konsarpoo.Collections
 
         [NonSerialized]
         private uint m_length;
-
-        [NonSerialized] private object m_syncRoot;
         
         [NonSerialized]
         private int m_version;
@@ -105,7 +116,7 @@ namespace Konsarpoo.Collections
 
             var capacity = (int)GetArrayLength((uint) length, BitsPerInt32);
 
-            m_array = new Data<int>(capacity);
+            m_array = new Data<int>();
 
             int num = defaultValue ? -1 : 0;
 
@@ -198,8 +209,7 @@ namespace Konsarpoo.Collections
         {
             m_version++;
             m_length = 0;
-            m_array?.Dispose();
-            m_array = null;
+            m_array?.Clear();
         }
 
         /// <summary>Gets or sets the value of the bit at a specific position in the BitArr.</summary>
@@ -753,17 +763,7 @@ namespace Konsarpoo.Collections
         }
 
         /// <summary>Gets an object that can be used to synchronize access to the BitArr.</summary>
-        public object SyncRoot
-        {
-            get
-            {
-                if (m_syncRoot == null)
-                {
-                    Interlocked.CompareExchange<object>(ref m_syncRoot, new object(), (object) null);
-                }
-                return m_syncRoot;
-            }
-        }
+        public object SyncRoot => m_array;
 
         /// <summary>Gets a value indicating whether the BitArr is read-only.</summary>
         /// <returns>This property is always <see langword="false" />.</returns>

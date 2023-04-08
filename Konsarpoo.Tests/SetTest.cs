@@ -372,7 +372,7 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestSetSerialization()
+        public void TestSetSerializationDts1()
         {
             var set = new Set<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -382,6 +382,23 @@ namespace Konsarpoo.Collections.Tests
             var serializeWithDcs = SerializeHelper.SerializeWithDcs(set);
 
             var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<Set<string>>(serializeWithDcs);
+
+            Assert.AreEqual(deserializeWithDcs, set);
+        }
+        
+        [Test]
+        public void TestSetSerializationDts2()
+        {
+            var set = new Set<int>();
+
+            foreach (var i in Enumerable.Range(0, 1024))
+            {
+                set.Add(i);
+            }
+
+            var serializeWithDcs = SerializeHelper.SerializeWithDcs(set);
+
+            var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<Set<int>>(serializeWithDcs);
 
             Assert.AreEqual(deserializeWithDcs, set);
         }
@@ -397,6 +414,23 @@ namespace Konsarpoo.Collections.Tests
             }
 
             var clone = SerializeHelper.Clone<Set<string>>(set);
+            
+            var b = clone == set;
+
+            Assert.AreEqual(clone, set);
+        }
+        
+        [Test]
+        public void TestSetSerialization3()
+        {
+            var set = new Set<int>();
+
+            foreach (var i in Enumerable.Range(0, 1024))
+            {
+                set.Add(i);
+            }
+
+            var clone = SerializeHelper.Clone<Set<int>>(set);
             
             var b = clone == set;
 
