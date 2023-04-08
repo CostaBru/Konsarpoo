@@ -94,6 +94,11 @@ namespace Konsarpoo.Collections
             /// <param name="item"></param>
             /// <param name="startIndex"></param>
             int IndexOf(ref T item, int startIndex);
+            
+            /// <summary>
+            /// Enumerates sub nodes.
+            /// </summary>
+            IEnumerable<INode> Nodes { get; }
         }
 
         /// <summary>
@@ -286,6 +291,8 @@ namespace Konsarpoo.Collections
                 return -1;
             }
 
+            public IEnumerable<INode> Nodes => m_nodes;
+
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
                 if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
@@ -454,6 +461,8 @@ namespace Konsarpoo.Collections
             {
                 return Array.IndexOf(m_items, item, startIndex, m_size - startIndex);
             }
+
+            public IEnumerable<INode> Nodes => Array.Empty<INode>();
 
             public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)
             {

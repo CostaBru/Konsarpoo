@@ -11,7 +11,7 @@ namespace Konsarpoo.Collections
     /// </summary>
     /// <typeparam name="T"></typeparam>
     [DebuggerDisplay("PoolList. Size: {m_size}")]
-    internal class PoolListBase<T> : IEnumerable
+    internal class PoolListBase<T> : IEnumerable, IEnumerable<T>
     {
         public static readonly T Default = default(T);
         

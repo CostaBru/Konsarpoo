@@ -51,7 +51,7 @@ namespace Konsarpoo.Collections
         [NonSerialized] private readonly IArrayPool<T> m_pool = s_pool;
         [NonSerialized] private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
         
-        private readonly int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+        private int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
 
         /// <summary>
         /// Tree root.
