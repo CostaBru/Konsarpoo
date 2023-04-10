@@ -9,10 +9,9 @@ namespace Konsarpoo.Collections
     public partial class Set<T>
     {
         private const string CapacityName = "Capacity";
+        private const string ElementsName = "Elements";
         private const string ComparerName = "Comparer";
         private const string VersionName = "Version";
-        private const string BucketsName = "Buckets";
-        private const string EntriesName = "Entries";
         
         [NonSerialized]
         private SerializationInfo m_siInfo;
@@ -38,14 +37,18 @@ namespace Konsarpoo.Collections
             }
             
             info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<T>));
-            info.AddValue(CapacityName, m_count);
+            info.AddValue(CapacityName, m_buckets?.Count ?? 0);
             info.AddValue(VersionName, m_version);
 
-            if(m_count > 0) 
+            if (m_count == 0)
             {
-                info.AddValue(BucketsName, new Data<int>(m_buckets), typeof(Data<int>));
-                info.AddValue(EntriesName, new Data<Slot>(m_slots), typeof(Data<Slot>));
+                return;
             }
+
+            var array = new Data<T>();
+            array.Ensure(Count);
+            CopyTo(array);
+            info.AddValue(ElementsName, array, typeof(Data<T>));
         }
 
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
@@ -53,49 +56,36 @@ namespace Konsarpoo.Collections
         /// <exception cref="T:System.Runtime.Serialization.SerializationException">The <see cref="T:System.Runtime.Serialization.SerializationInfo" /> object associated with the current <see cref="T:System.Collections.Generic.HashSet`1" /> object is invalid.</exception>
         public virtual void OnDeserialization(object sender)
         {
-            var siInfo = m_siInfo;
-            
-            if (siInfo == null)
+            if (m_siInfo == null)
             {
                 return;
             }
 
-            int capacity = siInfo.GetInt32(CapacityName);
+            int capacity = m_siInfo.GetInt32(CapacityName);
 
-            m_comparer = (IEqualityComparer<T>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<T>));
+            m_comparer = (IEqualityComparer<T>)m_siInfo.GetValue(ComparerName, typeof(IEqualityComparer<T>));
             m_freeList = -1;
 
             if (capacity != 0)
             {
-                var buckets = (Data<int>)siInfo.GetValue(BucketsName, typeof(Data<int>));
- 
-                if (buckets is null) 
+                var objArray = (Data<T>)m_siInfo.GetValue(ElementsName, typeof(Data<T>));
+                if (objArray == null)
                 {
-                    throw new SerializationException("Cannot read set buckets from serialization info.");
-                }
-
-                var entries = (Data<Slot>)siInfo.GetValue(EntriesName, typeof(Data<Slot>));
- 
-                if (entries is null) 
-                {
-                    throw new SerializationException("Cannot read set slots from serialization info.");
+                    throw new SerializationException("Cannot read set values from serialization info.");
                 }
                 
-                buckets.OnDeserialization(this);
-                entries.OnDeserialization(this);
-                
-                m_buckets.AddRange(buckets);
-                m_slots.AddRange(entries);
-
-                m_count = capacity;
-                m_lastIndex = m_count;
+                m_buckets.Ensure(capacity);
+                m_slots.Ensure(capacity);
+            
+                objArray.OnDeserialization(this);
+                AddRange(objArray);
             }
             else
             {
                 m_buckets.Clear();
                 m_slots.Clear();
             }
-            m_version = (ushort)siInfo.GetInt32(VersionName);
+            m_version = (ushort)m_siInfo.GetInt32(VersionName);
             m_siInfo = null;
         }
     }

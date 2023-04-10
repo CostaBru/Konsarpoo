@@ -60,6 +60,8 @@ namespace Konsarpoo.Collections
                 {
                     throw new SerializationException("Cannot read BitArr values from serialization info.");
                 }
+                
+                data.OnDeserialization(this);
 
                 m_array = data;
             }

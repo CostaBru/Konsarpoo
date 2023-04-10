@@ -642,7 +642,7 @@ namespace Konsarpoo.Collections
         /// Copies the Set&lt;T&gt;to an array.
         /// </summary>
         /// <param name="array"></param>
-        public void CopyTo(T[] array)
+        public void CopyTo(IList<T> array)
         {
             CopyTo(array, 0, m_count);
         }
@@ -656,7 +656,7 @@ namespace Konsarpoo.Collections
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public void CopyTo([NotNull] T[] array, int arrayIndex, int count)
+        public void CopyTo([NotNull] IList<T> array, int arrayIndex, int count)
         {
             if (array == null)
             {
@@ -668,9 +668,9 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(arrayIndex), "An array index is negative.");
             }
             
-            if (arrayIndex >= array.Length)
+            if (arrayIndex >= array.Count)
             {
-                throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"An array index '{arrayIndex}' is greater or equal than array length ({array.Length}).");
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"An array index '{arrayIndex}' is greater or equal than array length ({array.Count}).");
             }
                
             if (count > m_count)
@@ -678,7 +678,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(count), $"Copy count is greater than the number of elements from start to the end of collection.");
             }
             
-            if (count > array.Length - arrayIndex)
+            if (count > array.Count - arrayIndex)
             {
                 throw new ArgumentOutOfRangeException(nameof(count), $"Copy count is greater than the number of elements from arrayIndex to the end of destinationArray");
             }

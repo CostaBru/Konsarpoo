@@ -8,12 +8,11 @@ namespace Konsarpoo.Collections
     {
         // constants for serialization
         private const string VersionName = "Version";
-        private const string CapacityName = "Capacity";
-        private const string BucketsName = "Buckets";
-        private const string EntriesName = "Entries";
+        private const string HashSizeName = "HashSize";  // Must save buckets.Length
+        private const string KeyValuePairsName = "KeyValuePairs";
         private const string ComparerName = "Comparer";
 
-        private SerializationInfo m_siInfo;
+        private SerializationInfo m_sInfo;
         
         /// <summary>
         /// Deserialization constructor.
@@ -24,33 +23,38 @@ namespace Konsarpoo.Collections
             //We can't do anything with the keys and values until the entire graph has been deserialized
             //and we have a resonable estimate that GetHashCode is not going to fail.  For the time being,
             //we'll just cache this.  The graph is not valid until OnDeserialization has been called.
-            m_siInfo = info;
+            m_sInfo = info;
         }
 
         /// <inheritdoc />
         [System.Security.SecurityCritical]  // auto-generated_required
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context) {
             
-            if (info == null) 
+            if (info==null) 
             {
                 throw new ArgumentNullException(nameof(info));
             }
             
             info.AddValue(VersionName, (int)m_version);
             info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
-            info.AddValue(CapacityName, m_count); //This is the length of the bucket array.
+            info.AddValue(HashSizeName, m_buckets.Length); //This is the length of the bucket array.
            
-            if(m_count > 0) 
+            if( m_buckets.m_count > 0) 
             {
-                info.AddValue(BucketsName, new Data<int>(m_buckets), typeof(Data<int>));
-                info.AddValue(EntriesName, new Data<Entry>(m_entries), typeof(Data<Entry>));
+                 var array = new Data<KeyValuePair<TKey, TValue>>();
+
+                 array.Ensure(Count);
+
+                 CopyTo(array, 0);
+
+                 info.AddValue(KeyValuePairsName, array, typeof(Data<KeyValuePair<TKey, TValue>>));
             }
         }
 
         /// <inheritdoc />
         public virtual void OnDeserialization(object sender)
         {
-            var siInfo = m_siInfo;
+            var siInfo = m_sInfo;
             
             if (siInfo is null) 
             {
@@ -62,35 +66,35 @@ namespace Konsarpoo.Collections
             }            
             
             int realVersion = siInfo.GetInt32(VersionName);
-            int count = siInfo.GetInt32(CapacityName);
+            int hashSize = siInfo.GetInt32(HashSizeName);
             
             m_comparer   = (IEqualityComparer<TKey>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<TKey>));
             
-            if(count != 0)
+            if(hashSize != 0)
             {
+                var array = (Data<KeyValuePair<TKey, TValue>>)siInfo.GetValue(KeyValuePairsName, typeof(Data<KeyValuePair<TKey, TValue>>));
+ 
+                if (array is null) 
+                {
+                    throw new SerializationException("Cannot read dict key values from serialization info.");
+                }
+
+                array.OnDeserialization(this);
+                
+                m_buckets.Ensure(hashSize, -1);
+                m_entries.Ensure(hashSize);
+                
                 m_freeList = -1;
- 
-                var buckets = (Data<int>)siInfo.GetValue(BucketsName, typeof(Data<int>));
- 
-                if (buckets is null) 
-                {
-                    throw new SerializationException("Cannot read dict buckets from serialization info.");
-                }
 
-                var entries = (Data<Entry>)siInfo.GetValue(EntriesName, typeof(Data<Entry>));
- 
-                if (entries is null) 
+                var add = true;
+                
+                foreach (var t in array)
                 {
-                    throw new SerializationException("Cannot read dict entries from serialization info.");
+                    var key = t.Key;
+                    var value = t.Value;
+                    
+                    Insert(ref key, ref value, ref add);
                 }
-                
-                buckets.OnDeserialization(this);
-                entries.OnDeserialization(this);
-                
-                m_buckets.AddRange(buckets);
-                m_entries.AddRange(entries);
-
-                m_count = count;
             }
             else 
             {
@@ -99,6 +103,7 @@ namespace Konsarpoo.Collections
             }
  
             m_version = (ushort)realVersion;
+            m_sInfo = null;
         }
     }
 }
