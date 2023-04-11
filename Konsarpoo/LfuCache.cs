@@ -31,8 +31,8 @@ public partial class LfuCache<TKey, TValue> :
 
     [NonSerialized]
     private readonly Map<TKey, DataVal> m_map;
-    [NonSerialized]
-    private readonly FreqNode m_root = new();
+
+    [NonSerialized] private readonly FreqNode m_root;
     
     public LfuCache() : this(null)
     {
@@ -43,6 +43,7 @@ public partial class LfuCache<TKey, TValue> :
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
 
         m_map = new(m_comparer);
+        m_root = new(m_comparer);
     }
     
     private class DataVal
@@ -60,11 +61,11 @@ public partial class LfuCache<TKey, TValue> :
 
         public int FreqValue;
 
-        public FreqNode()
+        public FreqNode(IEqualityComparer<TKey> comparer)
         {
             NextNode = this;
             PrevNode = this;
-            Keys = new Set<TKey>();
+            Keys = new Set<TKey>(comparer);
         }
     }
 
@@ -178,7 +179,7 @@ public partial class LfuCache<TKey, TValue> :
 
         if (nextNode.FreqValue != freqNode.FreqValue + 1)
         {
-            nextNode = new FreqNode
+            nextNode = new FreqNode(m_comparer)
             {
                 NextNode = freqNode.NextNode,
                 PrevNode = freqNode,
@@ -231,7 +232,7 @@ public partial class LfuCache<TKey, TValue> :
             
             if (m_root.NextNode.FreqValue != 1)
             {
-                firstNode = new FreqNode() { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
+                firstNode = new FreqNode(m_comparer) { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
 
                 m_root.NextNode.PrevNode = firstNode;
 

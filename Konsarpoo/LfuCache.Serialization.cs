@@ -64,7 +64,7 @@ public partial class LfuCache<TKey, TValue>
 
         foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
         {
-            var newNode = new FreqNode() { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
+            var newNode = new FreqNode(m_comparer) { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
 
             m_root.NextNode.PrevNode = newNode;
             m_root.NextNode = newNode;
