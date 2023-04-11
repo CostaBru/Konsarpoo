@@ -11,32 +11,22 @@ namespace Konsarpoo.Collections
     /// <typeparam name="V"></typeparam>
     public sealed class DictionaryDebugView<T, V>
     {
-        private readonly IDictionary<T, V> m_dict;
+        private readonly IReadOnlyDictionary<T, V> m_dict;
 
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="dict"></param>
-        public DictionaryDebugView(IDictionary<T, V> dict)
+        public DictionaryDebugView(IReadOnlyDictionary<T, V> dict)
         {
             m_dict = dict;
         }
-
         
         /// <summary>
         /// Items visible in debugger.
         /// </summary>
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        public KeyValuePair<T, V>[] Items
-        {
-            get
-            {
-
-                KeyValuePair<T, V>[] array = new KeyValuePair<T, V>[this.m_dict.Count];
-                this.m_dict.CopyTo(array, 0);
-                return array;
-            }
-        }
+        public KeyValuePair<T, V>[] Items => this.m_dict.ToArray();
     }
 
     /// <summary>

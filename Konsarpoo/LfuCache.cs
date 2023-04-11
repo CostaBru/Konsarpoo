@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Serialization;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
@@ -12,13 +14,37 @@ namespace Konsarpoo.Collections;
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
 /// <typeparam name="TValue"></typeparam>
-public class LfuCache<TKey, TValue> : 
+[DebuggerTypeProxy(typeof(DictionaryDebugView<,>))]
+[DebuggerDisplay("Count = {Count}")]
+[Serializable]
+public partial class LfuCache<TKey, TValue> : 
     IReadOnlyDictionary<TKey, TValue>, 
     IAppender<KeyValuePair<TKey, TValue>>,
     IReadOnlyCollection<TKey>,
     ICollection<TKey>,
+    ISerializable, 
+    IDeserializationCallback,
     IDisposable
 {
+    [NonSerialized]
+    private IEqualityComparer<TKey> m_comparer;
+
+    [NonSerialized]
+    private readonly Map<TKey, DataVal> m_map;
+    [NonSerialized]
+    private readonly FreqNode m_root = new();
+    
+    public LfuCache() : this(null)
+    {
+    }
+
+    public LfuCache(IEqualityComparer<TKey> comparer)
+    {
+        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+
+        m_map = new(m_comparer);
+    }
+    
     private class DataVal
     {
         public TValue Value;
@@ -42,8 +68,6 @@ public class LfuCache<TKey, TValue> :
         }
     }
 
-    private readonly Map<TKey, DataVal> m_map = new();
-    private readonly FreqNode m_root = new();
 
     /// <inheritdoc />
     public bool ContainsKey(TKey key)
