@@ -19,7 +19,7 @@ Some extras built in:
 - Lambda allocation free enumerable extensions
 - Lfu Cache
 
-Each collection (except ``Lfu Cache``) is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
+Each collection is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
 Possible use cases:
 - Avoid allocating arrays in LOH
@@ -90,7 +90,7 @@ It is a compact array of bit values, which are represented as Booleans. It uses 
 
 ### LFU CACHE
 
-A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. 
+A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache.
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
 
