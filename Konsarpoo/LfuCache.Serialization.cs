@@ -32,9 +32,11 @@ public partial class LfuCache<TKey, TValue>
             throw new ArgumentNullException(nameof(info));
         }
         
-        var valuePairs = m_map.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue))).ToData();
+        Data<KeyValuePair<TKey,(TValue value, int frequency)>> valuePairs = m_map
+            .Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue)))
+            .ToData();
         
-        info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey, (TValue value, int frequency)>>));
+        info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey,(TValue value, int frequency)>>));
         info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
     }
 
@@ -59,12 +61,27 @@ public partial class LfuCache<TKey, TValue>
 
         storage.OnDeserialization(this);
 
+        if (m_setTemplate == null)
+        {
+            m_setTemplate = new Set<TKey>(m_comparer);
+        }
+
+        if (m_root == null)
+        {
+            m_root = new FreqNode(m_setTemplate);
+        }
+
+        if (m_map == null)
+        {
+            m_map = new Map<TKey, DataVal>(m_comparer);
+        }
+
         FreqNode prevNode = m_root;
         FreqNode nextNode = m_root.NextNode;
 
         foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
         {
-            var newNode = new FreqNode(m_comparer) { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
+            var newNode = new FreqNode(m_setTemplate) { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
 
             m_root.NextNode.PrevNode = newNode;
             m_root.NextNode = newNode;

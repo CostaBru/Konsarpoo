@@ -18,21 +18,24 @@ namespace Konsarpoo.Collections;
 [DebuggerDisplay("Count = {Count}")]
 [Serializable]
 public partial class LfuCache<TKey, TValue> : 
+    ICollection<KeyValuePair<TKey, TValue>>,
     IReadOnlyDictionary<TKey, TValue>, 
     IAppender<KeyValuePair<TKey, TValue>>,
-    IReadOnlyCollection<TKey>,
-    ICollection<TKey>,
     ISerializable, 
     IDeserializationCallback,
     IDisposable
 {
     [NonSerialized]
+    private Set<TKey> m_setTemplate;
+
+    [NonSerialized]
     private IEqualityComparer<TKey> m_comparer;
 
     [NonSerialized]
-    private readonly Map<TKey, DataVal> m_map;
+    private Map<TKey, DataVal> m_map;
 
-    [NonSerialized] private readonly FreqNode m_root;
+    [NonSerialized] 
+    private FreqNode m_root;
     
     public LfuCache() : this(null)
     {
@@ -41,18 +44,42 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache(IEqualityComparer<TKey> comparer)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-
+        m_setTemplate = new Set<TKey>(m_comparer);
+        
         m_map = new(m_comparer);
-        m_root = new(m_comparer);
+        m_root = new(m_setTemplate);
     }
     
-    private class DataVal
+    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate)
+    {
+        if (mapTemplate == null)
+        {
+            throw new ArgumentNullException(nameof(mapTemplate));
+        }
+
+        if (setTemplate == null)
+        {
+            throw new ArgumentNullException(nameof(setTemplate));
+        }
+        
+        m_comparer = mapTemplate.Comparer;
+
+        m_map = new(mapTemplate);
+        m_map.Clear();
+
+        m_setTemplate = new (setTemplate, m_comparer);
+        m_setTemplate.Clear();
+        
+        m_root = new(m_setTemplate);
+    }
+    
+    public class DataVal
     {
         public TValue Value;
         public FreqNode FreqNode;
     }
    
-    private class FreqNode
+    public class FreqNode
     {
         public Set<TKey> Keys;
 
@@ -61,14 +88,13 @@ public partial class LfuCache<TKey, TValue> :
 
         public int FreqValue;
 
-        public FreqNode(IEqualityComparer<TKey> comparer)
+        public FreqNode(Set<TKey> setTemplate)
         {
             NextNode = this;
             PrevNode = this;
-            Keys = new Set<TKey>(comparer);
+            Keys = new Set<TKey>(setTemplate);
         }
     }
-
 
     /// <inheritdoc />
     public bool ContainsKey(TKey key)
@@ -166,10 +192,10 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <inheritdoc />
-    public IEnumerable<TKey> Keys => m_map.Keys;
+    IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => m_map.Keys;
 
-    /// <inheritdoc />
-    public IEnumerable<TValue> Values => m_map.Values.Select(v => v.Value);
+    /// <inheritdoc />0
+    IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => m_map.Values.Select(v => v.Value);
 
     private void AccessItem(TKey key, DataVal data, TValue value, bool hasValue)
     {
@@ -179,7 +205,7 @@ public partial class LfuCache<TKey, TValue> :
 
         if (nextNode.FreqValue != freqNode.FreqValue + 1)
         {
-            nextNode = new FreqNode(m_comparer)
+            nextNode = new FreqNode(m_setTemplate)
             {
                 NextNode = freqNode.NextNode,
                 PrevNode = freqNode,
@@ -232,7 +258,7 @@ public partial class LfuCache<TKey, TValue> :
             
             if (m_root.NextNode.FreqValue != 1)
             {
-                firstNode = new FreqNode(m_comparer) { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
+                firstNode = new FreqNode(m_setTemplate) { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
 
                 m_root.NextNode.PrevNode = firstNode;
 
@@ -277,42 +303,61 @@ public partial class LfuCache<TKey, TValue> :
         AddOrUpdate(value.Key, value.Value);
     }
 
-    void ICollection<TKey>.Add(TKey item)
+    void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> item)
     {
-        throw new NotSupportedException();
+        this.AddOrUpdate(item.Key, item.Value);
     }
 
-    /// <inheritdoc />
     public void Clear()
     {
         RemoveLfuItems(Count);
     }
 
-    /// <inheritdoc />
-    bool ICollection<TKey>.Contains(TKey key)
+    public bool Contains(KeyValuePair<TKey, TValue> item)
     {
-        return m_map.ContainsKey(key);
+        if (this.TryGetValue(item.Key, out var itemVal))
+        {
+            return EqualityComparer<TValue>.Default.Equals(itemVal , item.Value);
+        }
+
+        return false;
     }
 
-    /// <inheritdoc />
+    void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+    {
+        if ((arrayIndex < 0) || (arrayIndex > array.Length))
+        {
+            throw new ArgumentOutOfRangeException("arrayIndex");
+        }
+        if ((array.Length - arrayIndex) < Count)
+        {
+            throw new ArgumentException();
+        }
+        
+        foreach (var kVal in m_map)
+        {
+            array[arrayIndex] = new KeyValuePair<TKey, TValue>(kVal.Key, kVal.Value.Value);
+
+            arrayIndex++;
+        }
+    }
+
+    bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
+    {
+        return RemoveKey(item.Key);
+    }
+
     public void CopyTo(TKey[] array, int arrayIndex)
     {
         m_map.Keys.CopyTo(array, arrayIndex);
-    }
-
-    /// <inheritdoc />
-    bool ICollection<TKey>.Remove(TKey key)
-    {
-        return RemoveKey(key);
     }
 
     /// <summary>
     /// Returns count of cached items.
     /// </summary>
     public int Count => m_map.Count;
-    
-    /// <inheritdoc />
-    bool ICollection<TKey>.IsReadOnly => false;
+
+    public bool IsReadOnly => false;
 
     /// <summary>
     /// Removes all least frequently used items from cache.
@@ -369,12 +414,6 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <inheritdoc />
-    IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
-    {
-        return m_map.Keys.GetEnumerator();
-    }
-
-    /// <inheritdoc />
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
     {
         var mapVersion = m_map.Version;
@@ -402,5 +441,44 @@ public partial class LfuCache<TKey, TValue> :
         Clear();
 
         m_map.Dispose();
+    }
+
+    /// <summary> Returns true if given cache has the same keys, values and frequencies otherwise it returns false.</summary>
+    /// <returns></returns>
+    public bool DeepEquals([CanBeNull] LfuCache<TKey, TValue> lfuCache, IEqualityComparer<TValue> valueComparer = null)
+    {
+        if (lfuCache == null)
+        {
+            return false;
+        }
+        
+        if (Count != lfuCache.Count)
+        {
+            return false;
+        }
+
+        var equalityComparer = valueComparer ?? EqualityComparer<TValue>.Default;
+
+        foreach (var kVal in m_map)
+        {
+            if (lfuCache.m_map.TryGetValue(kVal.Key, out var otherVal) == false)
+            {
+                return false;
+            }
+
+            if (equalityComparer.Equals(kVal.Value.Value, otherVal.Value) == false)
+            {
+                return false;
+            }
+
+            var thisValeFreq = kVal.Value.FreqNode.FreqValue;
+
+            if (thisValeFreq != otherVal.FreqNode.FreqValue)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

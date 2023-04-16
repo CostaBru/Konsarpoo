@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System.Linq;
+using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
 
@@ -95,5 +96,50 @@ public class LfuCacheTest
         valueByRef = 5;
         
         Assert.AreEqual(5, lfuCache[2]);
+    }
+    
+    [Test]
+    public void TestSetSerialization()
+    {
+        var lfuCache = new LfuCache<int, int>();
+
+        var range = Enumerable.Range(0, 10000);
+
+        foreach (var i in range)
+        {
+            lfuCache[i] = i;
+        }
+        
+        var serializeWithDcs = SerializeHelper.SerializeWithDcs(lfuCache);
+
+        var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<LfuCache<int, int>>(serializeWithDcs);
+
+        var deepEquals = deserializeWithDcs.DeepEquals(lfuCache);
+        
+        Assert.True(deepEquals);
+    }
+
+    [Test]
+    public void TestSetSerialization2()
+    {
+        var lfuCache = new LfuCache<int, int>();
+
+        var range = Enumerable.Range(0, 10000);
+
+        foreach (var i in range)
+        {
+            lfuCache[i] = i;
+        }
+
+        for (int i = 0; i < 5; i++)
+        {
+            var i1 = lfuCache[50];
+        }
+
+        var deserializeWithDcs = SerializeHelper.Clone<LfuCache<int, int>>(lfuCache);
+
+        var deepEquals = deserializeWithDcs.DeepEquals(lfuCache);
+        
+        Assert.True(deepEquals);
     }
 }
