@@ -828,7 +828,7 @@ namespace Konsarpoo.Collections
                     return newValue;
                 }
                 
-                throw new KeyNotFoundException($"Key '{key}' is not found.");
+                throw new KeyNotFoundException($"Key '{key}' was not found.");
             }
             set
             {

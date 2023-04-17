@@ -25,54 +25,6 @@ public partial class LfuCache<TKey, TValue> :
     IDeserializationCallback,
     IDisposable
 {
-    [NonSerialized]
-    private Set<TKey> m_setTemplate;
-
-    [NonSerialized]
-    private IEqualityComparer<TKey> m_comparer;
-
-    [NonSerialized]
-    private Map<TKey, DataVal> m_map;
-
-    [NonSerialized] 
-    private FreqNode m_root;
-    
-    public LfuCache() : this(null)
-    {
-    }
-
-    public LfuCache(IEqualityComparer<TKey> comparer)
-    {
-        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-        m_setTemplate = new Set<TKey>(m_comparer);
-        
-        m_map = new(m_comparer);
-        m_root = new(m_setTemplate);
-    }
-    
-    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate)
-    {
-        if (mapTemplate == null)
-        {
-            throw new ArgumentNullException(nameof(mapTemplate));
-        }
-
-        if (setTemplate == null)
-        {
-            throw new ArgumentNullException(nameof(setTemplate));
-        }
-        
-        m_comparer = mapTemplate.Comparer;
-
-        m_map = new(mapTemplate);
-        m_map.Clear();
-
-        m_setTemplate = new (setTemplate, m_comparer);
-        m_setTemplate.Clear();
-        
-        m_root = new(m_setTemplate);
-    }
-    
     public class DataVal
     {
         public TValue Value;
@@ -95,6 +47,70 @@ public partial class LfuCache<TKey, TValue> :
             Keys = new Set<TKey>(setTemplate);
         }
     }
+    
+    [NonSerialized]
+    private Set<TKey> m_setTemplate;
+
+    [NonSerialized]
+    private IEqualityComparer<TKey> m_comparer;
+
+    [NonSerialized]
+    private Map<TKey, DataVal> m_map;
+
+    [NonSerialized] 
+    private FreqNode m_root;
+        
+    [NonSerialized]
+    private static TValue s_nullRef;
+    
+    /// <summary>
+    /// Default class constructor.
+    /// </summary>
+    public LfuCache() : this(null)
+    {
+    }
+
+    /// <summary>
+    /// LfuCache class constructor with keys comparer parameter.
+    /// </summary>
+    /// <param name="comparer"></param>
+    public LfuCache(IEqualityComparer<TKey> comparer)
+    {
+        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+        m_setTemplate = new Set<TKey>(m_comparer);
+        
+        m_map = new(m_comparer);
+        m_root = new(m_setTemplate);
+    }
+    
+    /// <summary>
+    /// LfuCache pool set up constructor.
+    /// </summary>
+    /// <param name="mapTemplate"></param>
+    /// <param name="setTemplate"></param>
+    /// <exception cref="ArgumentNullException"></exception>
+    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate)
+    {
+        if (mapTemplate == null)
+        {
+            throw new ArgumentNullException(nameof(mapTemplate));
+        }
+
+        if (setTemplate == null)
+        {
+            throw new ArgumentNullException(nameof(setTemplate));
+        }
+        
+        m_comparer = mapTemplate.Comparer;
+
+        m_map = new Map<TKey, DataVal>(mapTemplate);
+        m_map.Clear();
+
+        m_setTemplate = new (setTemplate, m_comparer);
+        m_setTemplate.Clear();
+        
+        m_root = new(m_setTemplate);
+    }
 
     /// <inheritdoc />
     public bool ContainsKey(TKey key)
@@ -103,7 +119,7 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Access cached item.
+    /// Attempts to get the value associated with the specified key in a cache.
     /// </summary>
     /// <returns></returns>
     public bool TryGetValue([NotNull] TKey key, out TValue value)
@@ -141,9 +157,6 @@ public partial class LfuCache<TKey, TValue> :
 
         return 0;
     }
-    
-    [NonSerialized]
-    private static TValue s_nullRef;
 
     /// <summary>
     /// Returns value by its reference using key given.
@@ -183,7 +196,7 @@ public partial class LfuCache<TKey, TValue> :
                 return value;
             }
 
-            throw new KeyNotFoundException($"{key}");
+            throw new KeyNotFoundException($"Key '{key}' was not found in cache.");
         }
         set
         {
@@ -308,12 +321,15 @@ public partial class LfuCache<TKey, TValue> :
         this.AddOrUpdate(item.Key, item.Value);
     }
 
+    /// <summary>
+    /// Clears LFU cache.
+    /// </summary>
     public void Clear()
     {
         RemoveLfuItems(Count);
     }
 
-    public bool Contains(KeyValuePair<TKey, TValue> item)
+    bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
     {
         if (this.TryGetValue(item.Key, out var itemVal))
         {
@@ -347,7 +363,12 @@ public partial class LfuCache<TKey, TValue> :
         return RemoveKey(item.Key);
     }
 
-    public void CopyTo(TKey[] array, int arrayIndex)
+    /// <summary>
+    /// Copies keys to given collection.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <param name="arrayIndex"></param>
+    public void CopyKeysTo(TKey[] array, int arrayIndex)
     {
         m_map.Keys.CopyTo(array, arrayIndex);
     }
@@ -357,7 +378,7 @@ public partial class LfuCache<TKey, TValue> :
     /// </summary>
     public int Count => m_map.Count;
 
-    public bool IsReadOnly => false;
+    bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
 
     /// <summary>
     /// Removes all least frequently used items from cache.
@@ -379,7 +400,7 @@ public partial class LfuCache<TKey, TValue> :
             {
                 var leastFreqUsedItemsNode = m_root.NextNode;
 
-                var keys = leastFreqUsedItemsNode.Keys.ToArray();
+                var keys = leastFreqUsedItemsNode.Keys.ToData();
 
                 foreach (var key in keys)
                 {
@@ -390,6 +411,8 @@ public partial class LfuCache<TKey, TValue> :
                         break;
                     }
                 }
+                
+                keys.Dispose();
             }
             
             return removedCount;
@@ -398,15 +421,13 @@ public partial class LfuCache<TKey, TValue> :
         {
             var leastFreqUsedItemsNode = m_root.NextNode;
 
-            var keys = leastFreqUsedItemsNode.Keys.ToArray();
+            var keys = leastFreqUsedItemsNode.Keys.ToData();
 
             int removedCount = 0;
             foreach (var key in keys)
             {
-                if (RemoveKey(key))
-                {
-                    removedCount++;
-                }
+                RemoveKey(key);
+                removedCount++;
             }
 
             return removedCount;
@@ -441,6 +462,7 @@ public partial class LfuCache<TKey, TValue> :
         Clear();
 
         m_map.Dispose();
+        m_setTemplate.Dispose();
     }
 
     /// <summary> Returns true if given cache has the same keys, values and frequencies otherwise it returns false.</summary>
@@ -480,5 +502,14 @@ public partial class LfuCache<TKey, TValue> :
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Creates a full copy of Lfu cache.
+    /// </summary>
+    /// <returns></returns>
+    public LfuCache<TKey, TValue> Copy()
+    {
+        return SerializeHelper.Clone<LfuCache<TKey, TValue>>(this);
     }
 }

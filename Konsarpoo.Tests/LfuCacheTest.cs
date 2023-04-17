@@ -76,7 +76,7 @@ public class LfuCacheTest
     }
 
     [Test]
-    public void TestCopy()
+    public void TestRemove()
     {
         var lfuCache = new LfuCache<int, int>();
 
@@ -99,7 +99,7 @@ public class LfuCacheTest
     }
     
     [Test]
-    public void TestSetSerialization()
+    public void TestCacheStringSerialization()
     {
         var lfuCache = new LfuCache<int, int>();
 
@@ -120,7 +120,7 @@ public class LfuCacheTest
     }
 
     [Test]
-    public void TestSetSerialization2()
+    public void TestCacheBinarySerialization()
     {
         var lfuCache = new LfuCache<int, int>();
 
@@ -136,7 +136,7 @@ public class LfuCacheTest
             var i1 = lfuCache[50];
         }
 
-        var deserializeWithDcs = SerializeHelper.Clone<LfuCache<int, int>>(lfuCache);
+        var deserializeWithDcs = lfuCache.Copy();
 
         var deepEquals = deserializeWithDcs.DeepEquals(lfuCache);
         

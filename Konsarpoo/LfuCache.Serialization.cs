@@ -76,24 +76,28 @@ public partial class LfuCache<TKey, TValue>
             m_map = new Map<TKey, DataVal>(m_comparer);
         }
 
-        FreqNode prevNode = m_root;
-        FreqNode nextNode = m_root.NextNode;
-
-        foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
+        lock (m_root)
         {
-            var newNode = new FreqNode(m_setTemplate) { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
+            FreqNode prevNode = m_root;
+            FreqNode nextNode = m_root.NextNode;
 
-            m_root.NextNode.PrevNode = newNode;
-            m_root.NextNode = newNode;
-
-            foreach (var st in kv)
+            foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
             {
-                newNode.Keys.Add(st.Key);
-                m_map[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode };
-            }
+                var newNode = new FreqNode(m_setTemplate)
+                    { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
 
-            prevNode = newNode;
-            nextNode = newNode;
+                m_root.NextNode.PrevNode = newNode;
+                m_root.NextNode = newNode;
+
+                foreach (var st in kv)
+                {
+                    newNode.Keys.Add(st.Key);
+                    m_map[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode };
+                }
+
+                prevNode = newNode;
+                nextNode = newNode;
+            }
         }
 
         m_sInfo = null;
