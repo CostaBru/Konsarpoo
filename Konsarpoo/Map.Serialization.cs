@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Security.Permissions;
 
 namespace Konsarpoo.Collections
 {
@@ -19,15 +20,14 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
-        protected Map(SerializationInfo info, StreamingContext context) {
-            //We can't do anything with the keys and values until the entire graph has been deserialized
-            //and we have a resonable estimate that GetHashCode is not going to fail.  For the time being,
-            //we'll just cache this.  The graph is not valid until OnDeserialization has been called.
+        protected Map(SerializationInfo info, StreamingContext context) 
+        {
             m_sInfo = info;
         }
 
         /// <inheritdoc />
         [System.Security.SecurityCritical]  // auto-generated_required
+        [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context) {
             
             if (info==null) 

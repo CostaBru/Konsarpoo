@@ -48,12 +48,8 @@ namespace Konsarpoo.Collections.Tests
             Assert.NotZero(map.GetHashCode());
 
             var dict2 = map.ToMap();
-            Assert.AreEqual(map.GetHashCode(), dict2.GetHashCode());
 
             dict2.Add("test3", "123");
-
-            Assert.AreNotEqual(map.GetHashCode(), dict2.GetHashCode());
-
             dict.Add("test0", "val0");
             dict.Add("test1", "val1");
 

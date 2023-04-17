@@ -163,21 +163,5 @@ namespace Konsarpoo.Collections
             
             return EqualsSet((Set<T>) obj);
         }
-
-        /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = 3 ^ m_count.GetHashCode();
-
-                foreach (var item in this)
-                {
-                    hashCode = (hashCode * 397) ^ m_comparer.GetHashCode(item);
-                }
-              
-                return hashCode;
-            }
-        }
     }
 }

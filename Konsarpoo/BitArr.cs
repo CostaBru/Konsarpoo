@@ -63,22 +63,6 @@ namespace Konsarpoo.Collections
             
             return EqualsList(((BitArr) obj));
         }
-
-        /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = Length ^ 3;
-
-                foreach (var item in m_array)
-                {
-                    hashCode = (hashCode * 397) ^ EqualityComparer<int>.Default.GetHashCode(item);
-                }
-              
-                return hashCode;
-            }
-        }
         
         private const int BitsPerInt32 = 32;
         private const int BytesPerInt32 = 4;

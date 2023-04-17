@@ -506,8 +506,6 @@ namespace Konsarpoo.Collections.Tests
             Assert.False(listO.IsReadOnly);
             Assert.False(listO.IsSynchronized);
             Assert.NotNull(listO.SyncRoot);
-            Assert.AreEqual(listO.GetHashCode(), list.GetHashCode());
-            Assert.AreNotEqual(listO.GetHashCode(), (list + _.List(1)).GetHashCode());
 
             Assert.AreEqual(list.Count, dataList.Count);
 

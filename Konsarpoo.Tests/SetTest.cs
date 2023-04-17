@@ -344,10 +344,6 @@ namespace Konsarpoo.Collections.Tests
             Assert.True(set3.Overlaps(l2 - _.List(5)));
 
             Assert.AreEqual(l3.Count, l3.Length);
-
-            Assert.AreEqual(l1.GetHashCode(), l1.ToSet().GetHashCode());
-            Assert.AreNotEqual(l1.GetHashCode(), l3.GetHashCode());
-
             Assert.AreEqual(new Data<int>(Enumerable.Range(0, 10)).ToSet(), l3);
 
             Assert.AreEqual(l2, l3 - l1);

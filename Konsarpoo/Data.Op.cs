@@ -136,25 +136,5 @@ namespace Konsarpoo.Collections
             
             return EqualsList((Data<T>) obj);
         }
-
-        /// <summary>
-        /// Returns a hashcode generated using default equality comparer for all items contained in Data&lt;T&gt;.
-        /// </summary>
-        /// <returns></returns>
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = m_count.GetHashCode();
-
-                foreach (var item in this)
-                {
-                    hashCode = (hashCode * 397) ^ EqualityComparer<T>.Default.GetHashCode(item);
-                }
-              
-                return hashCode;
-            }
-        }
-
     }
 }

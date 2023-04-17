@@ -43,10 +43,6 @@ namespace Konsarpoo.Collections.Tests
                     ba.Set(i, i % 2 == 0);
                 }
 
-                var hashCode2 = bitArr.GetHashCode();
-
-                Assert.AreNotEqual(hashCode1, hashCode2);
-
                 Assert.AreEqual(bitArr.Count, ba.Count);
 
                 int ii = 0;

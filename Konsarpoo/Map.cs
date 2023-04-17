@@ -936,24 +936,5 @@ namespace Konsarpoo.Collections
             
             return EqualsDict((Map<TKey, TValue>) obj);
         }
-
-        /// <summary>
-        /// Returns a hashcode generated using default equality comparer for all items contained in Map&lt;TKey,TValue&gt;
-        /// </summary>
-        /// <returns></returns>
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = 7 ^ m_count.GetHashCode();
-
-                foreach (var item in this)
-                {
-                    hashCode = (hashCode * 397) ^ EqualityComparer<TValue>.Default.GetHashCode(item.Value) ^ m_comparer.GetHashCode(item.Key);
-                }
-              
-                return hashCode;
-            }
-        }
     }
 }
