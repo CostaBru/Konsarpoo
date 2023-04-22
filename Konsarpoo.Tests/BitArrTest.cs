@@ -94,6 +94,42 @@ namespace Konsarpoo.Collections.Tests
         }
         
         [Test]
+        public void TestCustomAllocator([Values(true, false)] bool defaultVal)
+        {
+            var length = 100;
+
+            var bitArr = new BitArr(length, 0, GcAllocatorSetup.GetDataPoolSetup<int>(), defaultVal);
+            
+            bitArr.Length = 1000;
+            
+            Assert.AreEqual(1000, bitArr.Length);
+            
+            var ba = new BitArray(length, defaultVal);
+            
+            ba.Length = 1000;
+            
+            Assert.AreEqual(ba.Length, bitArr.Length);
+        }
+        
+        [Test]
+        public void TestCustomAllocator2()
+        {
+            var length = 100;
+
+            var bitArr = new BitArr(length, GcAllocatorSetup.GetDataPoolSetup<int>());
+            
+            bitArr.Length = 1000;
+            
+            Assert.AreEqual(1000, bitArr.Length);
+            
+            var ba = new BitArray(length, false);
+            
+            ba.Length = 1000;
+            
+            Assert.AreEqual(ba.Length, bitArr.Length);
+        }
+        
+        [Test]
         public void TestAnd()
         {
             var length = 100;

@@ -26,13 +26,28 @@ namespace Konsarpoo.Collections
                                              IDeserializationCallback,
                                              IDisposable
     {
+        private static volatile IMapAllocatorSetup<TKey, TValue> s_mapAllocatorSetup = null;
+        
+        /// <summary>
+        /// Sets up global T array pool setup for map.
+        /// </summary>
+        /// <param name="allocator">Null to setup default.</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void SetArrayPool([CanBeNull] IMapAllocatorSetup<TKey, TValue> allocator)
+        {
+            s_mapAllocatorSetup = allocator;
+        }
+        
+        [NonSerialized]
+        public readonly IMapAllocatorSetup<TKey, TValue> MapAllocatorSetup;
+
         [NonSerialized]
         private IEqualityComparer<TKey> m_comparer;
         
         [NonSerialized]
-        private readonly Data<int> m_buckets = new ();
+        internal readonly Data<int> m_buckets;
         [NonSerialized]
-        private readonly Data<Entry> m_entries = new ();
+        private readonly Data<Entry> m_entries ;
         
         [Serializable]
         public struct Entry
@@ -66,7 +81,7 @@ namespace Konsarpoo.Collections
         /// Default Map constructor.
         /// </summary>
         public Map()
-            : this(0, null)
+            : this(0, 0, null)
         {
         }
 
@@ -75,7 +90,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="comparer"></param>
         public Map(IEqualityComparer<TKey> comparer)
-            : this(0, comparer)
+            : this(0, 0, comparer)
         {
         }
 
@@ -84,7 +99,17 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="capacity"></param>
         public Map(int capacity)
-            : this(capacity, null)
+            : this(capacity,0, null)
+        {
+        }
+        
+        /// <summary>
+        /// Constructor that takes initial capacity and default equality comparer.
+        /// </summary>
+        /// <param name="capacity"></param>
+        /// <param name="comparer"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public Map(int capacity, [CanBeNull] IEqualityComparer<TKey> comparer) : this(capacity, 0, comparer) 
         {
         }
 
@@ -105,8 +130,8 @@ namespace Konsarpoo.Collections
         {
             m_comparer = dictionary.m_comparer;
 
-            m_buckets = new(dictionary.m_buckets);
-            m_entries = new(dictionary.m_entries);
+            m_buckets = new(dictionary.m_buckets, s_mapAllocatorSetup?.GetBucketAllocatorSetup());
+            m_entries = new(dictionary.m_entries, s_mapAllocatorSetup?.GetStorageAllocatorSetup());
 
             m_count = dictionary.m_count;
             m_freeCount = dictionary.m_freeCount;
@@ -128,14 +153,74 @@ namespace Konsarpoo.Collections
             m_comparer = comparer ?? EqualityComparer<TKey>.Default;;
         }
 
-       /// <summary>
-       /// Constructor that takes another dictionary and equality comparer.
-       /// </summary>
-       /// <param name="dictionary"></param>
-       /// <param name="comparer"></param>
-       /// <exception cref="ArgumentNullException"></exception>
-        public Map(IReadOnlyDictionary<TKey, TValue> dictionary, IEqualityComparer<TKey> comparer)
-                    : this(dictionary?.Count ?? 0, comparer)
+        /// <summary>
+        /// Constructor with max size of array per node.
+        /// </summary>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="capacity"></param>
+        /// <param name="comparer"></param>
+        public Map(int capacity, int maxSizeStorageNodeArray, [CanBeNull] IEqualityComparer<TKey> comparer = null) : this(capacity, maxSizeStorageNodeArray, null, comparer)
+        {
+        }
+
+        /// <summary>
+        /// Constructor with pool set up and comparer.
+        /// </summary>
+        /// <param name="mapAllocatorSetup"></param>
+        /// <param name="comparer"></param>
+        public Map(IMapAllocatorSetup<TKey, TValue> mapAllocatorSetup, [CanBeNull] IEqualityComparer<TKey> comparer = null) : this(0, 0, mapAllocatorSetup, comparer)
+        {
+        }
+
+        /// <summary>
+        /// Constructor with max size of array per node.
+        /// </summary>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="capacity"></param>
+        /// <param name="mapAllocatorSetup"></param>
+        /// <param name="comparer"></param>
+        public Map(int capacity, int maxSizeStorageNodeArray, IMapAllocatorSetup<TKey, TValue> mapAllocatorSetup, [CanBeNull] IEqualityComparer<TKey> comparer = null)
+        {
+            if (capacity < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+            }
+
+            var poolSetup = MapAllocatorSetup = mapAllocatorSetup ?? s_mapAllocatorSetup;
+
+            m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+            
+            m_buckets = new (capacity, maxSizeStorageNodeArray, poolSetup?.GetBucketAllocatorSetup());
+            m_entries = new (capacity, maxSizeStorageNodeArray, poolSetup?.GetStorageAllocatorSetup());
+            m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+
+            if (capacity > 0)
+            {
+                Initialize(Prime.GetPrime(capacity));
+            }
+        }
+
+        /// <summary>
+        /// Constructor that takes another dictionary and equality comparer.
+        /// </summary>
+        /// <param name="dictionary"></param>
+        /// <param name="comparer"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public Map(IReadOnlyDictionary<TKey, TValue> dictionary,  IEqualityComparer<TKey> comparer)
+            : this(dictionary, 0, null, comparer)
+        {
+        }
+
+        /// <summary>
+        /// Constructor that takes another dictionary and equality comparer.
+        /// </summary>
+        /// <param name="dictionary"></param>
+        /// <param name="mapAllocatorSetup"></param>
+        /// <param name="comparer"></param>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public Map(IReadOnlyDictionary<TKey, TValue> dictionary, int maxSizeStorageNodeArray, IMapAllocatorSetup<TKey, TValue> mapAllocatorSetup, IEqualityComparer<TKey> comparer)
+                    : this(dictionary?.Count ?? 0, maxSizeStorageNodeArray, mapAllocatorSetup, comparer)
         {
             if (ReferenceEquals(dictionary, null))
             {
@@ -145,26 +230,6 @@ namespace Konsarpoo.Collections
             {
                 Add(pair.Key, pair.Value);
             }
-        }
-
-       /// <summary>
-       /// Constructor that takes initial capacity and default equality comparer.
-       /// </summary>
-       /// <param name="capacity"></param>
-       /// <param name="comparer"></param>
-       /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Map(int capacity, [CanBeNull] IEqualityComparer<TKey> comparer)
-        {
-            switch (capacity)
-            {
-                case < 0:
-                    throw new ArgumentOutOfRangeException(nameof(capacity));
-                case > 0:
-                    Initialize(Prime.GetPrime(capacity));
-                    break;
-            }
-
-            m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         }
 
        /// <summary>
@@ -208,9 +273,9 @@ namespace Konsarpoo.Collections
 
         private void DisposeCore()
         {
-            m_buckets.Dispose();
-            m_entries.Dispose();
-
+            m_buckets?.Dispose();
+            m_entries?.Dispose();
+            
             m_freeList = -1;
             m_count = 0;
             m_freeCount = 0;

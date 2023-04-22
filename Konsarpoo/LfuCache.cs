@@ -66,20 +66,22 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// Default class constructor.
     /// </summary>
-    public LfuCache() : this(null)
+    public LfuCache() : this(0, 0, null)
     {
     }
 
     /// <summary>
     /// LfuCache class constructor with keys comparer parameter.
     /// </summary>
+    /// <param name="maxSizeStorageNodeArray"></param>
     /// <param name="comparer"></param>
-    public LfuCache(IEqualityComparer<TKey> comparer)
+    /// <param name="capacity"></param>
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-        m_setTemplate = new Set<TKey>(m_comparer);
+        m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
         
-        m_map = new(m_comparer);
+        m_map = new(capacity, maxSizeStorageNodeArray, m_comparer);
         m_root = new(m_setTemplate);
     }
     

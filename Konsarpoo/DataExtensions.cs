@@ -193,10 +193,11 @@ namespace Konsarpoo.Collections
         /// Creates a set from given collection.
         /// </summary>
         /// <param name="source"></param>
+        /// <param name="allocatorSetup"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static Set<T> ToSet<T>([NotNull] this IReadOnlyCollection<T> source)
+        public static Set<T> ToSet<T>([NotNull] this IReadOnlyCollection<T> source, ISetAllocatorSetup<T> allocatorSetup = null)
         {
             if (source == null)
             {
@@ -208,25 +209,26 @@ namespace Konsarpoo.Collections
                 return new Set<T>(hs);
             }
             
-            return new Set<T>(source);
+            return new Set<T>(source, allocatorSetup, null);
         }
-        
+
         /// <summary>
         /// Creates a set from given collection.
         /// </summary>
         /// <param name="source"></param>
         /// <param name="comparer"></param>
+        /// <param name="allocatorSetup"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static Set<T> ToSet<T>([NotNull] this IEnumerable<T> source, IEqualityComparer<T> comparer = null)
+        public static Set<T> ToSet<T>([NotNull] this IEnumerable<T> source, IEqualityComparer<T> comparer = null, ISetAllocatorSetup<T> allocatorSetup = null)
         {
             if (source == null)
             {
                 throw new ArgumentNullException(nameof(source));
             }
             
-            return new Set<T>(source, comparer);
+            return new Set<T>(source, allocatorSetup, comparer);
         }
         
         /// <summary>

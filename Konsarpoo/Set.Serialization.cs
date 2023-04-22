@@ -21,7 +21,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
-        protected Set(SerializationInfo info, StreamingContext context)
+        protected Set(SerializationInfo info, StreamingContext context) : this(0, 0, null, null)
         {
             m_siInfo = info;
         }
@@ -45,7 +45,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            var array = new Data<T>();
+            var array = new Data<T>(0, m_buckets.MaxSizeOfArray);
             array.Ensure(Count);
             CopyTo(array);
             info.AddValue(ElementsName, array, typeof(Data<T>));

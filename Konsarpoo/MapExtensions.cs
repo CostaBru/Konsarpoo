@@ -90,15 +90,16 @@ namespace Konsarpoo.Collections
 
             return value;
         }
-        
+
         /// <summary>
         /// Copies readonly dictionary to map.
         /// </summary>
         /// <param name="source"></param>
+        /// <param name="allocatorSetup"></param>
         /// <typeparam name="TSource"></typeparam>
         /// <typeparam name="TKey"></typeparam>
         /// <returns></returns>
-        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IReadOnlyDictionary<TKey, TSource> source)
+        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IReadOnlyDictionary<TKey, TSource> source, IMapAllocatorSetup<TKey, TSource> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null)) 
             {
@@ -109,8 +110,8 @@ namespace Konsarpoo.Collections
             {
                 return new Map<TKey, TSource>(hd); 
             }
-             
-            return new Map<TKey, TSource>(source); 
+
+            return new Map<TKey, TSource>(source, 0, allocatorSetup, null); 
         }
     
         /// <summary>
@@ -121,20 +122,21 @@ namespace Konsarpoo.Collections
         /// <typeparam name="TSource"></typeparam>
         /// <typeparam name="TKey"></typeparam>
         /// <returns></returns>
-        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IEnumerable<TSource> source, Func<TSource, TKey> keySelector) =>
-            ToMap(source, keySelector, null);
-       
+        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, IMapAllocatorSetup<TKey, TSource> allocatorSetup = null) 
+            => MapExtensions.ToMap(source, keySelector, (IEqualityComparer<TKey>)null, allocatorSetup);
+
         /// <summary>
         /// Copies enumerable to map.
         /// </summary>
         /// <param name="source"></param>
         /// <param name="keySelector"></param>
         /// <param name="comparer"></param>
+        /// <param name="allocatorSetup"></param>
         /// <typeparam name="TSource"></typeparam>
         /// <typeparam name="TKey"></typeparam>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, IEqualityComparer<TKey> comparer)
+        public static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, IEqualityComparer<TKey> comparer, IMapAllocatorSetup<TKey, TSource> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
@@ -152,21 +154,22 @@ namespace Konsarpoo.Collections
                 capacity = collection.Count;
                 if (capacity == 0)
                 {
-                    return new Map<TKey, TSource>(comparer);
+                    return new Map<TKey, TSource>(0, 0, allocatorSetup, comparer);
                 }
 
                 if (collection is TSource[] array)
                 {
-                    return ToMap(array, keySelector, comparer);
+                    return ToMap(array, keySelector, comparer, allocatorSetup);
                 }
 
                 if (collection is IReadOnlyList<TSource> list)
                 {
-                    return ToMap(list, keySelector, comparer);
+                    return ToMap(list, keySelector, comparer, allocatorSetup);
                 }
             }
 
-            var d = new Map<TKey, TSource>(capacity, comparer);
+            var d = new Map<TKey, TSource>(capacity, 0, allocatorSetup, comparer);
+            
             foreach (TSource element in source)
             {
                 d.Add(keySelector(element), element);
@@ -184,14 +187,14 @@ namespace Konsarpoo.Collections
         /// <typeparam name="TSource"></typeparam>
         /// <typeparam name="TKey"></typeparam>
         /// <returns></returns>
-        private static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] TSource[] source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] IEqualityComparer<TKey> comparer)
+        private static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] TSource[] source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] IEqualityComparer<TKey> comparer, IMapAllocatorSetup<TKey, TSource> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
                 return null;
             }
            
-            Map<TKey, TSource> d = new (source.Length, comparer);
+            Map<TKey, TSource> d = new (source.Length, 0, allocatorSetup, comparer);
             for (int i = 0; i < source.Length; i++)
             {
                 d.Add(keySelector(source[i]), source[i]);
@@ -200,14 +203,14 @@ namespace Konsarpoo.Collections
             return d;
         }
 
-        private static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] IReadOnlyList<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] IEqualityComparer<TKey> comparer)
+        private static Map<TKey, TSource> ToMap<TSource, TKey>([CanBeNull] IReadOnlyList<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] IEqualityComparer<TKey> comparer, IMapAllocatorSetup<TKey, TSource> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
                 return null;
             }
            
-            Map<TKey, TSource> d = new (source.Count, comparer);
+            Map<TKey, TSource> d = new (source.Count, 0, allocatorSetup, comparer);
            
             foreach (TSource element in source)
             {
@@ -227,8 +230,8 @@ namespace Konsarpoo.Collections
         /// <typeparam name="TKey"></typeparam>
         /// <typeparam name="TElement"></typeparam>
         /// <returns></returns>
-        public static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] this IEnumerable<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector) =>
-            ToMap(source, keySelector, elementSelector, null);
+        public static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] this IEnumerable<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector, IMapAllocatorSetup<TKey, TElement> allocatorSetup = null) =>
+            ToMap(source, keySelector, elementSelector, null, allocatorSetup);
 
         /// <summary>
         /// Copies enumerable to map.
@@ -241,7 +244,7 @@ namespace Konsarpoo.Collections
         /// <typeparam name="TKey"></typeparam>
         /// <typeparam name="TElement"></typeparam>
         /// <returns></returns>
-        public static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] this IEnumerable<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector, IEqualityComparer<TKey> comparer)
+        public static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] this IEnumerable<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector, IEqualityComparer<TKey> comparer, IMapAllocatorSetup<TKey, TElement> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
@@ -254,21 +257,21 @@ namespace Konsarpoo.Collections
                 capacity = collection.Count;
                 if (capacity == 0)
                 {
-                    return new (comparer);
+                    return new (0, 0, allocatorSetup, comparer);
                 }
 
                 if (collection is TSource[] array)
                 {
-                    return ToMap(array, keySelector, elementSelector, comparer);
+                    return ToMap(array, keySelector, elementSelector, comparer, allocatorSetup);
                 }
 
                 if (collection is IReadOnlyList<TSource> list)
                 {
-                    return ToMap(list, keySelector, elementSelector, comparer);
+                    return ToMap(list, keySelector, elementSelector, comparer, allocatorSetup);
                 }
             }
 
-            Map<TKey, TElement> d = new (capacity, comparer);
+            Map<TKey, TElement> d = new (capacity, 0, allocatorSetup, comparer);
             foreach (TSource element in source)
             {
                 d.Add(keySelector(element), elementSelector(element));
@@ -277,14 +280,14 @@ namespace Konsarpoo.Collections
             return d;
         }
 
-        private static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] TSource[] source, [NotNull] Func<TSource, TKey> keySelector,[NotNull]  Func<TSource, TElement> elementSelector, [NotNull] IEqualityComparer<TKey> comparer)
+        private static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] TSource[] source, [NotNull] Func<TSource, TKey> keySelector,[NotNull]  Func<TSource, TElement> elementSelector, [NotNull] IEqualityComparer<TKey> comparer,  IMapAllocatorSetup<TKey, TElement> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
                 return null;
             }
            
-            Map<TKey, TElement> d = new (source.Length, comparer);
+            Map<TKey, TElement> d = new (source.Length,0, allocatorSetup, comparer);
             for (int i = 0; i < source.Length; i++)
             {
                 d.Add(keySelector(source[i]), elementSelector(source[i]));
@@ -293,14 +296,14 @@ namespace Konsarpoo.Collections
             return d;
         }
 
-        private static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] IReadOnlyList<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector, [NotNull] IEqualityComparer<TKey> comparer)
+        private static Map<TKey, TElement> ToMap<TSource, TKey, TElement>([CanBeNull] IReadOnlyList<TSource> source, [NotNull] Func<TSource, TKey> keySelector, [NotNull] Func<TSource, TElement> elementSelector, [NotNull] IEqualityComparer<TKey> comparer, IMapAllocatorSetup<TKey, TElement> allocatorSetup = null)
         {
             if (ReferenceEquals(source, null))
             {
                 return null;
             }
            
-            Map<TKey, TElement> d = new (source.Count, comparer);
+            Map<TKey, TElement> d = new (source.Count, 0, allocatorSetup, comparer);
             foreach (TSource element in source)
             {
                 d.Add(keySelector(element), elementSelector(element));

@@ -31,10 +31,10 @@ public partial class LfuCache<TKey, TValue>
         {
             throw new ArgumentNullException(nameof(info));
         }
-        
-        Data<KeyValuePair<TKey,(TValue value, int frequency)>> valuePairs = m_map
-            .Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue)))
-            .ToData();
+
+        var valuePairs = new Data<KeyValuePair<TKey, (TValue value, int frequency)>>(m_map.Count, m_map.m_buckets.MaxSizeOfArray);
+
+        valuePairs.AddRange(m_map.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue))));
         
         info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey,(TValue value, int frequency)>>));
         info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));

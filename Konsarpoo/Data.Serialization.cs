@@ -41,7 +41,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
             
-            info.AddValue(NodeCapacityName, m_maxSizeOfArray);
+            info.AddValue(NodeCapacityName, MaxSizeOfArray);
             info.AddValue(CapacityName, m_count);
             info.AddValue(VersionName, m_version);
 
@@ -116,7 +116,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            m_maxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
+            MaxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
             
             int capacity = m_siInfo.GetInt32(CapacityName);
             

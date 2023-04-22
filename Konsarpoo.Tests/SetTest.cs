@@ -40,6 +40,64 @@ namespace Konsarpoo.Collections.Tests
 
             Assert.False(hashSet.Remove(10));
         }
+        
+        [Test]
+        public void TestCustomAllocator()
+        {
+            var l1 = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(0, 50))
+            {
+                l1[i] = i;
+            } 
+
+            var l2 = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(50, 50))
+            {
+                l2[i] = i;
+            } 
+
+            var l3 = l1 + l2;
+
+            var expected = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(0, 100))
+            {
+                expected[i] = i;
+            } 
+          
+            Assert.AreEqual(expected, l3);
+
+            Assert.AreEqual(l2, l3 - l1);
+            Assert.AreEqual(l1, l3 - l2);
+        }
+        
+        [Test]
+        public void TestCustomAllocator2()
+        {
+            var l1 = new Set<int>(GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(0, 50))
+            {
+                l1[i] = i;
+            } 
+
+            var l2 = new Set<int>( GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(50, 50))
+            {
+                l2[i] = i;
+            } 
+
+            var l3 = l1 + l2;
+
+            var expected = new Set<int>(GcAllocatorSetup.GetSetPoolSetup<int>());
+            foreach (var i in Enumerable.Range(0, 100))
+            {
+                expected[i] = i;
+            } 
+          
+            Assert.AreEqual(expected, l3);
+
+            Assert.AreEqual(l2, l3 - l1);
+            Assert.AreEqual(l1, l3 - l2);
+        }
 
         [Test]
         public void TestRemoveIfEmpty()

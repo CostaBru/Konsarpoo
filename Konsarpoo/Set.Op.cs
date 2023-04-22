@@ -25,7 +25,7 @@ namespace Konsarpoo.Collections
                 return a?.ToSet();
             }
 
-            var set = new Set<T>(a.Count + b.Count, a.m_comparer);
+            var set = new Set<T>(a.Count + b.Count, a.m_buckets.MaxSizeOfArray, a.SetAllocatorSetup, a.m_comparer);
             
             set.AddRange(a);
             set.AddRange(b);
@@ -51,7 +51,7 @@ namespace Konsarpoo.Collections
                 return a.ToSet();
             }
 
-            var list = new Set<T>(Math.Max(a.Count - b.Count, 0), a.m_comparer);
+            var list = new Set<T>(Math.Max(a.Count - b.Count, 0), a.m_buckets.MaxSizeOfArray, a.SetAllocatorSetup, a.m_comparer);
             
             foreach (var item in a)
             {

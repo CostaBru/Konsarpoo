@@ -44,14 +44,23 @@ namespace Konsarpoo.Collections
         
         private static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
         
-        private static volatile IArrayPool<T> s_itemsArrayPool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
         private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
 
         [NonSerialized] private readonly IArrayPool<T> m_pool = s_pool;
         [NonSerialized] private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
         
-        private int m_maxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+        internal int MaxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+
+        /// <summary>
+        /// Gets access to allocator.
+        /// </summary>
+        public IArrayPool<T> ArrayPool => m_pool;
+        
+        /// <summary>
+        /// Gets access to modes allocator.
+        /// </summary>
+        public IArrayPool<INode> NodesArrayPool => m_nodesPool;
 
         /// <summary>
         /// Tree root.
@@ -129,7 +138,7 @@ namespace Konsarpoo.Collections
         /// Data class constructor that allows setup default capacity.
         /// </summary>
         /// <param name="capacity"></param>
-        public Data(int capacity) : this(capacity, s_maxSizeOfArray, (null, null))
+        public Data(int capacity) : this(capacity, s_maxSizeOfArray, null)
         {
         }
 
@@ -139,7 +148,16 @@ namespace Konsarpoo.Collections
         /// <param name="capacity">Default capacity.</param>
         /// <param name="maxSizeOfArray">Max size of sub array node</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity, int maxSizeOfArray) : this(capacity, maxSizeOfArray, (null, null))
+        public Data(int capacity, int maxSizeOfArray) : this(capacity, maxSizeOfArray, null)
+        {
+        }
+
+        /// <summary>
+        /// Data class constructor that allows setup pool instances.
+        /// </summary>
+        /// <param name="allocatorSetup">Pool setup.</param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public Data(IDataAllocatorSetup<T> allocatorSetup) : this(0, 0, allocatorSetup)
         {
         }
 
@@ -148,38 +166,56 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="capacity">Default capacity.</param>
         /// <param name="maxSizeOfArray">Max size of sub array node</param>
-        /// <param name="poolSetup">Pool setup.</param>
+        /// <param name="allocatorSetup">Pool setup.</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity, int maxSizeOfArray, (IArrayPool<T> dataPool, IArrayPool<INode> nodesPool) poolSetup)
+        public Data(int capacity, int maxSizeOfArray, [CanBeNull] IDataAllocatorSetup<T> allocatorSetup)
         {
             if (capacity < 0)
             {
                 throw new ArgumentOutOfRangeException();
             }
-            
-            m_pool = poolSetup.dataPool ?? s_pool;
-            m_nodesPool = poolSetup.nodesPool ?? s_nodesPool;
+
+            if (allocatorSetup != null)
+            {
+                m_pool = allocatorSetup.GetDataArrayAllocator() ?? s_pool;
+                m_nodesPool = allocatorSetup.GetNodesArrayAllocator() ?? s_nodesPool;
+            }
+            else
+            {
+                m_pool = s_pool;
+                m_nodesPool = s_nodesPool;
+            }
 
             var defaultArraySize = s_maxSizeOfArray <= 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
             
-            m_maxSizeOfArray = maxSizeOfArray <= 0
+            MaxSizeOfArray = maxSizeOfArray <= 0
                 ? defaultArraySize
                 : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
 
             if (capacity > 0)
             {
-                var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
+                var initialCapacity = 1 << (int)Math.Log(capacity > MaxSizeOfArray ? MaxSizeOfArray : capacity, 2.0);
 
-                m_root = new StoreNode(m_pool, m_maxSizeOfArray, initialCapacity);
+                m_root = new StoreNode(m_pool, MaxSizeOfArray, initialCapacity);
             }
         }
-      
+
         /// <summary>
         /// Data constructor accepting an enumerable. Tries to cast it to a materialized collection to reserve appreciate capacity first.
         /// </summary>
         /// <param name="enumerable"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        public Data([NotNull] IEnumerable<T> enumerable) 
+        public Data([NotNull] IEnumerable<T> enumerable) : this(enumerable, null)
+        {
+        }
+
+        /// <summary>
+        /// Data constructor accepting an enumerable. Tries to cast it to a materialized collection to reserve appreciate capacity first.
+        /// </summary>
+        /// <param name="enumerable"></param>
+        /// <param name="allocatorSetup"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public Data([NotNull] IEnumerable<T> enumerable, IDataAllocatorSetup<T> allocatorSetup) : this(0, 0, allocatorSetup)
         {
             switch (enumerable)
             {
@@ -187,7 +223,7 @@ namespace Konsarpoo.Collections
                     throw new ArgumentNullException(nameof(enumerable));
                 
                 case Data<T> list:
-                    m_maxSizeOfArray = list.m_maxSizeOfArray;
+                    MaxSizeOfArray = list.MaxSizeOfArray;
                     m_pool = list.m_pool;
                     m_nodesPool = list.m_nodesPool;
                     CreateFromList(list);
@@ -211,7 +247,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(source));
             }
             
-            m_maxSizeOfArray = source.m_maxSizeOfArray;
+            MaxSizeOfArray = source.MaxSizeOfArray;
             m_pool = source.m_pool;
             m_nodesPool = source.m_nodesPool;
             
@@ -693,7 +729,7 @@ namespace Konsarpoo.Collections
 
         private void AddSlow(ref T item)
         {
-            var maxSizeOfArray = m_maxSizeOfArray;
+            var maxSizeOfArray = MaxSizeOfArray;
             
             var root = m_root;
             

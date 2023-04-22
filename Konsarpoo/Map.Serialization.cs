@@ -20,7 +20,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
-        protected Map(SerializationInfo info, StreamingContext context) 
+        protected Map(SerializationInfo info, StreamingContext context) : this(0,0, null)
         {
             m_sInfo = info;
         }
@@ -30,7 +30,7 @@ namespace Konsarpoo.Collections
         [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context) {
             
-            if (info==null) 
+            if (info == null) 
             {
                 throw new ArgumentNullException(nameof(info));
             }
@@ -41,7 +41,7 @@ namespace Konsarpoo.Collections
            
             if( m_buckets.m_count > 0) 
             {
-                 var array = new Data<KeyValuePair<TKey, TValue>>();
+                 var array = new Data<KeyValuePair<TKey, TValue>>(Count, m_buckets.MaxSizeOfArray);
 
                  array.Ensure(Count);
 

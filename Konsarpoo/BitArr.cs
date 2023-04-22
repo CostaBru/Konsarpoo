@@ -91,7 +91,37 @@ namespace Konsarpoo.Collections
         /// <param name="defaultValue">The Boolean value to assign to each bit. </param>
         /// <exception cref="T:System.ArgumentOutOfRangeException">
         /// <paramref name="length" /> is less than zero. </exception>
-        public BitArr(int length, bool defaultValue)
+        public BitArr(int length, bool defaultValue) : this(length, 0, defaultValue)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the BitArr class that can hold the specified number of bit values, which are initially set to the specified value.</summary>
+        /// <param name="length">The number of bit values in the new BitArr. </param>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="defaultValue">The Boolean value to assign to each bit. </param>
+        /// <exception cref="T:System.ArgumentOutOfRangeException">
+        /// <paramref name="length" /> is less than zero. </exception>
+        public BitArr(int length, int maxSizeStorageNodeArray, bool defaultValue) : this(length, maxSizeStorageNodeArray, null, defaultValue)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the BitArr class that can hold the specified number of bit values and pool setup.</summary>
+        /// <param name="length">The number of bit values in the new BitArr. </param>
+        /// <param name="allocatorSetup"></param>
+        /// <exception cref="T:System.ArgumentOutOfRangeException">
+        /// <paramref name="length" /> is less than zero. </exception>
+        public BitArr(int length,  IDataAllocatorSetup<int> allocatorSetup) : this(length, 0, allocatorSetup, false)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the BitArr class that can hold the specified number of bit values, which are initially set to the specified value.</summary>
+        /// <param name="length">The number of bit values in the new BitArr. </param>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="allocatorSetup"></param>
+        /// <param name="defaultValue">The Boolean value to assign to each bit. </param>
+        /// <exception cref="T:System.ArgumentOutOfRangeException">
+        /// <paramref name="length" /> is less than zero. </exception>
+        public BitArr(int length, int maxSizeStorageNodeArray, IDataAllocatorSetup<int> allocatorSetup, bool defaultValue)
         {
             if (length < 0)
             {
@@ -100,7 +130,7 @@ namespace Konsarpoo.Collections
 
             var capacity = (int)GetArrayLength((uint) length, BitsPerInt32);
 
-            m_array = new Data<int>();
+            m_array = new Data<int>(capacity, maxSizeStorageNodeArray, allocatorSetup);
 
             int num = defaultValue ? -1 : 0;
 
@@ -111,23 +141,24 @@ namespace Konsarpoo.Collections
 
         /// <summary>Initializes a new instance of the BitArr class that contains bit values copied from the specified array of Booleans.</summary>
         /// <param name="values">An array of Booleans to copy. </param>
+        /// <param name="maxSizeStorageNodeArray"></param>
         /// <exception cref="T:System.ArgumentNullException">
         /// <paramref name="values" /> is <see langword="null" />. </exception>
-        public BitArr(IReadOnlyCollection<bool> values)
+        public BitArr(IReadOnlyCollection<bool> values, int maxSizeStorageNodeArray = 0)
         {
             if (values == null)
             {
                 throw new ArgumentNullException(nameof(values));
             }
 
-            CreateFromBoolArr(values);
+            CreateFromBoolArr(values, maxSizeStorageNodeArray);
         }
 
-        private void CreateFromBoolArr(IReadOnlyCollection<bool> values)
+        private void CreateFromBoolArr(IReadOnlyCollection<bool> values, int maxSizeStorageNodeArray)
         {
             var capacity = (int)GetArrayLength((uint)values.Count, BitsPerInt32);
 
-            m_array = new Data<int>(capacity);
+            m_array = new Data<int>(capacity, maxSizeStorageNodeArray);
             m_array.Ensure(capacity);
 
             m_length = (uint)values.Count;

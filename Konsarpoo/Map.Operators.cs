@@ -26,7 +26,7 @@ namespace Konsarpoo.Collections
                 return a?.ToMap();
             }
 
-            var dict = new Map<TKey, TValue>(a.m_comparer);
+            var dict = new Map<TKey, TValue>(a.Count, a.m_buckets.MaxSizeOfArray, a.MapAllocatorSetup, a.m_comparer);
             
             dict.Union(a);
             dict.Union(b);
@@ -67,7 +67,7 @@ namespace Konsarpoo.Collections
                 return a.ToMap();
             }
 
-            var list = new Map<TKey, TValue>(a.m_comparer);
+            var list = new Map<TKey, TValue>(a.Count, a.m_buckets.MaxSizeOfArray, a.MapAllocatorSetup, a.m_comparer);
             
             foreach (var item in a)
             {

@@ -29,30 +29,15 @@ namespace Konsarpoo.Collections.Tests
             ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
 
-        private class GcArrayAllocator<T> : IArrayPool<T>
-        {
-            public T[] Rent(int count)
-            {
-                return new T[count];
-            }
-
-            public void Return(T[] array, bool clearArray = false)
-            {
-            }
-
-            public bool CleanArrayReturn => true;
-        }
-        
-       
         [Test]
         public void TestCustomAllocator()
         {
-            var poolSetup = (new GcArrayAllocator<int>(), new GcArrayAllocator<Data<int>.INode>());
-
-            var l1 = new Data<int>(0, 16, poolSetup);
+            var dataPoolSetup = GcAllocatorSetup.GetDataPoolSetup<int>();
+            
+            var l1 = new Data<int>(0, 16, dataPoolSetup);
             l1.AddRange(Enumerable.Range(0, 50));
 
-            var l2 = new Data<int>(0, 16, poolSetup);
+            var l2 = new Data<int>(0, 16, dataPoolSetup);
             l2.AddRange(Enumerable.Range(50, 50));
 
             var l3 = l1 + l2;

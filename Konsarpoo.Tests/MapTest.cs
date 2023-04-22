@@ -634,16 +634,13 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestCustomAllocator()
         {
-            var poolSetup1 = (new GcArrayAllocator<int>(), new GcArrayAllocator<Data<int>.INode>());
-            var poolSetup2 =  (new GcArrayAllocator<Map<int, int>.Entry>(), new GcArrayAllocator<Data<Map<int, int>.Entry>.INode>());
-            
-            var l1 = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            var l1 = new Map<int, int>(0, 16, GcAllocatorSetup.GetMapPoolSetup<int, int>());
             foreach (var i in Enumerable.Range(0, 50))
             {
                 l1[i] = i;
             } 
 
-            var l2 = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            var l2 = new Map<int, int>(0, 16, GcAllocatorSetup.GetMapPoolSetup<int, int>());
             foreach (var i in Enumerable.Range(50, 50))
             {
                 l2[i] = i;
@@ -651,7 +648,36 @@ namespace Konsarpoo.Collections.Tests
 
             var l3 = l1 + l2;
 
-            var expected = new Map<int, int>(new Data<int>(0, 16, poolSetup1), new Data<Map<int, int>.Entry>(0, 16, poolSetup2));
+            var expected = new Map<int, int>(0, 16, GcAllocatorSetup.GetMapPoolSetup<int, int>());
+            foreach (var i in Enumerable.Range(0, 100))
+            {
+                expected[i] = i;
+            } 
+          
+            Assert.AreEqual(expected, l3);
+
+            Assert.AreEqual(l2, l3 - l1);
+            Assert.AreEqual(l1, l3 - l2);
+        }
+        
+        [Test]
+        public void TestCustomAllocator2()
+        {
+            var l1 = new Map<int, int>( GcAllocatorSetup.GetMapPoolSetup<int, int>());
+            foreach (var i in Enumerable.Range(0, 50))
+            {
+                l1[i] = i;
+            } 
+
+            var l2 = new Map<int, int>(GcAllocatorSetup.GetMapPoolSetup<int, int>());
+            foreach (var i in Enumerable.Range(50, 50))
+            {
+                l2[i] = i;
+            } 
+
+            var l3 = l1 + l2;
+
+            var expected = new Map<int, int>(GcAllocatorSetup.GetMapPoolSetup<int, int>());
             foreach (var i in Enumerable.Range(0, 100))
             {
                 expected[i] = i;

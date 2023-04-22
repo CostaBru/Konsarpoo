@@ -17,12 +17,27 @@ namespace Konsarpoo.Collections
     [Serializable]
     public partial class Set<T> : ICollection<T>, IReadOnlyCollection<T>, IAppender<T>, ISerializable, IDeserializationCallback, IDisposable
     {
+        private static volatile ISetAllocatorSetup<T> s_setAllocatorSetup = null;
+        
+        [NonSerialized]
+        public readonly ISetAllocatorSetup<T> SetAllocatorSetup;
+        
+        /// <summary>
+        /// Sets up global T array pool setup for map.
+        /// </summary>
+        /// <param name="allocator">Null to setup default.</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void SetArrayPool([CanBeNull] ISetAllocatorSetup<T> allocator)
+        {
+            s_setAllocatorSetup = allocator;
+        }
+        
         private static readonly bool IsReferenceType = !typeof(T).IsValueType;
 
         [NonSerialized]
-        private readonly Data<int> m_buckets = new ();
+        private readonly Data<int> m_buckets;
         [NonSerialized]
-        private readonly Data<Slot> m_slots = new ();
+        private readonly Data<Slot> m_slots;
         
         private IEqualityComparer<T> m_comparer;
 
@@ -39,41 +54,72 @@ namespace Konsarpoo.Collections
 
         /// <summary>Initializes a new instance of the Set class that is empty and uses the default equality comparer for the set type.</summary>
         public Set()
-          : this(EqualityComparer<T>.Default)
+          : this(0, 0, EqualityComparer<T>.Default)
         {
         }
 
         /// <summary>Initializes a new instance of the Set class that is empty and uses the default equality comparer for the set type.</summary>
         /// <param name="capacity">default capacity of internal storage.</param>
         public Set(int capacity)
-          : this(capacity, EqualityComparer<T>.Default)
+          : this(capacity, 0, EqualityComparer<T>.Default)
         {
         }
         
+        /// <summary>Initializes a new instance of the Set class that is empty and uses equality comparer given for the set type.</summary>
+        /// <param name="comparer"> Equality comparer.</param>
+        public Set([CanBeNull] IEqualityComparer<T> comparer) 
+            : this(0,0, comparer)
+        {
+           
+        }
+
+        /// <summary>Initializes a new instance of the Set class that is empty and uses equality comparer given for the set type and pool set up.</summary>
+        /// <param name="allocatorSetup"></param>
+        /// <param name="comparer"> Equality comparer.</param>
+        public Set(ISetAllocatorSetup<T> allocatorSetup, IEqualityComparer<T> comparer = null) 
+            : this(0,0, allocatorSetup, comparer)
+        {
+           
+        }
+
         /// <summary>Initializes a new instance of the Set class that is empty and uses the equality comparer given for the set type.</summary>
         /// <param name="capacity">default capacity of internal storage.</param>
+        /// <param name="maxSizeStorageNodeArray"></param>
         /// <param name="comparer"></param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Set(int capacity, IEqualityComparer<T> comparer)
-            : this(comparer)
+        public Set(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<T> comparer) : this(capacity, maxSizeStorageNodeArray, null, comparer)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the Set class that is empty and uses the equality comparer given for the set type.</summary>
+        /// <param name="capacity">default capacity of internal storage.</param>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="allocatorSetup"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public Set(int capacity, int maxSizeStorageNodeArray, ISetAllocatorSetup<T> allocatorSetup) : this(capacity, maxSizeStorageNodeArray, allocatorSetup, null)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the Set class that is empty and uses the equality comparer given for the set type.</summary>
+        /// <param name="capacity">default capacity of internal storage.</param>
+        /// <param name="maxSizeStorageNodeArray"></param>
+        /// <param name="allocatorSetup"></param>
+        /// <param name="comparer"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public Set(int capacity, int maxSizeStorageNodeArray, ISetAllocatorSetup<T> allocatorSetup, IEqualityComparer<T> comparer)
         {
             if (capacity < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             }
 
-            if (capacity <= 0)
-            {
-                return;
-            }
+            var setPoolSetup = allocatorSetup ?? s_setAllocatorSetup;
 
-            Initialize(Prime.GetPrime(capacity));
-        }
-
-        /// <summary>Initializes a new instance of the Set class that is empty and uses equality comparer given for the set type.</summary>
-        /// <param name="comparer"> Equality comparer.</param>
-        public Set([CanBeNull] IEqualityComparer<T> comparer)
-        {
+            SetAllocatorSetup = setPoolSetup;
+            
+            m_buckets = new (capacity, maxSizeStorageNodeArray, setPoolSetup?.GetBucketsAllocatorSetup());
+            m_slots = new (capacity, maxSizeStorageNodeArray, setPoolSetup?.GeStorageAllocatorSetup());
+            
             if (comparer == null)
             {
                 comparer = EqualityComparer<T>.Default;
@@ -82,7 +128,15 @@ namespace Konsarpoo.Collections
             m_lastIndex = 0;
             m_count = 0;
             m_freeList = -1;
+
+            if (capacity <= 0)
+            {
+                return;
+            }
+            
+            Initialize(Prime.GetPrime(capacity));
         }
+     
 
         /// <summary>
         /// Initializes a new instance of the Set class. Uses default equality comparer for the set type and fills the set with given collection.
@@ -107,8 +161,17 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="collection"></param>
         /// <param name="comparer"></param>
-        public Set(IEnumerable<T> collection, IEqualityComparer<T> comparer)
-          : this(comparer)
+        public Set(IEnumerable<T> collection, IEqualityComparer<T> comparer) : this(collection, null, comparer)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the Set class. Uses equality comparer given for the set type and fills the set with given collection.
+        /// </summary>
+        /// <param name="collection"></param>
+        /// <param name="allocatorSetup"></param>
+        /// <param name="comparer"></param>
+        public Set(IEnumerable<T> collection, ISetAllocatorSetup<T> allocatorSetup, IEqualityComparer<T> comparer) : this(0, 0, allocatorSetup, comparer)
         {
             if (collection == null)
             {
@@ -122,7 +185,7 @@ namespace Konsarpoo.Collections
                 {
                     return;
                 }
-            
+                
                 m_buckets = new(objSet.m_buckets);
                 m_slots = new(objSet.m_slots);
 
@@ -134,6 +197,7 @@ namespace Konsarpoo.Collections
             else
             {
                 int capacity = !(collection is ICollection<T> objs) ? 0 : objs.Count;
+                
                 Initialize(Prime.GetPrime(capacity));
 
                 UnionWith(collection);
@@ -322,8 +386,8 @@ namespace Konsarpoo.Collections
         
         private void DisposeCore()
         {
-            m_buckets.Dispose();
-            m_slots.Dispose();
+            m_buckets?.Dispose();
+            m_slots?.Dispose();
 
             m_freeList = -1;
             m_count = 0;

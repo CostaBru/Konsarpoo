@@ -504,7 +504,7 @@ namespace Konsarpoo.Collections
 
                     var storeNode = new StoreNode(base.m_arrayPool, m_maxCapacity, arraySize) { m_size = arraySize };
 
-                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || s_itemsArrayPool.CleanArrayReturn == false)
+                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || m_arrayPool.CleanArrayReturn == false)
                     {
                         Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
                     }
@@ -529,7 +529,7 @@ namespace Konsarpoo.Collections
 
                 m_items = vals;
 
-                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || s_itemsArrayPool.CleanArrayReturn == false)
+                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || m_arrayPool.CleanArrayReturn == false)
                 {
                     Array.Fill(m_items, defaultValue, m_size, newSize - m_size);
                 }
