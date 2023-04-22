@@ -9,7 +9,7 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections;
 
 /// <summary>
-/// An O(1) LFU cache eviction data structure.
+/// An O(1) LFU cache eviction data structure plus simple key obsolescence tracking/cleaning. 
 /// <see ref="https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf"/>
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
@@ -25,9 +25,13 @@ public partial class LfuCache<TKey, TValue> :
     IDeserializationCallback,
     IDisposable
 {
+    [NonSerialized]
+    private TimeSpan m_obsolescenceData;
+
     public class DataVal
     {
         public TValue Value;
+        public long AccessTickCount;
         public FreqNode FreqNode;
     }
    
@@ -59,10 +63,21 @@ public partial class LfuCache<TKey, TValue> :
 
     [NonSerialized] 
     private FreqNode m_root;
+    
+    [NonSerialized] 
+    private FreqNode m_mostFreqNode;
         
     [NonSerialized]
     private static TValue s_nullRef;
+
+    private Stopwatch m_stopwatch;
     
+    [NonSerialized]
+    private Set<TKey> m_obsoleteKeys;
+
+    [NonSerialized]
+    private readonly Func<TValue, TValue> m_copyStrategy;
+
     /// <summary>
     /// Default class constructor.
     /// </summary>
@@ -76,13 +91,34 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="maxSizeStorageNodeArray"></param>
     /// <param name="comparer"></param>
     /// <param name="capacity"></param>
-    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer)
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer) : this(capacity, maxSizeStorageNodeArray, comparer, null)
+    {
+    }
+
+    /// <summary>
+    /// LfuCache class constructor with value copy strategy.
+    /// </summary>
+    /// <param name="copyStrategy"></param>
+    public LfuCache(Func<TValue, TValue> copyStrategy): this(0,0,null, copyStrategy)
+    {
+    }
+    
+    /// <summary>
+    /// LfuCache class constructor with keys comparer parameter.
+    /// </summary>
+    /// <param name="maxSizeStorageNodeArray"></param>
+    /// <param name="comparer"></param>
+    /// <param name="capacity"></param>
+    /// <param name="copyStrategy"></param>
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
         
         m_map = new(capacity, maxSizeStorageNodeArray, m_comparer);
         m_root = new(m_setTemplate);
+        m_mostFreqNode = m_root;
+        m_copyStrategy = copyStrategy;
     }
     
     /// <summary>
@@ -112,6 +148,36 @@ public partial class LfuCache<TKey, TValue> :
         m_setTemplate.Clear();
         
         m_root = new(m_setTemplate);
+        m_mostFreqNode = m_root;
+    }
+
+    /// <summary>
+    /// Starts tracking obsolescence of data on access.
+    /// </summary>
+    public void StartTrackingObsolescence(TimeSpan obsolescenceTime)
+    {
+        m_obsolescenceData = obsolescenceTime;
+        
+        m_stopwatch = new Stopwatch();
+
+        if (m_obsoleteKeys == null)
+        {
+            m_obsoleteKeys = new Set<TKey>(m_setTemplate);
+        }
+
+        m_stopwatch.Start();
+    }
+
+    /// <summary>
+    /// Stops tracking obsolescence of data on access.
+    /// </summary>
+    public void StopTrackingObsolescence()
+    {
+        m_obsolescenceData = TimeSpan.FromTicks(-1);
+        
+        m_stopwatch?.Stop();
+
+        m_stopwatch = null;
     }
 
     /// <inheritdoc />
@@ -120,6 +186,71 @@ public partial class LfuCache<TKey, TValue> :
         return m_map.ContainsKey(key);
     }
 
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a cache.
+    /// </summary>
+    /// <returns></returns>
+    public bool Get([NotNull] TKey key, out TValue value)
+    {
+        return TryGetValue(key, out value);
+    }
+    
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a cache if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet([NotNull] TKey key, Func<TKey, LfuCache<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValue(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(key, this);
+    }
+    
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a cache if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam>([NotNull] TKey key, TParam p1, Func<TParam, TKey, LfuCache<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValue(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, key, this);
+    }
+    
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a cache if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam1, TParam2>([NotNull] TKey key, TParam1 p1, TParam2 p2,  Func<TParam1, TParam2, TKey, LfuCache<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValue(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, p2, key, this);
+    }
+    
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a cache if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam1, TParam2, TParam3>([NotNull] TKey key, TParam1 p1, TParam2 p2, TParam3 p3, Func<TParam1, TParam2, TParam3, TKey, LfuCache<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValue(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, p2, p3, key, this);
+    }
+    
     /// <summary>
     /// Attempts to get the value associated with the specified key in a cache.
     /// </summary>
@@ -137,7 +268,14 @@ public partial class LfuCache<TKey, TValue> :
         {
             AccessItem(key, data, default, false);
 
-            value = data.Value;
+            if (m_copyStrategy != null)
+            {
+                value = m_copyStrategy(data.Value);
+            }
+            else
+            {
+                value = data.Value;
+            }
 
             return true;
         }
@@ -239,17 +377,41 @@ public partial class LfuCache<TKey, TValue> :
             
             freqNode.Keys.Dispose();
         }
+        
+        if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
+        {
+            m_mostFreqNode = nextNode;
+        }
 
         data.FreqNode = nextNode;
+
+        if (m_stopwatch != null)
+        {
+            data.AccessTickCount = m_stopwatch.ElapsedTicks;
+
+            m_obsoleteKeys.Remove(key);
+        }
         
         if (hasValue)
         {
-            data.Value = value;
+            if (m_copyStrategy == null)
+            {
+                data.Value = value;
+            }
+            else
+            {
+                data.Value = m_copyStrategy(value);
+            }
         }
     }
 
-    private static void DeleteNode(FreqNode freqNode)
+    private void DeleteNode(FreqNode freqNode)
     {
+        if (m_mostFreqNode == freqNode)
+        {
+            m_mostFreqNode = m_mostFreqNode.PrevNode;
+        }
+        
         var prevNode = freqNode.PrevNode;
 
         prevNode.NextNode = freqNode.NextNode;
@@ -261,11 +423,26 @@ public partial class LfuCache<TKey, TValue> :
     /// </summary>
     /// <param name="key"></param>
     /// <param name="value"></param>
-    public void AddOrUpdate(TKey key, TValue value)
+    public TValue Put(TKey key, TValue value)
+    {
+        AddOrUpdate(key, value);
+
+        return value;
+    }
+    
+    /// <summary>
+    /// Adds or updates cache item.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <returns>true if item added, false if item updated.</returns>
+    public bool AddOrUpdate(TKey key, TValue value)
     {
         if (m_map.TryGetValue(key, out var data))
         {
             AccessItem(key, data, value, true);
+
+            return false;
         }
         else
         {
@@ -278,16 +455,30 @@ public partial class LfuCache<TKey, TValue> :
                 m_root.NextNode.PrevNode = firstNode;
 
                 m_root.NextNode = firstNode;
+                
+                if (firstNode.FreqValue > m_mostFreqNode.FreqValue)
+                {
+                    m_mostFreqNode = firstNode;
+                }
             }
 
             firstNode.Keys.Add(key);
+
+            var dataVal = new DataVal() { Value = m_copyStrategy != null ? m_copyStrategy(value) : value, FreqNode = firstNode };
             
-            m_map[key] = new DataVal() { Value = value, FreqNode = firstNode };
+            if (m_stopwatch != null)
+            {
+                dataVal.AccessTickCount = m_stopwatch.ElapsedTicks;
+            }
+            
+            m_map[key] = dataVal;
+
+            return true;
         }
     }
 
     /// <summary>
-    /// Removes cache item.
+    /// Removes cache item. Value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
@@ -305,6 +496,12 @@ public partial class LfuCache<TKey, TValue> :
             }
 
             m_map.Remove(key);
+            m_obsoleteKeys?.Remove(key);
+
+            if (m_copyStrategy != null && data.Value is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
 
             return true;
         }
@@ -324,7 +521,7 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Clears LFU cache.
+    /// Clears LFU cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
     public void Clear()
     {
@@ -383,7 +580,115 @@ public partial class LfuCache<TKey, TValue> :
     bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
 
     /// <summary>
-    /// Removes all least frequently used items from cache.
+    /// Scans accessed items for obsolescence.
+    /// </summary>
+    public int ScanForObsolescence()
+    {
+        return ScanFrequentForObsolescence(Count);
+    }
+
+    /// <summary>
+    /// Gets number of obsolete keys.
+    /// </summary>
+    public int ObsoleteKeysCount => m_obsoleteKeys?.Count ?? 0;
+    
+    /// <summary>
+    /// Scans top N most freq accessed items for obsolescence.
+    /// </summary>
+    /// <param name="count"></param>
+    public int ScanFrequentForObsolescence(int count)
+    {
+        if (m_stopwatch == null || count <= 0)
+        {
+            return 0;
+        }
+        
+        var stopwatchElapsedTicks = m_stopwatch.ElapsedTicks;
+
+        var node = m_mostFreqNode;
+
+        int counter = 0;
+
+        var obsoleteKeysCount = m_obsoleteKeys.Count;
+
+        while (m_root != node)
+        {
+            foreach (var nodeKey in node.Keys)
+            {
+                var accessTickCount = m_map[nodeKey].AccessTickCount;
+                
+                if (stopwatchElapsedTicks - m_obsolescenceData.Ticks > accessTickCount)
+                {
+                    m_obsoleteKeys.Add(nodeKey);
+                }
+                
+                counter++;
+
+                if (counter >= count)
+                {
+                    break;
+                }
+            }
+            
+            if (counter >= count)
+            {
+                break;
+            }
+            
+            node = node.PrevNode;
+        }
+
+        return m_obsoleteKeys.Count - obsoleteKeysCount;
+    }
+
+    /// <summary>
+    /// Resets keys obsolescence.
+    /// </summary>
+    public void ResetObsolescence()
+    {
+        m_obsoleteKeys?.Clear();
+
+        foreach (var dataVal in m_map)
+        {
+            dataVal.Value.AccessTickCount = 0;
+        }
+    }
+    
+    /// <summary>
+    /// Removes obsolete items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
+    /// </summary>
+    /// <returns></returns>
+    public int RemoveObsoleteItems()
+    {
+        if (m_map.Count == 0)
+        {
+            return 0;
+        }
+
+        if (m_obsoleteKeys.Count == 0)
+        {
+            return 0;
+        }
+
+        int removedCount = 0;
+        
+        var keys = m_obsoleteKeys.ToData();
+        
+        foreach (var key in keys)
+        {
+            RemoveKey(key);
+            removedCount++;
+        }
+        
+        keys.Dispose();
+        
+        m_obsoleteKeys.Clear();
+
+        return removedCount;
+    }
+
+    /// <summary>
+    /// Removes all least frequently used items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
     public int RemoveLfuItems(int? count = null)
     {
@@ -458,11 +763,14 @@ public partial class LfuCache<TKey, TValue> :
         return m_map.Keys.GetEnumerator();
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Disposes allocated resources. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
+    /// </summary>
     public void Dispose()
     {
         Clear();
 
+        m_obsoleteKeys?.Dispose();
         m_map.Dispose();
         m_setTemplate.Dispose();
     }
