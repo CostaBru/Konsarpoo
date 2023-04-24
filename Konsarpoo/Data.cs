@@ -97,7 +97,14 @@ namespace Konsarpoo.Collections
             
             m_arrayAllocator = dataStorageAllocator.GetDataArrayAllocator();
             m_nodesAllocator = dataStorageAllocator.GetNodesArrayAllocator();
-            m_maxSizeOfArray = dataStorageAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
+            
+            var maxSizeOfArray = dataStorageAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
+            
+            var alignedSize = maxSizeOfArray <= 0
+                ? maxSizeOfArray
+                : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
+            
+            m_maxSizeOfArray = alignedSize;
         }
         
         /// <summary>
@@ -148,10 +155,14 @@ namespace Konsarpoo.Collections
             m_arrayAllocator = dataAllocator.GetDataArrayAllocator();
             m_nodesAllocator = dataAllocator.GetNodesArrayAllocator();
             
-            m_maxSizeOfArray = maxSizeOfArray <= 0
+            var size = maxSizeOfArray <= 0
                 ? defaultArraySize
-                : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
+                : maxSizeOfArray;
 
+            var alignedSize = Math.Max(16, 1 << (int)Math.Round(Math.Log(size, 2)));
+
+            m_maxSizeOfArray = alignedSize;
+            
             if (capacity > 0)
             {
                 var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);

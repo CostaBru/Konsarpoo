@@ -4,7 +4,7 @@ public static class GcAllocatorSetup
 {
     public static IDataAllocatorSetup<T> GetDataPoolSetup<T>(int? maxDataArrayLength = null)
     {
-        maxDataArrayLength ??= GcAllocator<T>.SmallHeapSuitableLength;
+        maxDataArrayLength = maxDataArrayLength == null || maxDataArrayLength <= 0 ? GcAllocator<T>.SmallHeapSuitableLength : maxDataArrayLength;
         
         return new DataAllocatorSetup<T>(new GcAllocator<T>(), new GcAllocator<Data<T>.INode>(), maxDataArrayLength);
     }

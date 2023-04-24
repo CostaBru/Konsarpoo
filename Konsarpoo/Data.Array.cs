@@ -43,11 +43,11 @@ namespace Konsarpoo.Collections
             }
 
             unchecked { ++m_version; }
+            
+            var maxSizeOfArray = m_maxSizeOfArray;
 
             if (m_root == null)
             {
-                var maxSizeOfArray = m_maxSizeOfArray < 0 ? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray : m_maxSizeOfArray;
-
                 //common case
                 var storeNode = new StoreNode(m_arrayAllocator, maxSizeOfArray, size);
 
@@ -72,7 +72,7 @@ namespace Konsarpoo.Collections
                     INode node2;
                     if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
                     {
-                        m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesAllocator, node2);
+                        m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
                     }
                 }
 
@@ -91,7 +91,7 @@ namespace Konsarpoo.Collections
                     INode node2;
                     if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
                     {
-                        m_root = new LinkNode(node1.Level + 1, m_maxSizeOfArray, node1, m_nodesAllocator, node2);
+                        m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
                     }
                 }
             }

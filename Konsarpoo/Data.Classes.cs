@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using JetBrains.Annotations;
 using Konsarpoo.Collections.Allocators;
 
@@ -108,7 +109,7 @@ namespace Konsarpoo.Collections
         [DebuggerDisplay("Link. Nodes: {m_nodes.Count}, Level: {Level}")]
         private sealed class LinkNode : INode
         {
-            private const int c_intermediateCapacity = 1024;
+            private const int c_linkNodeCapacity = 1024;
             
             private readonly IArrayAllocator<INode> m_nodesAllocator;
             
@@ -145,9 +146,9 @@ namespace Konsarpoo.Collections
                 m_leafCapacity = leafCapacity;
                 m_nodesAllocator = nodesAllocator;
 
-                m_stepBase = (int)Math.Log(Math.Pow(c_intermediateCapacity, m_level - 1) * m_leafCapacity, 2);
+                m_stepBase = (int)Math.Log(Math.Pow(c_linkNodeCapacity, m_level - 1) * m_leafCapacity, 2);
 
-                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_intermediateCapacity, capacity: 16);
+                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_linkNodeCapacity, capacity: 16);
                 m_nodes.Add(child1);
 
                 if (child2 != null)
@@ -163,7 +164,7 @@ namespace Konsarpoo.Collections
                 m_stepBase = linkNode.m_stepBase;
                 m_nodesAllocator = linkNode.m_nodesAllocator;
 
-                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_intermediateCapacity, capacity: linkNode.m_nodes.m_size);
+                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_linkNodeCapacity, capacity: linkNode.m_nodes.m_size);
 
                 foreach (var node in linkNode.m_nodes)
                 {
@@ -182,7 +183,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_nodes[m_nodes.Count - 1].Add(ref item, out var node1, capacity) == false)
                 {
-                    if (m_nodes.m_size == c_intermediateCapacity)
+                    if (m_nodes.m_size == c_linkNodeCapacity)
                     {
                         node = new LinkNode( m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
@@ -298,7 +299,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
                 {
-                    if (m_nodes.m_size == c_intermediateCapacity)
+                    if (m_nodes.m_size == c_linkNodeCapacity)
                     {
                         node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
@@ -526,7 +527,7 @@ namespace Konsarpoo.Collections
 
                 Array.Copy(m_items, 0, vals, 0, m_size);
 
-                base.ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
 

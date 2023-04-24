@@ -12,22 +12,17 @@ using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture(16)]
-    [TestFixture(1024)]
-    [TestFixture(null)]
-    public class DataTest
+    [TestFixture(16, AllocatorType.GC, 0)]
+    [TestFixture(0, AllocatorType.GC, 0)]
+    [TestFixture(32, AllocatorType.Mixed, 16)]
+    [TestFixture(16, AllocatorType.Pool, 0)]
+    [TestFixture(1024, AllocatorType.GC, 0)]
+    [TestFixture(1024, AllocatorType.Mixed, 512)]
+    [TestFixture(1024, AllocatorType.Pool, 0)]
+    public class DataTest : BaseTest
     {
-        private readonly int m_maxSizeOfArrayBucket;
-
-        public DataTest(int? maxSizeOfArrayBucket)
+        public DataTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, gcLen)
         {
-            m_maxSizeOfArrayBucket = maxSizeOfArrayBucket ?? 1024 * 1024;
-        }
-
-        [SetUp]
-        public void SetUp()
-        {
-            KonsarpooAllocatorGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
 
         [Test]
@@ -1128,6 +1123,16 @@ namespace Konsarpoo.Collections.Tests
         public void TesHugeInsert([Values(10000, 5, 20000)] int index)
         {
             var list = Enumerable.Range(0, 25000).ToList();
+            
+            var dataList1 = new Data<int>();
+
+            foreach (var i in list)
+            {
+                dataList1.Add(i);
+            }
+
+            var i2 = dataList1[25000 - 2];
+            var i1 = dataList1[25000 - 1];
 
             var dataList = new Data<int>();
 

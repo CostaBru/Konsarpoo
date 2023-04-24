@@ -6,9 +6,18 @@ using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
 
-[TestFixture]
-public class LfuCacheTest
+[TestFixture(16, AllocatorType.GC, 0)]
+[TestFixture(32, AllocatorType.Mixed, 16)]
+[TestFixture(16, AllocatorType.Pool, 0)]
+[TestFixture(1024, AllocatorType.GC, 0)]
+[TestFixture(1024, AllocatorType.Mixed, 512)]
+[TestFixture(1024, AllocatorType.Pool, 0)]
+public class LfuCacheTest : BaseTest
 {
+    public LfuCacheTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, gcLen)
+    {
+    }
+    
     [Test]
     public void BasicTest()
     {

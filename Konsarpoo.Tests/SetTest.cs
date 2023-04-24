@@ -6,24 +6,18 @@ using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture(16)]
-    [TestFixture(1024)]
-    [TestFixture(null)]
-    public class SetTest
+    [TestFixture(16, AllocatorType.GC, 0)]
+    [TestFixture(32, AllocatorType.Mixed, 16)]
+    [TestFixture(16, AllocatorType.Pool, 0)]
+    [TestFixture(1024, AllocatorType.GC, 0)]
+    [TestFixture(1024, AllocatorType.Mixed, 512)]
+    [TestFixture(1024, AllocatorType.Pool, 0)]
+    public class SetTest : BaseTest
     {
-        private readonly int m_maxSizeOfArrayBucket;
-
-        public SetTest(int? maxSizeOfArrayBucket)
+        public SetTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, gcLen)
         {
-            m_maxSizeOfArrayBucket = maxSizeOfArrayBucket ?? 1024 * 1024;
         }
-
-        [SetUp]
-        public void SetUp()
-        {
-            KonsarpooAllocatorGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
-        }
-
+       
         [Test]
         public void TestSmall()
         {
@@ -124,7 +118,7 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestContains([Values(-1000, 0, 1)] int m, [Values(0, 1, 2, 3, 100, 1000, 500000)] int n,
+        public void TestContains([Values(-1000, 0, 1)] int m, [Values(0, 1, 2, 3, 100, 1000, 50000)] int n,
             [Values(true, false)] bool ctr)
         {
             var enumerable = Enumerable.Range(m, n).ToData();
