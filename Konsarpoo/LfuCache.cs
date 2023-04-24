@@ -525,7 +525,7 @@ public partial class LfuCache<TKey, TValue> :
     /// </summary>
     public void Clear()
     {
-        RemoveLfuItems(Count);
+        RemoveLeastUsedItems(Count);
     }
 
     bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
@@ -690,7 +690,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// Removes all least frequently used items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
-    public int RemoveLfuItems(int? count = null)
+    public int RemoveLeastUsedItems(int? count = null)
     {
         if (m_map.Count == 0)
         {

@@ -26,28 +26,14 @@ namespace Konsarpoo.Collections
                                              IDeserializationCallback,
                                              IDisposable
     {
-        private static volatile IMapAllocatorSetup<TKey, TValue> s_mapAllocatorSetup = null;
         
-        /// <summary>
-        /// Sets up global T array pool setup for map.
-        /// </summary>
-        /// <param name="allocator">Null to setup default.</param>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static void SetArrayPool([CanBeNull] IMapAllocatorSetup<TKey, TValue> allocator)
-        {
-            s_mapAllocatorSetup = allocator;
-        }
-        
-        [NonSerialized]
-        public readonly IMapAllocatorSetup<TKey, TValue> MapAllocatorSetup;
-
         [NonSerialized]
         private IEqualityComparer<TKey> m_comparer;
         
         [NonSerialized]
         internal readonly Data<int> m_buckets;
         [NonSerialized]
-        private readonly Data<Entry> m_entries ;
+        private readonly Data<Entry> m_entries;
         
         [Serializable]
         public struct Entry
@@ -130,8 +116,10 @@ namespace Konsarpoo.Collections
         {
             m_comparer = dictionary.m_comparer;
 
-            m_buckets = new(dictionary.m_buckets, s_mapAllocatorSetup?.GetBucketAllocatorSetup());
-            m_entries = new(dictionary.m_entries, s_mapAllocatorSetup?.GetStorageAllocatorSetup());
+            var mapAllocatorSetup = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetMapAllocator<TKey, TValue>();
+            
+            m_buckets = new(dictionary.m_buckets, mapAllocatorSetup.GetBucketAllocatorSetup());
+            m_entries = new(dictionary.m_entries, mapAllocatorSetup.GetStorageAllocatorSetup());
 
             m_count = dictionary.m_count;
             m_freeCount = dictionary.m_freeCount;
@@ -186,7 +174,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             }
 
-            var poolSetup = MapAllocatorSetup = mapAllocatorSetup ?? s_mapAllocatorSetup;
+            var poolSetup = mapAllocatorSetup ?? KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetMapAllocator<TKey, TValue>();
 
             m_comparer = comparer ?? EqualityComparer<TKey>.Default;
             

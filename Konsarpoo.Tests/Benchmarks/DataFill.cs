@@ -3,6 +3,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Tests.Benchmarks
 {
@@ -28,17 +29,17 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [IterationSetup]
         public void IterationSetup()
         {
-            Data<int>.SetMaxSizeOfArrayBucket(NodeSize);
+            KonsarpooAllocatorGlobalSetup.SetMixedAllocatorSetup(maxDataArrayLen: NodeSize);
             Data<int>.SetClearArrayOnReturn(false);
-            DefaultMixedAllocator<int>.ClearArrayOnRequest = false;
+            GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
         }
         
         [IterationCleanup]
         public void IterationCleanup()
         {
-            Data<int>.SetMaxSizeOfArrayBucket(-1);
+            KonsarpooAllocatorGlobalSetup.SetMixedAllocatorSetup(maxDataArrayLen: null);
             Data<int>.SetClearArrayOnReturn(true);
-            DefaultMixedAllocator<int>.ClearArrayOnRequest = true;
+            GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = true;
         }
 
         [Benchmark]

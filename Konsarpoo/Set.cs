@@ -17,21 +17,6 @@ namespace Konsarpoo.Collections
     [Serializable]
     public partial class Set<T> : ICollection<T>, IReadOnlyCollection<T>, IAppender<T>, ISerializable, IDeserializationCallback, IDisposable
     {
-        private static volatile ISetAllocatorSetup<T> s_setAllocatorSetup = null;
-        
-        [NonSerialized]
-        public readonly ISetAllocatorSetup<T> SetAllocatorSetup;
-        
-        /// <summary>
-        /// Sets up global T array pool setup for map.
-        /// </summary>
-        /// <param name="allocator">Null to setup default.</param>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static void SetArrayPool([CanBeNull] ISetAllocatorSetup<T> allocator)
-        {
-            s_setAllocatorSetup = allocator;
-        }
-        
         private static readonly bool IsReferenceType = !typeof(T).IsValueType;
 
         [NonSerialized]
@@ -113,9 +98,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             }
 
-            var setPoolSetup = allocatorSetup ?? s_setAllocatorSetup;
-
-            SetAllocatorSetup = setPoolSetup;
+            var setPoolSetup = allocatorSetup ?? KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetSetAllocator<T>();
             
             m_buckets = new (capacity, maxSizeStorageNodeArray, setPoolSetup?.GetBucketsAllocatorSetup());
             m_slots = new (capacity, maxSizeStorageNodeArray, setPoolSetup?.GeStorageAllocatorSetup());

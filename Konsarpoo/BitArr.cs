@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Threading;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections
 {
@@ -130,7 +131,7 @@ namespace Konsarpoo.Collections
 
             var capacity = (int)GetArrayLength((uint) length, BitsPerInt32);
 
-            m_array = new Data<int>(capacity, maxSizeStorageNodeArray, allocatorSetup);
+            m_array = new Data<int>(capacity, maxSizeStorageNodeArray, allocatorSetup ?? KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetDataStorageAllocator<int>());
 
             int num = defaultValue ? -1 : 0;
 

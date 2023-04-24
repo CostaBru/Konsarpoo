@@ -3,6 +3,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Tests.Benchmarks
 {
@@ -28,7 +29,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         public void Setup()
         {
             Data<int>.SetClearArrayOnReturn(false);
-            DefaultMixedAllocator<int>.ClearArrayOnRequest = false;
+            GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
             
             int j = 0;
             for (int i = (1024 * 100) - 1; i >= 0; i--)

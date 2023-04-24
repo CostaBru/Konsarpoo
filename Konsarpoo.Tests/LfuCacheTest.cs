@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading;
+using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
@@ -36,7 +37,7 @@ public class LfuCacheTest
         Assert.AreEqual(2, lfuCache.GetFrequency(2));
         Assert.AreEqual(1, lfuCache.GetFrequency(3));
         
-        lfuCache.RemoveLfuItems();
+        lfuCache.RemoveLeastUsedItems();
         
         Assert.AreEqual(2, lfuCache.Count);
         
@@ -44,7 +45,7 @@ public class LfuCacheTest
         Assert.AreEqual(2, lfuCache.GetFrequency(2));
         Assert.False(lfuCache.ContainsKey(3));
         
-        lfuCache.RemoveLfuItems();
+        lfuCache.RemoveLeastUsedItems();
         
         Assert.AreEqual(1, lfuCache.Count);
         
@@ -68,7 +69,7 @@ public class LfuCacheTest
         var i = lfuCache[1]; i = lfuCache[1];
         var i2 = lfuCache[2];
 
-        lfuCache.RemoveLfuItems(2);
+        lfuCache.RemoveLeastUsedItems(2);
         
         Assert.AreEqual(1, lfuCache.Count);
         Assert.AreEqual(1, lfuCache[1]);
@@ -108,7 +109,7 @@ public class LfuCacheTest
         Assert.AreEqual(2, lfuCache.GetFrequency(2));
         Assert.AreEqual(1, lfuCache.GetFrequency(3));
         
-        lfuCache.RemoveLfuItems();
+        lfuCache.RemoveLeastUsedItems();
         
         Assert.AreEqual(2, lfuCache.Count);
         
@@ -116,7 +117,7 @@ public class LfuCacheTest
         Assert.AreEqual(2, lfuCache.GetFrequency(2));
         Assert.False(lfuCache.ContainsKey(3));
         
-        lfuCache.RemoveLfuItems();
+        lfuCache.RemoveLeastUsedItems();
         
         Assert.AreEqual(1, lfuCache.Count);
         
@@ -140,7 +141,7 @@ public class LfuCacheTest
         var i = lfuCache[1]; i = lfuCache[1];
         var i2 = lfuCache[2];
 
-        lfuCache.RemoveLfuItems(2);
+        lfuCache.RemoveLeastUsedItems(2);
         
         Assert.AreEqual(1, lfuCache.Count);
         Assert.AreEqual(1, lfuCache[1]);

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections
 {
@@ -109,7 +110,7 @@ namespace Konsarpoo.Collections
         {
             private const int c_intermediateCapacity = 1024;
             
-            private readonly IArrayPool<INode> m_nodesPool;
+            private readonly IArrayAllocator<INode> m_nodesAllocator;
             
             private readonly PoolListBase<INode> m_nodes;
             private readonly int m_level;
@@ -138,15 +139,15 @@ namespace Konsarpoo.Collections
 
             public int Size => m_nodes.m_size;
 
-            public LinkNode(int level, int leafCapacity, INode child1, IArrayPool<INode> nodesPool, INode child2 = null)
+            public LinkNode(int level, int leafCapacity, INode child1, IArrayAllocator<INode> nodesAllocator, INode child2 = null)
             {
                 m_level = level;
                 m_leafCapacity = leafCapacity;
-                m_nodesPool = nodesPool;
+                m_nodesAllocator = nodesAllocator;
 
                 m_stepBase = (int)Math.Log(Math.Pow(c_intermediateCapacity, m_level - 1) * m_leafCapacity, 2);
 
-                m_nodes = new PoolListBase<INode>(m_nodesPool, c_intermediateCapacity, capacity: 16);
+                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_intermediateCapacity, capacity: 16);
                 m_nodes.Add(child1);
 
                 if (child2 != null)
@@ -160,9 +161,9 @@ namespace Konsarpoo.Collections
                 m_level = linkNode.m_level;
                 m_leafCapacity = linkNode.m_leafCapacity;
                 m_stepBase = linkNode.m_stepBase;
-                m_nodesPool = linkNode.m_nodesPool;
+                m_nodesAllocator = linkNode.m_nodesAllocator;
 
-                m_nodes = new PoolListBase<INode>(m_nodesPool, c_intermediateCapacity, capacity: linkNode.m_nodes.m_size);
+                m_nodes = new PoolListBase<INode>(m_nodesAllocator, c_intermediateCapacity, capacity: linkNode.m_nodes.m_size);
 
                 foreach (var node in linkNode.m_nodes)
                 {
@@ -183,7 +184,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_nodes.m_size == c_intermediateCapacity)
                     {
-                        node = new LinkNode( m_level, m_leafCapacity, node1, m_nodesPool);
+                        node = new LinkNode( m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -299,7 +300,7 @@ namespace Konsarpoo.Collections
                 {
                     if (m_nodes.m_size == c_intermediateCapacity)
                     {
-                        node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesPool);
+                        node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -371,7 +372,7 @@ namespace Konsarpoo.Collections
 
             public int Size => m_size;
 
-            public StoreNode(IArrayPool<T> pool, int maxCapacity, int capacity) : base(pool, maxCapacity, capacity)
+            public StoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
             {
             }
 
@@ -379,8 +380,8 @@ namespace Konsarpoo.Collections
             {
             }
 
-            public StoreNode(IArrayPool<T> pool,int maxCapacity, int capacity, T item)
-              : base(pool, maxCapacity, capacity)
+            public StoreNode(IArrayAllocator<T> allocator,int maxCapacity, int capacity, T item)
+              : base(allocator, maxCapacity, capacity)
             {
                 AddItem(item);
             }
@@ -389,7 +390,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_size == m_maxCapacity)
                 {
-                    node = new StoreNode(base.m_arrayPool, m_maxCapacity, capacity, item);
+                    node = new StoreNode(base.ArrayAllocator, m_maxCapacity, capacity, item);
                     return false;
                 }
                 AddItem(item);
@@ -405,14 +406,14 @@ namespace Konsarpoo.Collections
                     {
                         int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
 
-                        T[] vals = m_arrayPool.Rent(newCapacity);
+                        T[] vals = ArrayAllocator.Rent(newCapacity);
 
                         if (m_size > 0)
                         {
                             Array.Copy(m_items, 0, vals, 0, m_size);
                         }
 
-                        m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+                        ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                         m_items = vals;
                     }
@@ -502,9 +503,9 @@ namespace Konsarpoo.Collections
 
                     extraSize -= arraySize;
 
-                    var storeNode = new StoreNode(base.m_arrayPool, m_maxCapacity, arraySize) { m_size = arraySize };
+                    var storeNode = new StoreNode(base.ArrayAllocator, m_maxCapacity, arraySize) { m_size = arraySize };
 
-                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || m_arrayPool.CleanArrayReturn == false)
+                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || ArrayAllocator.CleanArrayReturn == false)
                     {
                         Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
                     }
@@ -521,15 +522,15 @@ namespace Konsarpoo.Collections
 
             private void Ensure(T defaultValue, int newSize)
             {
-                T[] vals = base.m_arrayPool.Rent(newSize);
+                T[] vals = base.ArrayAllocator.Rent(newSize);
 
                 Array.Copy(m_items, 0, vals, 0, m_size);
 
-                base.m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+                base.ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
 
-                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || m_arrayPool.CleanArrayReturn == false)
+                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || ArrayAllocator.CleanArrayReturn == false)
                 {
                     Array.Fill(m_items, defaultValue, m_size, newSize - m_size);
                 }

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections
 {
@@ -16,11 +17,11 @@ namespace Konsarpoo.Collections
         public static readonly T Default = default(T);
         
         [NotNull] 
-        protected readonly IArrayPool<T> m_arrayPool;
+        protected readonly IArrayAllocator<T> ArrayAllocator;
 
         internal readonly int m_maxCapacity;
         
-        internal static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
+        internal static volatile bool s_clearArrayOnReturn = KonsarpooAllocatorGlobalSetup.ClearArrayOnReturn;
         
         [NotNull] 
         public T[] m_items = Array.Empty<T>();
@@ -42,20 +43,20 @@ namespace Konsarpoo.Collections
             }
         }
 
-        public PoolListBase(IArrayPool<T> pool, int maxCapacity, int capacity)
+        public PoolListBase(IArrayAllocator<T> allocator, int maxCapacity, int capacity)
         {
             m_maxCapacity = maxCapacity;
             
-            m_arrayPool = pool;
+            ArrayAllocator = allocator;
 
-            m_items = m_arrayPool.Rent(Math.Min(capacity, maxCapacity));
+            m_items = ArrayAllocator.Rent(Math.Min(capacity, maxCapacity));
         }
 
         public PoolListBase(PoolListBase<T> poolList)
         {
-            m_arrayPool = poolList.m_arrayPool;
+            ArrayAllocator = poolList.ArrayAllocator;
 
-            var newArr = m_arrayPool.Rent(poolList.m_items.Length);
+            var newArr = ArrayAllocator.Rent(poolList.m_items.Length);
 
             Array.Copy(poolList.m_items, 0, newArr, 0, poolList.m_size);
 
@@ -80,7 +81,7 @@ namespace Konsarpoo.Collections
             
             if (m_items.Length == 0)
             {
-                T[] vals = m_arrayPool.Rent(2);
+                T[] vals = ArrayAllocator.Rent(2);
 
                 m_items = vals;
             }
@@ -88,14 +89,14 @@ namespace Konsarpoo.Collections
             {
                 int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
 
-                T[] vals = m_arrayPool.Rent(newCapacity);
+                T[] vals = ArrayAllocator.Rent(newCapacity);
 
                 if (m_size > 0)
                 {
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -163,7 +164,7 @@ namespace Konsarpoo.Collections
             
             if (m_items.Length == 0)
             {
-                T[] vals = m_arrayPool.Rent(2);
+                T[] vals = ArrayAllocator.Rent(2);
 
                 m_items = vals;
             }
@@ -171,14 +172,14 @@ namespace Konsarpoo.Collections
             {
                 int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
 
-                T[] vals = m_arrayPool.Rent(newCapacity);
+                T[] vals = ArrayAllocator.Rent(newCapacity);
 
                 if (m_size > 0)
                 {
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -299,7 +300,7 @@ namespace Konsarpoo.Collections
         {
             if (m_items.Length > 0)
             {
-                m_arrayPool.Return(m_items, clearArray: s_clearArrayOnReturn);
+                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
             }
 
             m_items = Array.Empty<T>();

@@ -2,20 +2,20 @@
 using System.Buffers;
 using JetBrains.Annotations;
 
-namespace Konsarpoo.Collections
+namespace Konsarpoo.Collections.Allocators
 {
     /// <summary>
-    /// Default array allocator implementation. Takes advantage of array pool for arrays with len greater than 64. 
+    /// Default .net run time and array pool allocator implementation. Takes advantage of array pool for arrays with len greater than 64. 
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class DefaultMixedAllocator<T> : IArrayPool<T>
+    public class GcArrayPoolMixedAllocator<T> : IArrayAllocator<T>
     {
         private readonly ArrayPool<T> m_pool;
 
         /// <summary>
         /// Sets up default array pool behaviour.
         /// </summary>
-        public static volatile bool ClearArrayOnRequest = ArrayPoolGlobalSetup.ClearArrayOnRequest;
+        public static volatile bool ClearArrayOnRequest = KonsarpooAllocatorGlobalSetup.ClearArrayOnRequest;
 
         private readonly int m_gcCount;
         
@@ -23,16 +23,16 @@ namespace Konsarpoo.Collections
         /// Class constructor.
         /// </summary>
         /// <param name="pool"></param>
-        public DefaultMixedAllocator(ArrayPool<T> pool, int gcCount = 64)
+        public GcArrayPoolMixedAllocator([NotNull] ArrayPool<T> pool, int gcCount = 64)
         {
-            m_pool = pool;
+            m_pool = pool ?? throw new ArgumentNullException(nameof(pool));
             m_gcCount = gcCount;
         }
 
         /// <summary>
         /// Default constructor.
         /// </summary>
-        public DefaultMixedAllocator(int gcCount = 64)
+        public GcArrayPoolMixedAllocator(int gcCount = 64)
         {
             m_pool = ArrayPool<T>.Shared;
             m_gcCount = gcCount;

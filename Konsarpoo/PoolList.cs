@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Diagnostics;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections
 {
@@ -15,7 +16,7 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(int maxCapacity, int capacity) : base(new DefaultMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
+        public PoolList(int maxCapacity, int capacity) : base(new GcArrayPoolMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
         {
         }
         
@@ -23,7 +24,7 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(IArrayPool<T> pool, int maxCapacity, int capacity) : base(pool, maxCapacity, capacity)
+        public PoolList(IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
         {
         }
 

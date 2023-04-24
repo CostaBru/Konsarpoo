@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
@@ -21,7 +22,7 @@ namespace Konsarpoo.Collections.Tests
         [SetUp]
         public void SetUp()
         {
-            ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
+            KonsarpooAllocatorGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
         
         [Test]
@@ -617,7 +618,7 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual(deserializeWithDcs, map);
         }
         
-        private class GcArrayAllocator<T> : IArrayPool<T>
+        private class GcArrayAllocator<T> : IArrayAllocator<T>
         {
             public T[] Rent(int count)
             {

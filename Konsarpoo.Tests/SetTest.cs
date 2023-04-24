@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
@@ -20,7 +21,7 @@ namespace Konsarpoo.Collections.Tests
         [SetUp]
         public void SetUp()
         {
-            ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
+            KonsarpooAllocatorGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
 
         [Test]

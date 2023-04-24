@@ -2,26 +2,26 @@
 using System.Buffers;
 using JetBrains.Annotations;
 
-namespace Konsarpoo.Collections;
+namespace Konsarpoo.Collections.Allocators;
 
 /// <summary>
 /// Default array allocator implementation. Takes advantage of array pool for arrays with len greater than 64. 
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public class ArrayPoolAllocator<T> : IArrayPool<T>
+public class ArrayAllocatorAllocator<T> : IArrayAllocator<T>
 {
     private readonly ArrayPool<T> m_pool;
 
     /// <summary>
     /// Sets up default array pool behaviour.
     /// </summary>
-    public static volatile bool ClearArrayOnRequest = ArrayPoolGlobalSetup.ClearArrayOnRequest;
+    public static volatile bool ClearArrayOnRequest = KonsarpooAllocatorGlobalSetup.ClearArrayOnRequest;
 
     /// <summary>
     /// Class constructor.
     /// </summary>
     /// <param name="pool"></param>
-    public ArrayPoolAllocator(ArrayPool<T> pool)
+    public ArrayAllocatorAllocator(ArrayPool<T> pool)
     {
         m_pool = pool;
     }
@@ -29,7 +29,7 @@ public class ArrayPoolAllocator<T> : IArrayPool<T>
     /// <summary>
     /// Default constructor.
     /// </summary>
-    public ArrayPoolAllocator()
+    public ArrayAllocatorAllocator()
     {
         m_pool = ArrayPool<T>.Shared;
     }

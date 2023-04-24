@@ -1,4 +1,6 @@
-﻿namespace Konsarpoo.Collections;
+﻿using Konsarpoo.Collections.Allocators;
+
+namespace Konsarpoo.Collections;
 
 public class SetAllocatorSetup<TKey> : ISetAllocatorSetup<TKey>
 {

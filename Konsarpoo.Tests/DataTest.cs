@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Xml.Linq;
+using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
 // ReSharper disable HeapView.BoxingAllocation
@@ -26,7 +27,7 @@ namespace Konsarpoo.Collections.Tests
         [SetUp]
         public void SetUp()
         {
-            ArrayPoolGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
+            KonsarpooAllocatorGlobalSetup.SetMaxSizeOfArrayBucket(m_maxSizeOfArrayBucket);
         }
 
         [Test]

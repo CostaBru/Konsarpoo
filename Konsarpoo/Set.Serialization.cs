@@ -45,10 +45,10 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            var array = new Data<T>(0, m_buckets.MaxSizeOfArray);
-            array.Ensure(Count);
-            CopyTo(array);
-            info.AddValue(ElementsName, array, typeof(Data<T>));
+            var data = new Data<T>();
+            data.Ensure(Count);
+            CopyTo(data);
+            info.AddValue(ElementsName, data, typeof(Data<T>));
         }
 
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
@@ -68,8 +68,8 @@ namespace Konsarpoo.Collections
 
             if (capacity != 0)
             {
-                var objArray = (Data<T>)m_siInfo.GetValue(ElementsName, typeof(Data<T>));
-                if (objArray == null)
+                var data = (Data<T>)m_siInfo.GetValue(ElementsName, typeof(Data<T>));
+                if (data == null)
                 {
                     throw new SerializationException("Cannot read set values from serialization info.");
                 }
@@ -77,8 +77,8 @@ namespace Konsarpoo.Collections
                 m_buckets.Ensure(capacity);
                 m_slots.Ensure(capacity);
             
-                objArray.OnDeserialization(this);
-                AddRange(objArray);
+                data.OnDeserialization(this);
+                AddRange(data);
             }
             else
             {

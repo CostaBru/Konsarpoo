@@ -41,13 +41,11 @@ namespace Konsarpoo.Collections
            
             if( m_buckets.m_count > 0) 
             {
-                 var array = new Data<KeyValuePair<TKey, TValue>>(Count, m_buckets.MaxSizeOfArray);
+                 var data = new Data<KeyValuePair<TKey, TValue>>();
+                 data.Ensure(Count);
+                 CopyTo(data, 0);
 
-                 array.Ensure(Count);
-
-                 CopyTo(array, 0);
-
-                 info.AddValue(KeyValuePairsName, array, typeof(Data<KeyValuePair<TKey, TValue>>));
+                 info.AddValue(KeyValuePairsName, data, typeof(Data<KeyValuePair<TKey, TValue>>));
             }
         }
 
@@ -72,14 +70,14 @@ namespace Konsarpoo.Collections
             
             if(hashSize != 0)
             {
-                var array = (Data<KeyValuePair<TKey, TValue>>)siInfo.GetValue(KeyValuePairsName, typeof(Data<KeyValuePair<TKey, TValue>>));
+                var data = (Data<KeyValuePair<TKey, TValue>>)siInfo.GetValue(KeyValuePairsName, typeof(Data<KeyValuePair<TKey, TValue>>));
  
-                if (array is null) 
+                if (data is null) 
                 {
                     throw new SerializationException("Cannot read dict key values from serialization info.");
                 }
 
-                array.OnDeserialization(this);
+                data.OnDeserialization(this);
                 
                 m_buckets.Ensure(hashSize, -1);
                 m_entries.Ensure(hashSize);
@@ -88,7 +86,7 @@ namespace Konsarpoo.Collections
 
                 var add = true;
                 
-                foreach (var t in array)
+                foreach (var t in data)
                 {
                     var key = t.Key;
                     var value = t.Value;

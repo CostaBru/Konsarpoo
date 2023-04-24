@@ -1,13 +1,13 @@
 ﻿using System;
 using JetBrains.Annotations;
 
-namespace Konsarpoo.Collections
+namespace Konsarpoo.Collections.Allocators
 {
     /// <summary>
     /// Array allocator interface.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public interface IArrayPool<T>
+    public interface IArrayAllocator<T>
     {
         /// <summary>
         /// Gets new array with size greater or equal to given count.

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 
 
 namespace Konsarpoo.Collections
@@ -39,28 +40,23 @@ namespace Konsarpoo.Collections
         /// Default T value cached.
         /// </summary>
         public static readonly T Default = default;
+        
+        private static volatile bool s_clearArrayOnReturn = KonsarpooAllocatorGlobalSetup.ClearArrayOnReturn;
 
-        private static volatile int s_maxSizeOfArray = -1;
+        [NonSerialized] private readonly IArrayAllocator<T> m_arrayAllocator;
+        [NonSerialized] private readonly IArrayAllocator<INode> m_nodesAllocator;
         
-        private static volatile bool s_clearArrayOnReturn = ArrayPoolGlobalSetup.ClearArrayOnReturn;
-        
-        private static volatile IArrayPool<T> s_pool = new DefaultMixedAllocator<T>();
-        private static volatile IArrayPool<INode> s_nodesPool = new DefaultMixedAllocator<INode>();
-
-        [NonSerialized] private readonly IArrayPool<T> m_pool = s_pool;
-        [NonSerialized] private readonly IArrayPool<INode> m_nodesPool = s_nodesPool;
-        
-        internal int MaxSizeOfArray = s_maxSizeOfArray < 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+        private int m_maxSizeOfArray;
 
         /// <summary>
         /// Gets access to allocator.
         /// </summary>
-        public IArrayPool<T> ArrayPool => m_pool;
+        public IArrayAllocator<T> ArrayArrayAllocator => m_arrayAllocator;
         
         /// <summary>
         /// Gets access to modes allocator.
         /// </summary>
-        public IArrayPool<INode> NodesArrayPool => m_nodesPool;
+        public IArrayAllocator<INode> NodesArrayAllocator => m_nodesAllocator;
 
         /// <summary>
         /// Tree root.
@@ -85,60 +81,30 @@ namespace Konsarpoo.Collections
         public int Version => m_version;
       
         /// <summary>
-        /// Sets up global T maximum size of sub array.
-        /// </summary>
-        /// <param name="val">1024 * 1024 is max and 64 is min.</param>
-        public static void SetMaxSizeOfArrayBucket(int val)
-        {
-            if (val < 0)
-            {
-                s_maxSizeOfArray = ArrayPoolGlobalSetup.MaxSizeOfArray;
-            }
-            else
-            {
-                s_maxSizeOfArray = Math.Min(1024 * 1024, Math.Max(64, 1 << (int)Math.Round(Math.Log(val, 2))));
-            }
-        }
-        
-        /// <summary>
         /// Sets recycling behaviour if set to true array is subject to clear before returning back to pool.
         /// </summary>
         public static void SetClearArrayOnReturn(bool? val)
         {
-            s_clearArrayOnReturn = val ?? ArrayPoolGlobalSetup.ClearArrayOnRequest;
+            s_clearArrayOnReturn = val ?? KonsarpooAllocatorGlobalSetup.ClearArrayOnRequest;
             PoolList<T>.s_clearArrayOnReturn = s_clearArrayOnReturn;
         }
         
-        /// <summary>
-        /// Sets up global T array pool.
-        /// </summary>
-        /// <param name="pool">Null to setup default.</param>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static void SetArrayPool([CanBeNull] IArrayPool<T> pool)
-        {
-            s_pool = pool ?? new DefaultMixedAllocator<T>();
-        }
-        
-        /// <summary>
-        /// Sets up global T array pool for nodes.
-        /// </summary>
-        /// <param name="pool">Null to setup default.</param>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static void SetNodesArrayPool([CanBeNull] IArrayPool<INode> pool)
-        {
-            s_nodesPool = pool ?? new DefaultMixedAllocator<INode>();
-        }
         
         /// <summary> Default Data&lt;T&gt; constructor.</summary>
         public Data()
         {
+            var dataStorageAllocator = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetDataStorageAllocator<T>();
+            
+            m_arrayAllocator = dataStorageAllocator.GetDataArrayAllocator();
+            m_nodesAllocator = dataStorageAllocator.GetNodesArrayAllocator();
+            m_maxSizeOfArray = dataStorageAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
         }
         
         /// <summary>
         /// Data class constructor that allows setup default capacity.
         /// </summary>
         /// <param name="capacity"></param>
-        public Data(int capacity) : this(capacity, s_maxSizeOfArray, null)
+        public Data(int capacity) : this(capacity, 0, null)
         {
         }
 
@@ -175,28 +141,22 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            if (allocatorSetup != null)
-            {
-                m_pool = allocatorSetup.GetDataArrayAllocator() ?? s_pool;
-                m_nodesPool = allocatorSetup.GetNodesArrayAllocator() ?? s_nodesPool;
-            }
-            else
-            {
-                m_pool = s_pool;
-                m_nodesPool = s_nodesPool;
-            }
+            var dataAllocator = allocatorSetup ?? KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetDataStorageAllocator<T>();
 
-            var defaultArraySize = s_maxSizeOfArray <= 0 ? ArrayPoolGlobalSetup.MaxSizeOfArray : s_maxSizeOfArray;
+            var defaultArraySize = dataAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
+
+            m_arrayAllocator = dataAllocator.GetDataArrayAllocator();
+            m_nodesAllocator = dataAllocator.GetNodesArrayAllocator();
             
-            MaxSizeOfArray = maxSizeOfArray <= 0
+            m_maxSizeOfArray = maxSizeOfArray <= 0
                 ? defaultArraySize
                 : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
 
             if (capacity > 0)
             {
-                var initialCapacity = 1 << (int)Math.Log(capacity > MaxSizeOfArray ? MaxSizeOfArray : capacity, 2.0);
+                var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
 
-                m_root = new StoreNode(m_pool, MaxSizeOfArray, initialCapacity);
+                m_root = new StoreNode(m_arrayAllocator, m_maxSizeOfArray, initialCapacity);
             }
         }
 
@@ -223,9 +183,9 @@ namespace Konsarpoo.Collections
                     throw new ArgumentNullException(nameof(enumerable));
                 
                 case Data<T> list:
-                    MaxSizeOfArray = list.MaxSizeOfArray;
-                    m_pool = list.m_pool;
-                    m_nodesPool = list.m_nodesPool;
+                    m_maxSizeOfArray = list.m_maxSizeOfArray;
+                    m_arrayAllocator = list.m_arrayAllocator;
+                    m_nodesAllocator = list.m_nodesAllocator;
                     CreateFromList(list);
                     break;
                 
@@ -247,9 +207,9 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(source));
             }
             
-            MaxSizeOfArray = source.MaxSizeOfArray;
-            m_pool = source.m_pool;
-            m_nodesPool = source.m_nodesPool;
+            m_maxSizeOfArray = source.m_maxSizeOfArray;
+            m_arrayAllocator = source.m_arrayAllocator;
+            m_nodesAllocator = source.m_nodesAllocator;
             
             CreateFromList(source);
         }
@@ -470,7 +430,7 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Insert 
                 if (node.m_items.Length == 0)
                 {
-                    node.m_items = m_pool.Rent(2);
+                    node.m_items = m_arrayAllocator.Rent(2);
                 }
                 else  if (node.m_size < node.m_maxCapacity - 1)
                 {
@@ -478,14 +438,14 @@ namespace Konsarpoo.Collections
                     {
                         int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
 
-                        T[] vals = m_pool.Rent(newCapacity);
+                        T[] vals = m_arrayAllocator.Rent(newCapacity);
 
                         if (node.m_size > 0)
                         {
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        m_pool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+                        m_arrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                         node.m_items = vals;
                     }
@@ -688,7 +648,7 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Add 
                 if (node.m_items.Length == 0)
                 {
-                    var items = m_pool.Rent(2);
+                    var items = m_arrayAllocator.Rent(2);
 
                     node.m_items = items;
                 }
@@ -702,14 +662,14 @@ namespace Konsarpoo.Collections
 
                     int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
 
-                    T[] vals = m_pool.Rent(newCapacity);
+                    T[] vals = m_arrayAllocator.Rent(newCapacity);
 
                     if (node.m_size > 0)
                     {
                         Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                     }
 
-                    m_pool.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+                    m_arrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                     node.m_items = vals;
                 }
@@ -729,13 +689,13 @@ namespace Konsarpoo.Collections
 
         private void AddSlow(ref T item)
         {
-            var maxSizeOfArray = MaxSizeOfArray;
+            var maxSizeOfArray = m_maxSizeOfArray;
             
             var root = m_root;
             
             if (root == null)
             {
-                var storeNode = new StoreNode(m_pool, maxSizeOfArray, 2);
+                var storeNode = new StoreNode(m_arrayAllocator, maxSizeOfArray, 2);
 
                 storeNode.m_items[0] = item;
 
@@ -752,7 +712,7 @@ namespace Konsarpoo.Collections
             INode node1 = root;
             if (!node1.Add(ref item, out var node2))
             {
-                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesPool, node2);
+                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
             }
 
             unchecked { ++m_version; }

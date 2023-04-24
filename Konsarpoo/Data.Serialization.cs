@@ -23,7 +23,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
-        protected Data(SerializationInfo info, StreamingContext context)
+        protected Data(SerializationInfo info, StreamingContext context) : this()
         {
             m_siInfo = info;
         }
@@ -41,7 +41,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
             
-            info.AddValue(NodeCapacityName, MaxSizeOfArray);
+            info.AddValue(NodeCapacityName, m_maxSizeOfArray);
             info.AddValue(CapacityName, m_count);
             info.AddValue(VersionName, m_version);
 
@@ -116,7 +116,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            MaxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
+            m_maxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
             
             int capacity = m_siInfo.GetInt32(CapacityName);
             
