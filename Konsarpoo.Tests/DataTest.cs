@@ -1862,5 +1862,21 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(arr[i], data1.ValueByRef(i));
             }
         }
+
+        [Test]
+        public void TestMap()
+        {
+            var ints = new Data<int>();
+            
+            ints.Add(1);
+            
+            Assert.True(ints.ContainsKey(0));
+            Assert.True(ints.TryGetValue(0, out var value));
+            Assert.AreEqual(1, value);
+            
+            Assert.False(ints.ContainsKey(2));
+            Assert.False(ints.TryGetValue(2, out var value2));
+            Assert.AreEqual(default(int), value2);
+        }
     }
 }

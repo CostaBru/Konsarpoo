@@ -282,6 +282,17 @@ namespace Konsarpoo.Collections
         }
         
         /// <summary>
+        /// Adds the specified key and value to the map.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        public void Put(TKey key, TValue value)
+        {
+            var add = true;
+            Insert(ref key, ref value, ref add);
+        }
+        
+        /// <summary>
         /// Adds the specified key value pair to the map.
         /// </summary>
         /// <param name="value"></param>
@@ -817,6 +828,62 @@ namespace Konsarpoo.Collections
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
+        
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet([NotNull] TKey key, Func<TKey, Map<TKey, TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam>([NotNull] TKey key, TParam p1, Func<TParam, TKey, Map<TKey, TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam1, TParam2>([NotNull] TKey key, TParam1 p1, TParam2 p2,  Func<TParam1, TParam2, TKey, Map<TKey, TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, p2, key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam1, TParam2, TParam3>([NotNull] TKey key, TParam1 p1, TParam2 p2, TParam3 p3, Func<TParam1, TParam2, TParam3, TKey, Map<TKey, TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, p2, p3, key, this);
+        }
 
         /// <summary>
         /// Attempts to get the value associated with the specified key.

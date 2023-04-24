@@ -28,7 +28,7 @@ public class BaseTest
         switch (m_allocatorType)
         {
             case AllocatorType.Mixed:
-                KonsarpooAllocatorGlobalSetup.SetMixedAllocatorSetup(m_gcLen, m_maxSizeOfArrayBucket);
+                KonsarpooAllocatorGlobalSetup.SetGcArrayPoolMixedAllocatorSetup(m_gcLen, m_maxSizeOfArrayBucket);
                 break;
                 
             case AllocatorType.GC:

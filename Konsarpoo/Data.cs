@@ -698,6 +698,8 @@ namespace Konsarpoo.Collections
             AddSlow(ref item);
         }
 
+       
+
         private void AddSlow(ref T item)
         {
             var maxSizeOfArray = m_maxSizeOfArray;

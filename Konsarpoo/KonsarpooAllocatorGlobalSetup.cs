@@ -42,7 +42,7 @@ namespace Konsarpoo.Collections
             s_defaultAllocatorSetup = setup ?? throw new ArgumentNullException(nameof(setup));
         }
         
-        public static void SetMixedAllocatorSetup(int gcCount = 64, int? maxDataArrayLen = null)
+        public static void SetGcArrayPoolMixedAllocatorSetup(int gcCount = 64, int? maxDataArrayLen = null)
         {
             s_defaultAllocatorSetup = new DefaultGcArrayPoolMixedAllocatorSetup(gcCount, maxDataArrayLen);
         }

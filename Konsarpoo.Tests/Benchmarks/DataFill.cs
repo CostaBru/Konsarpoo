@@ -29,7 +29,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [IterationSetup]
         public void IterationSetup()
         {
-            KonsarpooAllocatorGlobalSetup.SetMixedAllocatorSetup(maxDataArrayLen: NodeSize);
+            KonsarpooAllocatorGlobalSetup.SetGcArrayPoolMixedAllocatorSetup(maxDataArrayLen: NodeSize);
             Data<int>.SetClearArrayOnReturn(false);
             GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
         }
@@ -37,7 +37,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [IterationCleanup]
         public void IterationCleanup()
         {
-            KonsarpooAllocatorGlobalSetup.SetMixedAllocatorSetup(maxDataArrayLen: null);
+            KonsarpooAllocatorGlobalSetup.SetGcArrayPoolMixedAllocatorSetup(maxDataArrayLen: null);
             Data<int>.SetClearArrayOnReturn(true);
             GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = true;
         }

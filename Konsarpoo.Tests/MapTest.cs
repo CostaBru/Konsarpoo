@@ -807,5 +807,20 @@ namespace Konsarpoo.Collections.Tests
             
             Assert.AreEqual(3, m4["2"]);
         }
+
+        [Test]
+        public void TestExtraApi()
+        {
+            var m3 = new Map<int, int>() { { 1, 1 } };
+            
+            m3.Put(2, 2);
+            
+            Assert.AreEqual(2, m3.GetSet(2, (v, m) => v));
+            
+            Assert.False(m3.ContainsKey(3));
+            
+            Assert.AreEqual(3, m3.GetSet(3, (v, m) => m[v] = v));
+            Assert.AreEqual(3, m3[3]);
+        }
     }
 }
