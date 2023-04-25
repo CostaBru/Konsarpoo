@@ -70,7 +70,7 @@ public partial class LfuCache<TKey, TValue> :
     [NonSerialized]
     private static TValue s_nullRef;
 
-    private Stopwatch m_stopwatch;
+    private IStopwatch m_stopwatch;
     
     [NonSerialized]
     private Set<TKey> m_obsoleteKeys;
@@ -154,11 +154,11 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// Starts tracking obsolescence of data on access.
     /// </summary>
-    public void StartTrackingObsolescence(TimeSpan obsolescenceTime)
+    public void StartTrackingObsolescence(IStopwatch stopwatch, TimeSpan obsolescenceTime)
     {
         m_obsolescenceData = obsolescenceTime;
         
-        m_stopwatch = new Stopwatch();
+        m_stopwatch = stopwatch;
 
         if (m_obsoleteKeys == null)
         {

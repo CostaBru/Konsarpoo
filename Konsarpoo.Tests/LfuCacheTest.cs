@@ -256,9 +256,13 @@ public class LfuCacheTest : BaseTest
     public void TestObsolescence()
     {
         var lfuCache = new LfuCache<int, int>();
-        
-        lfuCache.StartTrackingObsolescence(TimeSpan.FromMilliseconds(5));
 
+        var mockStopwatch = new MockStopwatch();
+
+        lfuCache.StartTrackingObsolescence(mockStopwatch, TimeSpan.FromMilliseconds(5));
+
+        mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(1);
+        
         lfuCache[1] = 1;
         lfuCache[2] = 1;
         lfuCache[3] = 1;
@@ -268,8 +272,8 @@ public class LfuCacheTest : BaseTest
         lfuCache[3] = 2;
         
         Assert.AreEqual(0, lfuCache.ScanForObsolescence());
-
-        Thread.Sleep(100);
+        
+        mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(100);
         
         Assert.AreEqual(3, lfuCache.ScanForObsolescence());
         
@@ -297,7 +301,7 @@ public class LfuCacheTest : BaseTest
         
         lfuCache.StopTrackingObsolescence();
         
-        Thread.Sleep(100);
+        mockStopwatch.Elapsed += TimeSpan.FromMilliseconds(100);
         
         Assert.AreEqual(0, lfuCache.ScanForObsolescence());
         Assert.AreEqual(0, lfuCache.RemoveObsoleteItems());
@@ -309,7 +313,9 @@ public class LfuCacheTest : BaseTest
         
         lfuCache.ResetObsolescence();
         
-        lfuCache.StartTrackingObsolescence(TimeSpan.FromMilliseconds(10));
+        mockStopwatch = new MockStopwatch();
+        
+        lfuCache.StartTrackingObsolescence(mockStopwatch, TimeSpan.FromMilliseconds(10));
         
         lfuCache[4] = 1;
         lfuCache[5] = 1;
@@ -321,7 +327,7 @@ public class LfuCacheTest : BaseTest
         
         lfuCache[5] = 1;
         
-        Thread.Sleep(100);
+        mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(100);
         
         lfuCache[7] = 1;
 
