@@ -300,6 +300,37 @@ namespace Konsarpoo.Collections
         }
 
         /// <summary>
+        /// Gets value by zero based index if the given index is out of range it returns a given default value.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="defaultVal"></param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        public T GetOrDefault(int index, T defaultVal = default)
+        {
+            if (index >= m_count)
+            {
+                return defaultVal;
+            }
+
+            return ValueByRef(index);
+        }
+
+        /// <summary>
+        /// Places the given value at the specified index. If the given index is out of range it resizes the Data collection.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
+        public void PlaceAt(int index, T value)
+        {
+            if (index >= m_count)
+            {
+                Ensure(index + 1);
+            }
+
+            ValueByRef(index) = value;
+        }
+
+        /// <summary>
         /// Array API to access element by its reference. 
         /// </summary>
         /// <param name="index"></param>

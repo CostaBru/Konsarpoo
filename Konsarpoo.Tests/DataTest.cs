@@ -1878,5 +1878,19 @@ namespace Konsarpoo.Collections.Tests
             Assert.False(ints.TryGetValue(2, out var value2));
             Assert.AreEqual(default(int), value2);
         }
+        
+        [Test]
+        public void TestGetOrDefaultAndFit()
+        {
+            var ints = new Data<int>();
+            
+            Assert.AreEqual(0, ints.GetOrDefault(1000));
+            
+            ints.PlaceAt(1000, 1000);
+            
+            Assert.AreEqual(1000, ints.GetOrDefault(1000));
+            
+            Assert.AreEqual(0, ints.GetOrDefault(10000));
+        }
     }
 }
