@@ -9,7 +9,7 @@ namespace Brudixy.Tests
         public static void Main(string[] args)
         {
             BenchmarkRunner
-                .Run<DataFill>(
+                .Run<MapLookup>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));

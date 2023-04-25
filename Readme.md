@@ -2,10 +2,11 @@
 
 [![Konsarpoo build, tests and coverage](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml/badge.svg)](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/CostaBru/53438eb82c2cc9b70de34df4f14a7072/raw/Konsarpoo__head.json) ![GitHub Release Date](https://img.shields.io/github/release-date/CostaBru/Konsarpoo) ![Nuget](https://img.shields.io/nuget/dt/Konsarpoo)  ![GitHub search hit counter](https://img.shields.io/github/search/CostaBru/Konsarpoo/goto)
 
-The eco friendly set of array pool based collections for ``netstandard2.1``. Container's storage allocated and recycled back to shared memory pool by default. 
+The eco friendly set of array pool based collections for ``netstandard2.1``. Container's storage allocated and recycled back to shared memory pool by default.  
 
 List of generic collections and APIs supported:
 
+- ``Array``
 - ``List``
 - ``Map``
 - ``Set``
@@ -13,17 +14,17 @@ List of generic collections and APIs supported:
 - ``Queue``
 
 Some extras built in:
-- BitArr
+- ``BitArr``
+- ``Lfu Cache``
 - std::vector api
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
-- Lfu Cache
 
 Each collection is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
 Possible use cases:
-- Avoid allocating arrays in LOH
-- Manage the available memory by providing custom allocator
+- Avoid allocating large arrays in LOH (please call - ``KonsarpooAllocatorGlobalSetup.SetGcAllocatorSetup()``)
+- Manage the available memory by providing custom allocator (please call - ``KonsarpooAllocatorGlobalSetup.SetDefaultAllocatorSetup([your allocator impl])``)
 
 ## Nuget
 
@@ -44,7 +45,7 @@ PM> Install-Package Konsarpoo -Version 2.1.0
 The universal random access data container. Supports ``List``, ``Array``, ``Stack`` and ``Queue`` API's. ``Data<T>`` has a minor overhead on adding items using default settings and huge advantage of reusing arrays to reduce ``GC`` collection time.
 Implemented as a tree of ``.NET`` sub arrays. The array allocator and max size of array length per node may be set up for each instance, globally or globally for ``T``.
 
-The ``DefaultMixedAllocator<T>`` instance is the default array allocator. It takes advantage of GC and pool array. For small arrays with length 65 or less, it uses ``GC`` for larger ones the ``System.Buffers.ArrayPool<T>.Shared`` class.
+The ``GcArrayPoolMixedAllocator<T>`` instance is the default array allocator. It takes advantage of GC and pool array. For small arrays with length 65 or less, it uses ``GC`` for larger ones the ``System.Buffers.ArrayPool<T>.Shared`` class.
 
 Here is how subtree random access support implemented:
 ```csharp
@@ -90,7 +91,7 @@ It is a compact array of bit values, which are represented as Booleans. It uses 
 
 ### LFU CACHE
 
-A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache.
+A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. In addition to that it can keep track of cached data obsolescence by last accessed timestamp and remove those obsolete items on demand. 
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
 
@@ -105,70 +106,131 @@ Here are the bunch of performance reports generated in Test\Benchmark\Reports fo
 
 ``AMD Ryzen 7 4800H``, 16 logical and 8 physical cores ``.NET`` SDK=6.0.100
 
-|      Method |       N | NodeSize |            Mean |         Error |        StdDev |          Median | Ratio | RatioSD |     Gen 0 |     Gen 1 |     Gen 2 |   Allocated |
-|------------ |-------- |----------|----------------:|--------------:|--------------:|----------------:|------:|--------:|----------:|----------:|----------:|------------:|
-|   Set_Array |      10 | -        |        570.6 ns |      45.74 ns |      46.97 ns |        600.0 ns |  0.50 |    0.07 |         - |         - |         - |        64 B |
-|    List_Add |      10 | -        |      1,162.5 ns |     177.82 ns |     174.64 ns |      1,100.0 ns |  1.00 |    0.00 |         - |         - |         - |       216 B |
-|    Data_Add |      10 | 16       |      1,533.3 ns |      78.52 ns |      84.02 ns |      1,500.0 ns |  1.36 |    0.21 |         - |         - |         - |       328 B |
-| Data_Ensure |      10 | 16       |      2,052.9 ns |     356.32 ns |     365.92 ns |      1,950.0 ns |  1.84 |    0.49 |         - |         - |         - |       240 B |
-|             |         |          |                 |               |               |                 |       |         |           |           |           |             |
-|   Set_Array |      10 | -        |        582.4 ns |      38.26 ns |      39.30 ns |        600.0 ns |  0.56 |    0.05 |         - |         - |         - |        64 B |
-|    List_Add |      10 | -        |      1,037.5 ns |      90.12 ns |      88.51 ns |      1,000.0 ns |  1.00 |    0.00 |         - |         - |         - |       216 B |
-|    Data_Add |      10 | 1048576  |      1,493.8 ns |      25.45 ns |      25.00 ns |      1,500.0 ns |  1.45 |    0.11 |         - |         - |         - |       328 B |
-| Data_Ensure |      10 | 1048576  |      1,688.9 ns |      70.88 ns |      75.84 ns |      1,700.0 ns |  1.64 |    0.16 |         - |         - |         - |       240 B |
-|             |         |          |                 |               |               |                 |       |         |           |           |           |             |
-|   Set_Array |    1000 | -        |      1,066.7 ns |      96.17 ns |     102.90 ns |      1,000.0 ns |  0.32 |    0.03 |         - |         - |         - |     4,024 B |
-|    List_Add |    1000 | -        |      3,294.4 ns |      81.55 ns |      87.26 ns |      3,300.0 ns |  1.00 |    0.00 |         - |         - |         - |     8,424 B |
-|    Data_Add |    1000 | 16       |     44,900.0 ns |     672.61 ns |     719.68 ns |     45,000.0 ns | 13.64 |    0.30 |         - |         - |         - |     9,440 B |
-| Data_Ensure |    1000 | 16       |     48,811.1 ns |     663.87 ns |     710.33 ns |     48,750.0 ns | 14.82 |    0.33 |         - |         - |         - |     5,656 B |
-|             |         |          |                 |               |               |                 |       |         |           |           |           |             |
-|   Set_Array |    1000 | -        |      1,278.9 ns |     439.30 ns |     488.28 ns |      1,100.0 ns |  0.40 |    0.15 |         - |         - |         - |     4,024 B |
-|    List_Add |    1000 | -        |      3,241.2 ns |      49.40 ns |      50.73 ns |      3,200.0 ns |  1.00 |    0.00 |         - |         - |         - |     8,424 B |
-| Data_Ensure |    1000 | 1048576  |      3,258.8 ns |      69.36 ns |      71.23 ns |      3,200.0 ns |  1.01 |    0.03 |         - |         - |         - |       112 B |
-|    Data_Add |    1000 | 1048576  |      4,731.2 ns |      71.70 ns |      70.42 ns |      4,700.0 ns |  1.46 |    0.04 |         - |         - |         - |       760 B |
-|             |         |          |                 |               |               |                 |       |         |           |           |           |             |
-|   Set_Array | 1000000 | -        |  1,342,825.0 ns | 143,462.68 ns | 165,211.84 ns |  1,297,400.0 ns |  0.35 |    0.05 |         - |         - |         - | 4,000,024 B |
-|    List_Add | 1000000 | -        |  3,850,315.0 ns | 175,356.63 ns | 201,940.96 ns |  3,805,500.0 ns |  1.00 |    0.00 | 1000.0000 | 1000.0000 | 1000.0000 | 8,389,080 B |
-| Data_Ensure | 1000000 | 16       | 14,390,710.0 ns | 123,950.70 ns | 142,741.81 ns | 14,368,700.0 ns |  3.75 |    0.19 | 1000.0000 |         - |         - | 5,018,168 B |
-|    Data_Add | 1000000 | 16       | 28,692,789.5 ns | 650,734.74 ns | 723,289.94 ns | 28,715,500.0 ns |  7.48 |    0.45 | 2000.0000 | 1000.0000 |         - | 8,768,016 B |
-|             |         |          |                 |               |               |                 |       |         |           |           |           |             |
-| Data_Ensure | 1000000 | 1048576  |  1,113,284.2 ns |  84,659.67 ns |  94,099.00 ns |  1,099,600.0 ns |  0.30 |    0.03 |         - |         - |         - |       112 B |
-|   Set_Array | 1000000 | -        |  1,324,975.0 ns | 112,780.86 ns | 129,878.60 ns |  1,306,100.0 ns |  0.35 |    0.04 |         - |         - |         - | 4,000,024 B |
-|    Data_Add | 1000000 | 1048576  |  2,631,444.4 ns |  28,874.18 ns |  30,895.04 ns |  2,626,700.0 ns |  0.70 |    0.03 |         - |         - |         - |       760 B |
-|    List_Add | 1000000 | -        |  3,746,015.0 ns | 145,896.34 ns | 168,014.44 ns |  3,694,700.0 ns |  1.00 |    0.00 | 1000.0000 | 1000.0000 | 1000.0000 | 8,389,080 B |
+|      Method |       N | NodeSize |            Mean |           Error |          StdDev |          Median | Ratio | RatioSD |     Gen 0 |     Gen 1 |     Gen 2 |   Allocated |
+|------------ |-------- |--------- |----------------:|----------------:|----------------:|----------------:|------:|--------:|----------:|----------:|----------:|------------:|
+|   Set_Array |      10 |       16 |        677.8 ns |        51.25 ns |        54.83 ns |        700.0 ns |  0.52 |    0.07 |         - |         - |         - |           - |
+|    List_Add |      10 |       16 |      1,318.8 ns |       140.19 ns |       137.69 ns |      1,250.0 ns |  1.00 |    0.00 |         - |         - |         - |           - |
+|    Data_Add |      10 |       16 |      2,650.0 ns |        66.09 ns |        70.71 ns |      2,600.0 ns |  2.03 |    0.20 |         - |         - |         - |           - |
+| Data_Ensure |      10 |       16 |      3,782.4 ns |     1,000.34 ns |     1,027.28 ns |      3,400.0 ns |  2.94 |    1.01 |         - |         - |         - |           - |
+|             |         |          |                 |                 |                 |                 |       |         |           |           |           |             |
+|   Set_Array |      10 |  1048576 |        657.9 ns |        54.61 ns |        60.70 ns |        700.0 ns |  0.54 |    0.05 |         - |         - |         - |           - |
+|    List_Add |      10 |  1048576 |      1,229.4 ns |        45.74 ns |        46.97 ns |      1,200.0 ns |  1.00 |    0.00 |         - |         - |         - |           - |
+|    Data_Add |      10 |  1048576 |      3,416.7 ns |     1,345.69 ns |     1,439.87 ns |      2,750.0 ns |  2.81 |    1.17 |         - |         - |         - |           - |
+| Data_Ensure |      10 |  1048576 |      3,423.5 ns |        42.58 ns |        43.72 ns |      3,400.0 ns |  2.79 |    0.11 |         - |         - |         - |           - |
+|             |         |          |                 |                 |                 |                 |       |         |           |           |           |             |
+|   Set_Array |    1000 |       16 |      5,294.4 ns |       503.26 ns |       538.49 ns |      5,100.0 ns |  0.85 |    0.07 |         - |         - |         - |     4,504 B |
+|    List_Add |    1000 |       16 |      6,141.2 ns |       142.20 ns |       146.03 ns |      6,100.0 ns |  1.00 |    0.00 |         - |         - |         - |     8,904 B |
+| Data_Ensure |    1000 |       16 |     29,183.3 ns |       151.21 ns |       161.79 ns |     29,200.0 ns |  4.76 |    0.11 |         - |         - |         - |     9,872 B |
+|    Data_Add |    1000 |       16 |     32,293.8 ns |       886.45 ns |       870.61 ns |     31,950.0 ns |  5.25 |    0.16 |         - |         - |         - |     9,944 B |
+|             |         |          |                 |                 |                 |                 |       |         |           |           |           |             |
+|   Set_Array |    1000 |  1048576 |      5,075.0 ns |       101.82 ns |       100.00 ns |      5,100.0 ns |  0.80 |    0.05 |         - |         - |         - |     4,504 B |
+|    List_Add |    1000 |  1048576 |      6,341.2 ns |       317.52 ns |       326.07 ns |      6,200.0 ns |  1.00 |    0.00 |         - |         - |         - |     8,904 B |
+| Data_Ensure |    1000 |  1048576 |      8,900.0 ns |       153.29 ns |       150.55 ns |      8,800.0 ns |  1.40 |    0.07 |         - |         - |         - |           - |
+|    Data_Add |    1000 |  1048576 |     11,582.4 ns |       125.25 ns |       128.62 ns |     11,500.0 ns |  1.83 |    0.09 |         - |         - |         - |           - |
+|             |         |          |                 |                 |                 |                 |       |         |           |           |           |             |
+|   Set_Array | 1000000 |       16 |  1,377,070.0 ns |   192,274.18 ns |   221,423.24 ns |  1,312,950.0 ns |  0.36 |    0.06 |         - |         - |         - | 4,000,504 B |
+|    List_Add | 1000000 |       16 |  3,808,484.2 ns |   146,313.84 ns |   162,627.45 ns |  3,828,600.0 ns |  1.00 |    0.00 | 1000.0000 | 1000.0000 | 1000.0000 | 8,389,896 B |
+| Data_Ensure | 1000000 |       16 | 20,519,350.0 ns | 3,102,191.74 ns | 3,572,488.62 ns | 18,023,300.0 ns |  5.45 |    1.06 | 1000.0000 |         - |         - | 8,070,128 B |
+|    Data_Add | 1000000 |       16 | 27,617,344.4 ns | 1,192,095.84 ns | 1,275,529.19 ns | 27,022,500.0 ns |  7.27 |    0.43 | 1000.0000 |         - |         - | 8,070,168 B |
+|             |         |          |                 |                 |                 |                 |       |         |           |           |           |             |
+| Data_Ensure | 1000000 |  1048576 |    871,400.0 ns |    47,116.34 ns |    50,413.96 ns |    857,300.0 ns |  0.23 |    0.02 |         - |         - |         - |           - |
+|   Set_Array | 1000000 |  1048576 |  1,221,236.8 ns |    89,554.07 ns |    99,539.11 ns |  1,195,700.0 ns |  0.32 |    0.03 |         - |         - |         - | 4,000,504 B |
+|    Data_Add | 1000000 |  1048576 |  2,647,411.1 ns |   121,390.14 ns |   129,886.09 ns |  2,598,450.0 ns |  0.69 |    0.03 |         - |         - |         - |           - |
+|    List_Add | 1000000 |  1048576 |  3,852,352.6 ns |   115,704.92 ns |   128,605.71 ns |  3,883,800.0 ns |  1.00 |    0.00 | 1000.0000 | 1000.0000 | 1000.0000 | 8,389,896 B |
 
 ``Map`` and ``Dictionary`` has the similar performance for accessing data :
 
-|                    Method | value |             Mean |          Error |         StdDev |           Median | Ratio | RatioSD |
-|-------------------------- |------ |-----------------:|---------------:|---------------:|-----------------:|------:|--------:|
-|                           |       |                  |                |                |                  |       |         |
-|     Dict_1000_ContainsKey |     7 |      7,569.34 ns |       6.146 ns |       6.312 ns |      7,568.64 ns |  1.00 |    0.00 |
-|      Map_1000_ContainsKey |     7 |      7,922.20 ns |     108.648 ns |     111.573 ns |      8,014.10 ns |  1.05 |    0.02 |
-|                           |       |                  |                |                |                  |       |         |
-| Dict_1000_000_ContainsKey |     7 | 14,247,732.66 ns |  43,231.766 ns |  49,785.766 ns | 14,234,917.97 ns |  1.00 |    0.00 |
-|  Map_1000_000_ContainsKey |     7 | 14,255,611.81 ns |  27,958.683 ns |  29,915.478 ns | 14,258,233.59 ns |  1.00 |    0.00 |
-|                           |       |                  |                |                |                  |       |         |
-|        Dict_2_ContainsKey |     7 |         58.59 ns |       1.922 ns |       2.136 ns |         56.95 ns |  1.00 |    0.00 |
-|         Map_2_ContainsKey |     7 |         71.55 ns |       1.868 ns |       2.077 ns |         70.18 ns |  1.22 |    0.01 |
-|                           |       |                  |                |                |                  |       |         |
-|      Map_1000_ContainsKey |     8 |      7,584.76 ns |      14.297 ns |      15.891 ns |      7,578.59 ns |  0.99 |    0.01 |
-|     Dict_1000_ContainsKey |     8 |      7,674.79 ns |     110.162 ns |     117.872 ns |      7,675.73 ns |  1.00 |    0.00 |
-|                           |       |                  |                |                |                  |       |         |
-|  Map_1000_000_ContainsKey |     8 | 14,236,190.16 ns |  13,148.830 ns |  15,142.212 ns | 14,236,654.69 ns |  1.00 |    0.00 |
-| Dict_1000_000_ContainsKey |     8 | 14,246,466.93 ns |  18,651.127 ns |  19,956.497 ns | 14,250,731.25 ns |  1.00 |    0.00 |
-|                           |       |                  |                |                |                  |       |         |
-|        Dict_2_ContainsKey |     8 |         61.91 ns |       0.116 ns |       0.124 ns |         61.94 ns |  1.00 |    0.00 |
-|         Map_2_ContainsKey |     8 |         73.71 ns |       0.426 ns |       0.474 ns |         73.61 ns |  1.19 |    0.01 |
-|                           |       |                  |                |                |                  |       |         |
-|      Map_1000_ContainsKey |     9 |      7,575.19 ns |       3.236 ns |       3.463 ns |      7,574.51 ns |  0.98 |    0.02 |
-|     Dict_1000_ContainsKey |     9 |      7,700.70 ns |     109.298 ns |     121.484 ns |      7,798.27 ns |  1.00 |    0.00 |
-|                           |       |                  |                |                |                  |       |         |
-|  Map_1000_000_ContainsKey |     9 | 14,281,387.66 ns |  39,697.615 ns |  44,123.794 ns | 14,269,407.81 ns |  1.00 |    0.01 |
-| Dict_1000_000_ContainsKey |     9 | 14,339,116.53 ns | 120,126.679 ns | 133,520.485 ns | 14,318,207.81 ns |  1.00 |    0.00 |
-|                           |       |                  |                |                |                  |       |         |
-|        Dict_2_ContainsKey |     9 |         60.98 ns |       1.947 ns |       2.083 ns |         62.44 ns |  1.00 |    0.00 |
-|         Map_2_ContainsKey |     9 |         72.66 ns |       2.386 ns |       2.553 ns |         74.18 ns |  1.19 |    0.08 |
-
+|                    Method | value |             Mean |          Error |         StdDev | Ratio | RatioSD |
+|-------------------------- |------ |-----------------:|---------------:|---------------:|------:|--------:|
+|     Dict_1000_ContainsKey |     0 |      8,070.32 ns |      26.622 ns |      27.338 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     0 |      8,135.12 ns |      44.030 ns |      48.939 ns |  1.01 |    0.01 |
+|                           |       |                  |                |                |       |         |
+| Dict_1000_000_ContainsKey |     0 | 13,838,801.48 ns |  55,127.961 ns |  61,274.583 ns |  1.00 |    0.00 |
+|  Map_1000_000_ContainsKey |     0 | 13,868,230.59 ns |  54,336.201 ns |  60,394.544 ns |  1.00 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     0 |         61.71 ns |       0.128 ns |       0.137 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     0 |         67.63 ns |       0.561 ns |       0.600 ns |  1.10 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|      Map_1000_ContainsKey |     1 |      8,072.28 ns |      55.017 ns |      61.151 ns |  1.00 |    0.01 |
+|     Dict_1000_ContainsKey |     1 |      8,089.80 ns |      59.382 ns |      66.003 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     1 | 13,769,208.85 ns |  27,904.357 ns |  29,857.349 ns |  1.00 |    0.00 |
+| Dict_1000_000_ContainsKey |     1 | 13,772,631.25 ns |  30,649.503 ns |  32,794.625 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     1 |         61.71 ns |       0.201 ns |       0.215 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     1 |         69.50 ns |       0.604 ns |       0.672 ns |  1.13 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|     Dict_1000_ContainsKey |     2 |      8,069.92 ns |      18.976 ns |      18.637 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     2 |      8,085.11 ns |      44.093 ns |      47.179 ns |  1.00 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     2 | 13,788,524.42 ns |  42,158.461 ns |  46,859.018 ns |  1.00 |    0.00 |
+| Dict_1000_000_ContainsKey |     2 | 13,812,604.98 ns |  23,904.451 ns |  23,477.367 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     2 |         63.34 ns |       0.481 ns |       0.554 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     2 |         67.63 ns |       0.306 ns |       0.327 ns |  1.07 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|      Map_1000_ContainsKey |     3 |      8,049.57 ns |       7.367 ns |       7.882 ns |  0.99 |    0.01 |
+|     Dict_1000_ContainsKey |     3 |      8,153.32 ns |      73.403 ns |      78.540 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     3 | 13,801,832.58 ns |  54,202.732 ns |  62,419.947 ns |  0.99 |    0.01 |
+| Dict_1000_000_ContainsKey |     3 | 13,889,393.92 ns | 113,386.902 ns | 121,322.715 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     3 |         63.20 ns |       0.678 ns |       0.726 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     3 |         68.91 ns |       0.947 ns |       1.053 ns |  1.09 |    0.02 |
+|                           |       |                  |                |                |       |         |
+|     Dict_1000_ContainsKey |     4 |      8,139.69 ns |      82.968 ns |      95.546 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     4 |      8,143.41 ns |      94.512 ns |     108.840 ns |  1.00 |    0.02 |
+|                           |       |                  |                |                |       |         |
+| Dict_1000_000_ContainsKey |     4 | 13,747,482.52 ns |  17,886.368 ns |  17,566.805 ns |  1.00 |    0.00 |
+|  Map_1000_000_ContainsKey |     4 | 13,861,111.64 ns |  86,040.641 ns |  95,633.944 ns |  1.01 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     4 |         62.44 ns |       0.488 ns |       0.562 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     4 |         70.66 ns |       2.118 ns |       2.354 ns |  1.13 |    0.04 |
+|                           |       |                  |                |                |       |         |
+|     Dict_1000_ContainsKey |     5 |      8,031.30 ns |     236.904 ns |     272.820 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     5 |      8,073.19 ns |      34.280 ns |      38.103 ns |  1.01 |    0.03 |
+|                           |       |                  |                |                |       |         |
+| Dict_1000_000_ContainsKey |     5 | 13,745,356.03 ns |   8,925.305 ns |   9,549.977 ns |  1.00 |    0.00 |
+|  Map_1000_000_ContainsKey |     5 | 13,787,644.65 ns |  34,177.398 ns |  37,988.087 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     5 |         62.67 ns |       0.266 ns |       0.307 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     5 |         69.50 ns |       1.280 ns |       1.423 ns |  1.11 |    0.02 |
+|                           |       |                  |                |                |       |         |
+|      Map_1000_ContainsKey |     6 |      8,055.09 ns |      16.505 ns |      17.660 ns |  0.99 |    0.00 |
+|     Dict_1000_ContainsKey |     6 |      8,116.66 ns |      55.051 ns |      61.190 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     6 | 13,765,171.59 ns |  20,752.604 ns |  23,066.465 ns |  0.99 |    0.00 |
+| Dict_1000_000_ContainsKey |     6 | 13,845,794.45 ns |  43,792.731 ns |  50,431.774 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     6 |         62.63 ns |       0.190 ns |       0.195 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     6 |         68.75 ns |       1.043 ns |       1.159 ns |  1.09 |    0.02 |
+|                           |       |                  |                |                |       |         |
+|     Dict_1000_ContainsKey |     7 |      7,969.63 ns |     100.447 ns |     107.477 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     7 |      8,041.45 ns |       8.048 ns |       8.265 ns |  1.01 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     7 | 13,787,516.32 ns |  55,973.538 ns |  62,214.439 ns |  1.00 |    0.00 |
+| Dict_1000_000_ContainsKey |     7 | 13,819,723.67 ns |  50,763.521 ns |  58,459.346 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     7 |         61.98 ns |       0.220 ns |       0.244 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     7 |         68.66 ns |       1.029 ns |       1.143 ns |  1.11 |    0.02 |
+|                           |       |                  |                |                |       |         |
+|     Dict_1000_ContainsKey |     8 |      7,984.22 ns |     136.703 ns |     140.384 ns |  1.00 |    0.00 |
+|      Map_1000_ContainsKey |     8 |      8,043.55 ns |      10.366 ns |      11.091 ns |  1.01 |    0.02 |
+|                           |       |                  |                |                |       |         |
+|  Map_1000_000_ContainsKey |     8 | 13,764,054.78 ns |  21,464.100 ns |  22,042.051 ns |  0.99 |    0.01 |
+| Dict_1000_000_ContainsKey |     8 | 13,926,526.09 ns |  76,378.002 ns |  87,957.021 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     8 |         62.52 ns |       0.257 ns |       0.274 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     8 |         70.13 ns |       0.286 ns |       0.306 ns |  1.12 |    0.01 |
+|                           |       |                  |                |                |       |         |
+|      Map_1000_ContainsKey |     9 |      8,103.08 ns |      57.791 ns |      66.553 ns |  1.00 |    0.01 |
+|     Dict_1000_ContainsKey |     9 |      8,110.07 ns |      57.604 ns |      66.337 ns |  1.00 |    0.00 |
+|                           |       |                  |                |                |       |         |
+| Dict_1000_000_ContainsKey |     9 | 13,748,020.80 ns |   8,303.602 ns |   8,155.247 ns |  1.00 |    0.00 |
+|  Map_1000_000_ContainsKey |     9 | 13,875,106.33 ns |  60,451.533 ns |  69,616.075 ns |  1.01 |    0.00 |
+|                           |       |                  |                |                |       |         |
+|        Dict_2_ContainsKey |     9 |         62.70 ns |       0.323 ns |       0.372 ns |  1.00 |    0.00 |
+|         Map_2_ContainsKey |     9 |         67.70 ns |       0.290 ns |       0.297 ns |  1.08 |    0.01 |
 
 # License
 
