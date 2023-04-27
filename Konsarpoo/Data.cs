@@ -167,7 +167,7 @@ namespace Konsarpoo.Collections
             {
                 var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
 
-                m_root = new StoreNode(m_arrayAllocator, m_maxSizeOfArray, initialCapacity);
+                m_root = new StoreNode(null, m_arrayAllocator, m_maxSizeOfArray, initialCapacity);
             }
         }
 
@@ -316,7 +316,7 @@ namespace Konsarpoo.Collections
         }
 
         /// <summary>
-        /// Places the given value at the specified index. If the given index is out of range it resizes the Data collection.
+        /// Places the given value at the specified index. If the given index is out of range it resizes the Data collection to fit it.
         /// </summary>
         /// <param name="index"></param>
         /// <param name="value"></param>
@@ -353,6 +353,30 @@ namespace Konsarpoo.Collections
 
             return ref ValueByRefSlow(index);
         }
+        
+        /// <summary>
+        /// Gets access to storage node by item index. 
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        [CanBeNull]
+        public INode GetStorageNode(int index)
+        {
+            if (index < 0 || index >= m_count)
+            {
+                throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Data size is {m_count}.");
+            }
+            
+            var storage = m_root?.Storage;
+            
+            if (storage != null)
+            {
+                return m_root;
+            }
+
+            return m_root?.GetStorageNode(index);
+        }
 
         private ref T ValueByRefSlow(int index)
         {
@@ -385,20 +409,11 @@ namespace Konsarpoo.Collections
 
         private void ReverseSlow()
         {
-            for (int upTo = 0; upTo < m_count; upTo++)
+            for(int i = 0; i < m_count / 2; i++)
             {
-                var downTo = m_count - upTo - 1;
-
-                if (downTo + 1 <= upTo)
-                {
-                    break;
-                }
-
-                var uptoValue = ValueByRef(upTo);
-
-                ValueByRef(upTo) = ValueByRef(downTo);
-
-                ValueByRef(downTo) = uptoValue;
+                T temp = ValueByRef(i);
+                ValueByRef(i) = ValueByRef(m_count - i - 1);
+                ValueByRef(m_count - i - 1) = temp;
             }
         }
 
@@ -739,7 +754,7 @@ namespace Konsarpoo.Collections
             
             if (root == null)
             {
-                var storeNode = new StoreNode(m_arrayAllocator, maxSizeOfArray, 2);
+                var storeNode = new StoreNode(null, m_arrayAllocator, maxSizeOfArray, 2);
 
                 storeNode.m_items[0] = item;
 
@@ -756,7 +771,10 @@ namespace Konsarpoo.Collections
             INode node1 = root;
             if (!node1.Add(ref item, out var node2))
             {
-                m_root = new LinkNode(node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
+                m_root = new LinkNode(null, node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
+                
+                node1.Parent = m_root;
+                node2.Parent = m_root;
             }
 
             unchecked { ++m_version; }
@@ -1453,13 +1471,13 @@ namespace Konsarpoo.Collections
             {
                 if (source.m_root is StoreNode simpleNode)
                 {
-                    m_root = new StoreNode(simpleNode);
+                    m_root = new StoreNode(null, simpleNode);
 
                     m_count = source.m_count;
                 }
                 else if (source.m_root is LinkNode linkNode)
                 {
-                    m_root = new LinkNode(linkNode);
+                    m_root = new LinkNode(null, linkNode);
 
                     m_count = source.m_count;
                 }

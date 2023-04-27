@@ -42,13 +42,13 @@ namespace Konsarpoo.Collections.Tests
             var l1 = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(0, 50))
             {
-                l1[i] = i;
+                l1[i] = true;
             } 
 
             var l2 = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(50, 50))
             {
-                l2[i] = i;
+                l2[i] = true;
             } 
 
             var l3 = l1 + l2;
@@ -56,7 +56,7 @@ namespace Konsarpoo.Collections.Tests
             var expected = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(0, 100))
             {
-                expected[i] = i;
+                expected[i] = true;
             } 
           
             Assert.AreEqual(expected, l3);
@@ -71,13 +71,13 @@ namespace Konsarpoo.Collections.Tests
             var l1 = new Set<int>(GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(0, 50))
             {
-                l1[i] = i;
+                l1[i] = true;
             } 
 
             var l2 = new Set<int>( GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(50, 50))
             {
-                l2[i] = i;
+                l2[i] = true;
             } 
 
             var l3 = l1 + l2;
@@ -85,7 +85,7 @@ namespace Konsarpoo.Collections.Tests
             var expected = new Set<int>(GcAllocatorSetup.GetSetPoolSetup<int>());
             foreach (var i in Enumerable.Range(0, 100))
             {
-                expected[i] = i;
+                expected[i] = true;
             } 
           
             Assert.AreEqual(expected, l3);
@@ -214,7 +214,7 @@ namespace Konsarpoo.Collections.Tests
                 {
                     Assert.True(newSet.Contains(kv));
                     Assert.True(newSet.ContainsKey(kv));
-                    Assert.False(newSet.TryAdd(kv, kv));
+                    Assert.False(newSet.TryAdd(kv, true));
 
                     Assert.True(newSet.TryGetValue(kv, out var kv1));
                     Assert.False(newSet.TryGetValue(kv + Guid.NewGuid(), out var kv2));
@@ -225,13 +225,13 @@ namespace Konsarpoo.Collections.Tests
                 
                 foreach (var kv in set2)
                 {
-                    s3[kv] = kv;
+                    s3[kv] = true;
                     
-                    Assert.True(s4.TryAdd(kv, kv));
+                    Assert.True(s4.TryAdd(kv, true));
                     
                     Assert.True(newSet.Contains(kv));
                     Assert.True(newSet.ContainsKey(kv));
-                    Assert.False(newSet.TryAdd(kv, kv));
+                    Assert.False(newSet.TryAdd(kv, true));
 
                     Assert.True(newSet.TryGetValue(kv, out var kv1));
                 }
@@ -416,7 +416,7 @@ namespace Konsarpoo.Collections.Tests
 
             foreach (var i in l1)
             {
-                Assert.True(l3[i] == i);
+                Assert.True(l3[i]);
             }
         }
 
@@ -513,7 +513,7 @@ namespace Konsarpoo.Collections.Tests
 
             for (int i = 0; i < 100; i++)
             {
-                set[i] = i;
+                set[i] = true;
             }
 
             var set1 = set.ToSet();
@@ -570,6 +570,24 @@ namespace Konsarpoo.Collections.Tests
             set.Add(null);
             
             Assert.True(set.Contains(null));
+        }
+
+        [Test]
+        public void TestMapApi()
+        {
+            var m3 = new Set<int>() { 1 };
+            
+            Assert.False(m3[1000]);
+            Assert.True(m3[1]);
+
+            m3.Discard(1);
+            
+            Assert.False(m3[1]);
+
+            m3[1] = true;
+            
+            Assert.False(m3[1000]);
+            Assert.True(m3[1]);
         }
     }
 }

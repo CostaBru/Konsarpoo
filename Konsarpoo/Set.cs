@@ -464,6 +464,17 @@ namespace Konsarpoo.Collections
         {
             CopyTo(array, arrayIndex, m_count);
         }
+
+        /// <summary>
+        /// Removes the item from the Set&lt;T&gt;.
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public bool Discard(T item)
+        {
+            return Remove(item);
+        }
         
         /// <summary>
         /// Removes the item from the Set&lt;T&gt;.

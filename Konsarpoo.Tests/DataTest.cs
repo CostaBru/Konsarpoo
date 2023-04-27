@@ -507,6 +507,29 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(~arrVal, dataList[i]);
                 Assert.AreEqual(~arrVal, listO[i]);
             }
+
+            for (int i = 0; i < array.Length; i++)
+            {
+                var storageNode = dataList.GetStorageNode(i);
+                
+                Assert.NotNull(storageNode);
+                Assert.NotNull(storageNode.Storage);
+                Assert.NotNull(storageNode.Parent);
+            }
+
+            var ints = new Data<int>();
+            
+            Assert.Throws<IndexOutOfRangeException>(() => ints.GetStorageNode(0));
+            
+            ints.Add(1);
+
+            var node = ints.GetStorageNode(0);
+            
+            Assert.NotNull(node);
+            
+            Assert.AreEqual(1, node.Storage[0]);
+            
+            Assert.Null(node.Parent);
         }
 
         [Test]

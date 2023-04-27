@@ -100,14 +100,29 @@ namespace Konsarpoo.Collections
             /// <summary>
             /// Enumerates sub nodes.
             /// </summary>
+            [NotNull]
             IEnumerable<INode> Nodes { get; }
+
+            /// <summary>
+            /// Gets storage node for given item index.
+            /// </summary>
+            /// <param name="index"></param>
+            /// <returns></returns>
+            [NotNull]
+            INode GetStorageNode(int index);
+            
+            /// <summary>
+            /// Gets or sets the parent node reference.
+            /// </summary>
+            [CanBeNull]
+            INode Parent { get; internal set; }
         }
 
         /// <summary>
         /// Tree Leaf/link node class
         /// </summary>
         [DebuggerDisplay("Link. Nodes: {m_nodes.Count}, Level: {Level}")]
-        private sealed class LinkNode : INode
+        protected sealed class LinkNode : INode
         {
             private const int c_linkNodeCapacity = 1024;
             
@@ -117,6 +132,7 @@ namespace Konsarpoo.Collections
             private readonly int m_level;
             private readonly int m_stepBase;
             private readonly int m_leafCapacity;
+            private INode m_parent;
 
             public int Level => m_level;
             
@@ -135,13 +151,33 @@ namespace Konsarpoo.Collections
                     return ref m_nodes.m_items[current][next];
                 }
             }
+            
+            public INode GetStorageNode(int index)
+            {
+                var current = index >> m_stepBase;
+                var next = index - (current << m_stepBase);
+                
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                }
+
+                return m_nodes.m_items[current].GetStorageNode(next);
+            }
+
+            public INode Parent
+            {
+                get => m_parent;
+                set => m_parent = value;
+            }
 
             public T[] Storage => null;
 
             public int Size => m_nodes.m_size;
 
-            public LinkNode(int level, int leafCapacity, INode child1, IArrayAllocator<INode> nodesAllocator, INode child2 = null)
+            public LinkNode(INode parent, int level, int leafCapacity, INode child1, IArrayAllocator<INode> nodesAllocator, INode child2 = null)
             {
+                m_parent = parent;
                 m_level = level;
                 m_leafCapacity = leafCapacity;
                 m_nodesAllocator = nodesAllocator;
@@ -157,8 +193,9 @@ namespace Konsarpoo.Collections
                 }
             }
 
-            public LinkNode(LinkNode linkNode)
+            public LinkNode(INode parent, LinkNode linkNode)
             {
+                m_parent = parent;
                 m_level = linkNode.m_level;
                 m_leafCapacity = linkNode.m_leafCapacity;
                 m_stepBase = linkNode.m_stepBase;
@@ -170,22 +207,22 @@ namespace Konsarpoo.Collections
                 {
                     if (node is LinkNode ln)
                     {
-                        m_nodes.Add(new LinkNode(ln));
+                        m_nodes.Add(new LinkNode(this, ln));
                     }
                     else if (node is StoreNode sn)
                     {
-                        m_nodes.Add(new StoreNode(sn));
+                        m_nodes.Add(new StoreNode(this, sn));
                     }
                 }
             }
 
             public bool Add(ref T item, out INode node, int capacity = 16)
             {
-                if (m_nodes[m_nodes.Count - 1].Add(ref item, out var node1, capacity) == false)
+                if (m_nodes[m_nodes.m_size - 1].Add(ref item, out var node1, capacity) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
-                        node = new LinkNode( m_level, m_leafCapacity, node1, m_nodesAllocator);
+                        node = new LinkNode(m_parent, m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -297,11 +334,11 @@ namespace Konsarpoo.Collections
 
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
-                if (m_nodes[m_nodes.Count - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
+                if (m_nodes[m_nodes.m_size - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
-                        node = new LinkNode(m_level, m_leafCapacity, node1, m_nodesAllocator);
+                        node = new LinkNode(m_parent, m_level, m_leafCapacity, node1, m_nodesAllocator);
                         return false;
                     }
                     m_nodes.Add(node1);
@@ -367,23 +404,35 @@ namespace Konsarpoo.Collections
         [DebuggerDisplay("Store. Size: {m_size}")]
         internal sealed class StoreNode : PoolListBase<T>, INode
         {
+            private INode m_parent;
+            
             public int Level => 0;
 
             public T[] Storage => m_items;
 
             public int Size => m_size;
 
-            public StoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
+            public INode Parent
             {
+                get => m_parent;
+                set => m_parent = value;
             }
 
-            public StoreNode(StoreNode poolList) : base(poolList)
+            public StoreNode(INode parent, IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
             {
+                m_parent = parent;
             }
 
-            public StoreNode(IArrayAllocator<T> allocator,int maxCapacity, int capacity, T item)
+            public StoreNode(INode parent, StoreNode poolList) : base(poolList)
+            {
+                m_parent = parent;
+            }
+
+            public StoreNode(INode parent, IArrayAllocator<T> allocator,int maxCapacity, int capacity, T item)
               : base(allocator, maxCapacity, capacity)
             {
+                m_parent = parent;
+                
                 AddItem(item);
             }
 
@@ -391,7 +440,7 @@ namespace Konsarpoo.Collections
             {
                 if (m_size == m_maxCapacity)
                 {
-                    node = new StoreNode(base.ArrayAllocator, m_maxCapacity, capacity, item);
+                    node = new StoreNode(m_parent, base.ArrayAllocator, m_maxCapacity, capacity, item);
                     return false;
                 }
                 AddItem(item);
@@ -465,6 +514,11 @@ namespace Konsarpoo.Collections
             }
 
             public IEnumerable<INode> Nodes => Array.Empty<INode>();
+            
+            public INode GetStorageNode(int index)
+            {
+                return this;
+            }
 
             public bool Ensure(ref int extraSize, ref T defaultValue, out INode node)
             {
@@ -504,9 +558,9 @@ namespace Konsarpoo.Collections
 
                     extraSize -= arraySize;
 
-                    var storeNode = new StoreNode(base.ArrayAllocator, m_maxCapacity, arraySize) { m_size = arraySize };
+                    var storeNode = new StoreNode(m_parent, base.ArrayAllocator, m_maxCapacity, arraySize) { m_size = arraySize };
 
-                    if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || ArrayAllocator.CleanArrayReturn == false)
+                    if (ArrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                     {
                         Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
                     }
@@ -531,7 +585,7 @@ namespace Konsarpoo.Collections
 
                 m_items = vals;
 
-                if (EqualityComparer<T>.Default.Equals(defaultValue, Default) == false || ArrayAllocator.CleanArrayReturn == false)
+                if (ArrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                 {
                     Array.Fill(m_items, defaultValue, m_size, newSize - m_size);
                 }
