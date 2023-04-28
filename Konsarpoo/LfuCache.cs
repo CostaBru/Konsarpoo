@@ -10,8 +10,7 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections;
 
 /// <summary>
-/// An O(1) LFU cache eviction data structure plus simple key obsolescence tracking/cleaning. 
-/// <see ref="https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf"/>
+/// An O(1) LFU cache eviction data structure plus simple key obsolescence tracking/cleaning. Uses predefined frequency buckets to avoid un
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
 /// <typeparam name="TValue"></typeparam>
@@ -28,11 +27,14 @@ public partial class LfuCache<TKey, TValue> :
 {
     [NonSerialized]
     private TimeSpan m_obsolescenceData;
+    
+    private static int[] m_fibonachi = new int[] { 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368, 75025, 121393, 196418, 317811 };
 
     public class DataVal
     {
         public TValue Value;
         public long AccessTickCount;
+        public int AccessCount;
         public FreqNode FreqNode;
     }
    
@@ -85,6 +87,13 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache() : this(0, 0, null)
     {
     }
+    
+    /// <summary>
+    /// Class constructor accepting predefined freq buckets.
+    /// </summary>
+    public LfuCache(int[] freqBuckets) : this(0, 0, null, freqBuckets, null)
+    {
+    }
 
     /// <summary>
     /// LfuCache class constructor with keys comparer parameter.
@@ -103,7 +112,7 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache(Func<TValue, TValue> copyStrategy): this(0,0,null, copyStrategy)
     {
     }
-    
+
     /// <summary>
     /// LfuCache class constructor with keys comparer parameter.
     /// </summary>
@@ -111,7 +120,20 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="comparer"></param>
     /// <param name="capacity"></param>
     /// <param name="copyStrategy"></param>
-    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null)
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null) 
+        : this(capacity, maxSizeStorageNodeArray, comparer, null, copyStrategy)
+    {
+    }
+
+    /// <summary>
+    /// LfuCache class constructor with keys comparer parameter.
+    /// </summary>
+    /// <param name="maxSizeStorageNodeArray"></param>
+    /// <param name="comparer"></param>
+    /// <param name="capacity"></param>
+    /// <param name="freqRanges"></param>
+    /// <param name="copyStrategy"></param>
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, int[] freqRanges, Func<TValue, TValue> copyStrategy = null)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
@@ -120,15 +142,37 @@ public partial class LfuCache<TKey, TValue> :
         m_root = new(m_setTemplate);
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
+
+        CreateFreqBuckets(freqRanges);
     }
-    
+
+    private void CreateFreqBuckets(int[] freqRanges)
+    {
+        var ranges = freqRanges ?? m_fibonachi;
+
+        var prevNode = m_root;
+
+        for (int i = 0; i < ranges.Length; i++)
+        {
+            var freqNode = new FreqNode(m_setTemplate);
+
+            freqNode.FreqValue = ranges[i];
+            freqNode.PrevNode = prevNode;
+
+            prevNode.NextNode = freqNode;
+
+            prevNode = freqNode;
+        }
+    }
+
     /// <summary>
     /// LfuCache pool set up constructor.
     /// </summary>
     /// <param name="mapTemplate"></param>
     /// <param name="setTemplate"></param>
+    /// <param name="freqRanges"></param>
     /// <exception cref="ArgumentNullException"></exception>
-    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate)
+    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate, int[] freqRanges = null)
     {
         if (mapTemplate == null)
         {
@@ -150,6 +194,8 @@ public partial class LfuCache<TKey, TValue> :
         
         m_root = new(m_setTemplate);
         m_mostFreqNode = m_root;
+        
+        CreateFreqBuckets(freqRanges);
     }
 
     /// <summary>
@@ -293,7 +339,7 @@ public partial class LfuCache<TKey, TValue> :
     {
         if (m_map.TryGetValue(key, out var data))
         {
-           return data.FreqNode.FreqValue;
+           return data.AccessCount;
         }
 
         return 0;
@@ -369,37 +415,31 @@ public partial class LfuCache<TKey, TValue> :
     private void AccessItem(TKey key, DataVal data, TValue value, bool hasValue)
     {
         var freqNode = data.FreqNode;
+        
+        data.AccessCount++;
 
-        var nextNode = freqNode.NextNode;
-
-        if (nextNode.FreqValue != freqNode.FreqValue + 1)
+        if (data.AccessCount > freqNode.FreqValue)
         {
-            nextNode = new FreqNode(m_setTemplate)
+            var nextNode = freqNode.NextNode;
+
+            if (ReferenceEquals(nextNode, freqNode) == false)
             {
-                NextNode = freqNode.NextNode,
-                PrevNode = freqNode,
-                FreqValue = freqNode.FreqValue + 1
-            };
+                freqNode.Keys.Remove(key);
+                nextNode.Keys.Add(key);
 
-            freqNode.NextNode = nextNode;
+                if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
+                {
+                    m_mostFreqNode = nextNode;
+                }
+
+                data.FreqNode = nextNode;
+            }
         }
-
-        freqNode.Keys.Remove(key);
-        nextNode.Keys.Add(key);
 
         if (freqNode.Keys.Count == 0)
         {
             DeleteNode(freqNode);
-            
-            freqNode.Keys.Dispose();
         }
-        
-        if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
-        {
-            m_mostFreqNode = nextNode;
-        }
-
-        data.FreqNode = nextNode;
 
         if (m_stopwatch != null)
         {
@@ -428,10 +468,7 @@ public partial class LfuCache<TKey, TValue> :
             m_mostFreqNode = m_mostFreqNode.PrevNode;
         }
         
-        var prevNode = freqNode.PrevNode;
-
-        prevNode.NextNode = freqNode.NextNode;
-        freqNode.NextNode.PrevNode = prevNode;
+        freqNode.Keys.Clear();
     }
 
     /// <summary>
@@ -464,23 +501,14 @@ public partial class LfuCache<TKey, TValue> :
         {
             FreqNode firstNode = m_root.NextNode;
             
-            if (m_root.NextNode.FreqValue != 1)
+            if (firstNode.FreqValue > m_mostFreqNode.FreqValue)
             {
-                firstNode = new FreqNode(m_setTemplate) { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
-
-                m_root.NextNode.PrevNode = firstNode;
-
-                m_root.NextNode = firstNode;
-                
-                if (firstNode.FreqValue > m_mostFreqNode.FreqValue)
-                {
-                    m_mostFreqNode = firstNode;
-                }
+                m_mostFreqNode = firstNode;
             }
 
             firstNode.Keys.Add(key);
 
-            var dataVal = new DataVal() { Value = m_copyStrategy != null ? m_copyStrategy(value) : value, FreqNode = firstNode };
+            var dataVal = new DataVal() { Value = m_copyStrategy != null ? m_copyStrategy(value) : value, FreqNode = firstNode, AccessCount = 1 };
             
             if (m_stopwatch != null)
             {
@@ -507,8 +535,6 @@ public partial class LfuCache<TKey, TValue> :
             if (data.FreqNode.Keys.Count == 0)
             {
                 DeleteNode(data.FreqNode);
-                
-                data.FreqNode.Keys.Dispose();
             }
 
             m_map.Remove(key);
@@ -719,23 +745,28 @@ public partial class LfuCache<TKey, TValue> :
 
             var removedCount = toRemove;
             
+            var leastFreqUsedItemsNode = m_root.NextNode;
+
             while (toRemove > 0)
             {
-                var leastFreqUsedItemsNode = m_root.NextNode;
-
-                var keys = leastFreqUsedItemsNode.Keys.ToData();
-
-                foreach (var key in keys)
+                if (leastFreqUsedItemsNode.Keys.Count > 0)
                 {
-                    RemoveKey(key);
-                    toRemove--;
-                    if (toRemove <= 0)
+                    var keys = leastFreqUsedItemsNode.Keys.ToData();
+
+                    foreach (var key in keys)
                     {
-                        break;
+                        RemoveKey(key);
+                        toRemove--;
+                        if (toRemove <= 0)
+                        {
+                            break;
+                        }
                     }
+
+                    keys.Dispose();
                 }
-                
-                keys.Dispose();
+
+                leastFreqUsedItemsNode = leastFreqUsedItemsNode.NextNode;
             }
             
             return removedCount;
@@ -743,6 +774,11 @@ public partial class LfuCache<TKey, TValue> :
         else
         {
             var leastFreqUsedItemsNode = m_root.NextNode;
+
+            while (leastFreqUsedItemsNode.Keys.Count == 0)
+            {
+                leastFreqUsedItemsNode = leastFreqUsedItemsNode.NextNode;
+            }
 
             var keys = leastFreqUsedItemsNode.Keys.ToData();
 

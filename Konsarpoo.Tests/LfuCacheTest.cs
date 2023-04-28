@@ -21,7 +21,7 @@ public class LfuCacheTest : BaseTest
     [Test]
     public void BasicTest()
     {
-        var lfuCache = new LfuCache<int, int>();
+        var lfuCache = new LfuCache<int, int>(Enumerable.Range(1, 100).ToArray());
 
         lfuCache[1] = 1;
         lfuCache[2] = 2;
@@ -93,7 +93,7 @@ public class LfuCacheTest : BaseTest
         var mapTemplate = new Map<int, LfuCache<int, int>.DataVal>(0, 16, GcAllocatorSetup.GetMapPoolSetup<int, LfuCache<int, int>.DataVal>());
         var setTemplate = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
         
-        var lfuCache = new LfuCache<int, int>(mapTemplate, setTemplate);
+        var lfuCache = new LfuCache<int, int>(mapTemplate, setTemplate, Enumerable.Range(1, 100).ToArray());
 
         lfuCache[1] = 1;
         lfuCache[2] = 2;
