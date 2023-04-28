@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
 
@@ -28,7 +27,7 @@ public partial class LfuCache<TKey, TValue> :
     [NonSerialized]
     private TimeSpan m_obsolescenceData;
     
-    private static int[] m_fibonachi = new int[] { 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368, 75025, 121393, 196418, 317811 };
+    private static readonly int[] m_fibonachi = new int[] { 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368, 75025, 121393, 196418, 317811 };
 
     public class DataVal
     {
@@ -40,29 +39,23 @@ public partial class LfuCache<TKey, TValue> :
    
     public class FreqNode
     {
-        public Set<TKey> Keys;
+        public ICollection<TKey> Keys;
 
         public FreqNode NextNode;
         public FreqNode PrevNode;
 
         public int FreqValue;
 
-        public FreqNode(Set<TKey> setTemplate)
+        public FreqNode(ICollection<TKey> collection)
         {
             NextNode = this;
             PrevNode = this;
-            Keys = new Set<TKey>(setTemplate);
+            Keys = collection;
         }
     }
-    
-    [NonSerialized]
-    private Set<TKey> m_setTemplate;
 
     [NonSerialized]
-    private IEqualityComparer<TKey> m_comparer;
-
-    [NonSerialized]
-    private Map<TKey, DataVal> m_map;
+    private IDictionary<TKey, DataVal> m_map;
 
     [NonSerialized] 
     private FreqNode m_root;
@@ -76,7 +69,7 @@ public partial class LfuCache<TKey, TValue> :
     private IStopwatch m_stopwatch;
     
     [NonSerialized]
-    private Set<TKey> m_obsoleteKeys;
+    private ICollection<TKey> m_obsoleteKeys;
 
     [NonSerialized]
     private readonly Func<TValue, TValue> m_copyStrategy;
@@ -121,7 +114,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="capacity"></param>
     /// <param name="copyStrategy"></param>
     public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null) 
-        : this(capacity, maxSizeStorageNodeArray, comparer, null, copyStrategy)
+        : this(capacity, maxSizeStorageNodeArray, comparer, null, null, copyStrategy)
     {
     }
 
@@ -132,21 +125,22 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="comparer"></param>
     /// <param name="capacity"></param>
     /// <param name="freqRanges"></param>
+    /// <param name="setFactory"></param>
     /// <param name="copyStrategy"></param>
-    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, int[] freqRanges, Func<TValue, TValue> copyStrategy = null)
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, int[] freqRanges, Func<ICollection<TKey>> setFactory, Func<TValue, TValue> copyStrategy = null)
     {
-        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-        m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
+        Func<ICollection<TKey>> defFactory = () => new Set<TKey>();
         
-        m_map = new(capacity, maxSizeStorageNodeArray, m_comparer);
-        m_root = new(m_setTemplate);
+        m_map = new Map<TKey, DataVal>(capacity, maxSizeStorageNodeArray, comparer);
+        m_root = new FreqNode(setFactory?.Invoke() ?? defFactory());
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
+        m_obsoleteKeys = setFactory?.Invoke() ?? defFactory();
 
-        CreateFreqBuckets(freqRanges);
+        CreateFreqBuckets(freqRanges, setFactory ?? defFactory);
     }
 
-    private void CreateFreqBuckets(int[] freqRanges)
+    private void CreateFreqBuckets(int[] freqRanges, Func<ICollection<TKey>> setFactory)
     {
         var ranges = freqRanges ?? m_fibonachi;
 
@@ -154,7 +148,7 @@ public partial class LfuCache<TKey, TValue> :
 
         for (int i = 0; i < ranges.Length; i++)
         {
-            var freqNode = new FreqNode(m_setTemplate);
+            var freqNode = new FreqNode(setFactory());
 
             freqNode.FreqValue = ranges[i];
             freqNode.PrevNode = prevNode;
@@ -168,34 +162,29 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// LfuCache pool set up constructor.
     /// </summary>
-    /// <param name="mapTemplate"></param>
-    /// <param name="setTemplate"></param>
+    /// <param name="map"></param>
+    /// <param name="setFactory"></param>
     /// <param name="freqRanges"></param>
     /// <exception cref="ArgumentNullException"></exception>
-    public LfuCache([NotNull] Map<TKey, DataVal> mapTemplate, [NotNull] Set<TKey> setTemplate, int[] freqRanges = null)
+    public LfuCache([NotNull] IDictionary<TKey, DataVal> map, [NotNull] Func<ICollection<TKey>> setFactory, int[] freqRanges = null)
     {
-        if (mapTemplate == null)
+        if (map == null)
         {
-            throw new ArgumentNullException(nameof(mapTemplate));
+            throw new ArgumentNullException(nameof(map));
         }
 
-        if (setTemplate == null)
+        if (setFactory == null)
         {
-            throw new ArgumentNullException(nameof(setTemplate));
+            throw new ArgumentNullException(nameof(setFactory));
         }
-        
-        m_comparer = mapTemplate.Comparer;
 
-        m_map = new Map<TKey, DataVal>(mapTemplate);
-        m_map.Clear();
-
-        m_setTemplate = new (setTemplate, m_comparer);
-        m_setTemplate.Clear();
+        m_map = map;
         
-        m_root = new(m_setTemplate);
+        m_root = new(setFactory());
         m_mostFreqNode = m_root;
+        m_obsoleteKeys = setFactory();
         
-        CreateFreqBuckets(freqRanges);
+        CreateFreqBuckets(freqRanges, setFactory);
     }
 
     /// <summary>
@@ -206,11 +195,6 @@ public partial class LfuCache<TKey, TValue> :
         m_obsolescenceData = obsolescenceTime;
         
         m_stopwatch = stopwatch;
-
-        if (m_obsoleteKeys == null)
-        {
-            m_obsoleteKeys = new Set<TKey>(m_setTemplate);
-        }
 
         m_stopwatch.Start();
     }
@@ -390,21 +374,6 @@ public partial class LfuCache<TKey, TValue> :
             AddOrUpdate(key, value);
         }
     }
-    
-    /// <summary>
-    /// Returns the actual buckets count. If the value is equal to values count resize will happen on text insert.
-    /// </summary>
-    public int BucketCount => m_map.BucketCount;
-        
-    /// <summary>
-    /// Returns the bucket index for given key.
-    /// </summary>
-    /// <returns></returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int GetBucketIndex([NotNull] ref TKey item)
-    {
-        return m_map.GetBucketIndex(ref item);
-    }
 
     /// <inheritdoc />
     IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => m_map.Keys;
@@ -414,49 +383,53 @@ public partial class LfuCache<TKey, TValue> :
 
     private void AccessItem(TKey key, DataVal data, TValue value, bool hasValue)
     {
-        var freqNode = data.FreqNode;
-        
-        data.AccessCount++;
-
-        if (data.AccessCount > freqNode.FreqValue)
+        lock (data)
         {
-            var nextNode = freqNode.NextNode;
+            var freqNode = data.FreqNode;
 
-            if (ReferenceEquals(nextNode, freqNode) == false)
+            data.AccessCount++;
+
+            if (data.AccessCount > freqNode.FreqValue)
             {
-                freqNode.Keys.Remove(key);
-                nextNode.Keys.Add(key);
+                var nextNode = freqNode.NextNode;
 
-                if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
+                if (ReferenceEquals(nextNode, freqNode) == false)
                 {
-                    m_mostFreqNode = nextNode;
+                    freqNode.Keys.Remove(key);
+                    
+                    if (freqNode.Keys.Count == 0)
+                    {
+                        DeleteNode(freqNode);
+                    }
+                    
+                    nextNode.Keys.Add(key);
+
+                    if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
+                    {
+                        m_mostFreqNode = nextNode;
+                    }
+
+                    data.FreqNode = nextNode;
                 }
-
-                data.FreqNode = nextNode;
             }
-        }
 
-        if (freqNode.Keys.Count == 0)
-        {
-            DeleteNode(freqNode);
-        }
-
-        if (m_stopwatch != null)
-        {
-            data.AccessTickCount = m_stopwatch.ElapsedTicks;
-
-            m_obsoleteKeys.Remove(key);
-        }
-        
-        if (hasValue)
-        {
-            if (m_copyStrategy == null)
+            if (m_stopwatch != null)
             {
-                data.Value = value;
+                data.AccessTickCount = m_stopwatch.ElapsedTicks;
+
+                m_obsoleteKeys.Remove(key);
             }
-            else
+
+            if (hasValue)
             {
-                data.Value = m_copyStrategy(value);
+                if (m_copyStrategy == null)
+                {
+                    data.Value = value;
+                }
+                else
+                {
+                    data.Value = m_copyStrategy(value);
+                }
             }
         }
     }
@@ -506,8 +479,6 @@ public partial class LfuCache<TKey, TValue> :
                 m_mostFreqNode = firstNode;
             }
 
-            firstNode.Keys.Add(key);
-
             var dataVal = new DataVal() { Value = m_copyStrategy != null ? m_copyStrategy(value) : value, FreqNode = firstNode, AccessCount = 1 };
             
             if (m_stopwatch != null)
@@ -515,6 +486,8 @@ public partial class LfuCache<TKey, TValue> :
                 dataVal.AccessTickCount = m_stopwatch.ElapsedTicks;
             }
             
+            firstNode.Keys.Add(key);
+
             m_map[key] = dataVal;
 
             return true;
@@ -538,7 +511,7 @@ public partial class LfuCache<TKey, TValue> :
             }
 
             m_map.Remove(key);
-            m_obsoleteKeys?.Remove(key);
+            m_obsoleteKeys.Remove(key);
 
             if (m_copyStrategy != null && data.Value is IDisposable disposable)
             {
@@ -568,6 +541,8 @@ public partial class LfuCache<TKey, TValue> :
     public void Clear()
     {
         RemoveLeastUsedItems(Count);
+        
+        m_obsoleteKeys.Clear();
     }
 
     bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
@@ -655,22 +630,34 @@ public partial class LfuCache<TKey, TValue> :
 
         while (m_root != node)
         {
-            foreach (var nodeKey in node.Keys)
+            var nodeKeys = node.Keys.ToData();
+            
+            foreach (var nodeKey in nodeKeys)
             {
-                var accessTickCount = m_map[nodeKey].AccessTickCount;
-                
-                if (stopwatchElapsedTicks - m_obsolescenceData.Ticks > accessTickCount)
+                if (m_map.TryGetValue(nodeKey, out var nodeVal))
                 {
-                    m_obsoleteKeys.Add(nodeKey);
-                }
-                
-                counter++;
+                    long accessTickCount = 0;
 
-                if (counter >= count)
-                {
-                    break;
+                    lock (nodeVal)
+                    {
+                        accessTickCount = nodeVal.AccessTickCount;
+                    }
+
+                    if (stopwatchElapsedTicks - m_obsolescenceData.Ticks > accessTickCount)
+                    {
+                        m_obsoleteKeys.Add(nodeKey);
+                    }
+
+                    counter++;
+
+                    if (counter >= count)
+                    {
+                        break;
+                    }
                 }
             }
+            
+            nodeKeys.Dispose();
             
             if (counter >= count)
             {
@@ -688,12 +675,19 @@ public partial class LfuCache<TKey, TValue> :
     /// </summary>
     public void ResetObsolescence()
     {
-        m_obsoleteKeys?.Clear();
+        m_obsoleteKeys.Clear();
 
-        foreach (var dataVal in m_map)
+        var data = m_map.ToData();
+
+        foreach (var dataVal in data)
         {
-            dataVal.Value.AccessTickCount = 0;
+            lock (dataVal.Value)
+            {
+                dataVal.Value.AccessTickCount = 0;
+            }
         }
+        
+        data.Dispose();
     }
     
     /// <summary>
@@ -796,15 +790,8 @@ public partial class LfuCache<TKey, TValue> :
     /// <inheritdoc />
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
     {
-        var mapVersion = m_map.Version;
-
         foreach (var kVal in m_map)
         {
-            if (mapVersion != m_map.Version)
-            {
-                throw new InvalidOperationException($"LfuCache collection was modified during enumeration.");
-            }
-            
             yield return new KeyValuePair<TKey, TValue>(kVal.Key, kVal.Value.Value);
         }
     }
@@ -822,9 +809,15 @@ public partial class LfuCache<TKey, TValue> :
     {
         Clear();
 
-        m_obsoleteKeys?.Dispose();
-        m_map.Dispose();
-        m_setTemplate.Dispose();
+        if (m_obsoleteKeys is IDisposable dk)
+        {
+            dk.Dispose();
+        }
+        
+        if (m_map is IDisposable dm)
+        {
+            dm.Dispose();
+        }
     }
 
     /// <summary> Returns true if given cache has the same keys, values and frequencies otherwise it returns false.</summary>
@@ -855,9 +848,9 @@ public partial class LfuCache<TKey, TValue> :
                 return false;
             }
 
-            var thisValeFreq = kVal.Value.FreqNode.FreqValue;
+            var thisValeFreq = kVal.Value.AccessCount;
 
-            if (thisValeFreq != otherVal.FreqNode.FreqValue)
+            if (thisValeFreq != otherVal.AccessCount)
             {
                 return false;
             }

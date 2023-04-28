@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
@@ -87,13 +88,66 @@ public class LfuCacheTest : BaseTest
         Assert.AreEqual(0, lfuCache.Count);
     }
     
+    private class ConcurrentHashset<TKey> : ICollection<TKey>
+    {
+        private readonly ConcurrentDictionary<TKey, byte> m_dict;
+
+        public ConcurrentHashset() : this(null)
+        {
+        }
+
+        public ConcurrentHashset(IEqualityComparer<TKey> comparer)
+        {
+            m_dict = new ConcurrentDictionary<TKey, byte>(comparer);
+        }
+
+        public IEnumerator<TKey> GetEnumerator()
+        {
+            return m_dict.Keys.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public void Add(TKey item)
+        {
+            m_dict[item] = 1;
+        }
+
+        public void Clear()
+        {
+            m_dict.Clear();
+        }
+
+        public bool Contains(TKey item)
+        {
+            return m_dict.ContainsKey(item);
+        }
+
+        public void CopyTo(TKey[] array, int arrayIndex)
+        {
+            m_dict.Keys.CopyTo(array, arrayIndex);
+        }
+
+        public bool Remove(TKey item)
+        {
+            return m_dict.TryRemove(item, out var val);
+        }
+
+        public int Count => m_dict.Count;
+
+        public bool IsReadOnly => false;
+    }
+    
     [Test]
     public void CustomAllocatorTest()
     {
-        var mapTemplate = new Map<int, LfuCache<int, int>.DataVal>(0, 16, GcAllocatorSetup.GetMapPoolSetup<int, LfuCache<int, int>.DataVal>());
-        var setTemplate = new Set<int>(0, 16, GcAllocatorSetup.GetSetPoolSetup<int>());
+        var mapStorage = new ConcurrentDictionary<int, LfuCache<int, int>.DataVal>();
+        var setStorageFactory = () => new ConcurrentHashset<int>();
         
-        var lfuCache = new LfuCache<int, int>(mapTemplate, setTemplate, Enumerable.Range(1, 100).ToArray());
+        var lfuCache = new LfuCache<int, int>(mapStorage, setStorageFactory, Enumerable.Range(1, 100).ToArray());
 
         lfuCache[1] = 1;
         lfuCache[2] = 2;
@@ -180,14 +234,6 @@ public class LfuCacheTest : BaseTest
         valueByRef = 5;
         
         Assert.AreEqual(5, lfuCache[2]);
-
-        var val = 1;
-        
-        var bucketIndex = lfuCache.GetBucketIndex(ref val);
-                
-        Assert.True(bucketIndex >= 0);
-                
-        Assert.True(bucketIndex < lfuCache.BucketCount);
     }
     
     [Test]
