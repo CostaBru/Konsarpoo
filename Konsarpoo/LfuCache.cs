@@ -74,6 +74,9 @@ public partial class LfuCache<TKey, TValue> :
     [NonSerialized]
     private readonly Func<TValue, TValue> m_copyStrategy;
 
+    [NonSerialized]
+    private int m_bucketSize;
+
     /// <summary>
     /// Default class constructor.
     /// </summary>
@@ -136,7 +139,7 @@ public partial class LfuCache<TKey, TValue> :
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
         m_obsoleteKeys = setFactory?.Invoke() ?? defFactory();
-
+        
         CreateFreqBuckets(freqRanges, setFactory ?? defFactory);
     }
 
@@ -157,6 +160,8 @@ public partial class LfuCache<TKey, TValue> :
 
             prevNode = freqNode;
         }
+        
+        m_bucketSize = ranges.Length;
     }
 
     /// <summary>
@@ -740,8 +745,10 @@ public partial class LfuCache<TKey, TValue> :
             var removedCount = toRemove;
             
             var leastFreqUsedItemsNode = m_root.NextNode;
+            
+            int counter = 0;
 
-            while (toRemove > 0)
+            while (toRemove > 0 && counter < m_bucketSize)
             {
                 if (leastFreqUsedItemsNode.Keys.Count > 0)
                 {
@@ -761,6 +768,7 @@ public partial class LfuCache<TKey, TValue> :
                 }
 
                 leastFreqUsedItemsNode = leastFreqUsedItemsNode.NextNode;
+                counter++;
             }
             
             return removedCount;
@@ -769,9 +777,13 @@ public partial class LfuCache<TKey, TValue> :
         {
             var leastFreqUsedItemsNode = m_root.NextNode;
 
-            while (leastFreqUsedItemsNode.Keys.Count == 0)
+            int counter = 0;
+
+            while (leastFreqUsedItemsNode.Keys.Count == 0 && counter < m_bucketSize)
             {
                 leastFreqUsedItemsNode = leastFreqUsedItemsNode.NextNode;
+
+                counter++;
             }
 
             var keys = leastFreqUsedItemsNode.Keys.ToData();

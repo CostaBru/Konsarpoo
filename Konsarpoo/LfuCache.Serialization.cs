@@ -86,6 +86,8 @@ public partial class LfuCache<TKey, TValue>
             FreqNode prevNode = m_root;
             FreqNode nextNode = m_root.NextNode;
 
+            var bucketCount = 0;
+
             foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
             {
                 var newNode =
@@ -107,7 +109,11 @@ public partial class LfuCache<TKey, TValue>
 
                 prevNode = newNode;
                 nextNode = newNode;
+
+                bucketCount++;
             }
+
+            m_bucketSize = bucketCount;
         }
 
         m_sInfo = null;
