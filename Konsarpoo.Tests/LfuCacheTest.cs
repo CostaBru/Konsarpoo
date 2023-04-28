@@ -180,6 +180,14 @@ public class LfuCacheTest : BaseTest
         valueByRef = 5;
         
         Assert.AreEqual(5, lfuCache[2]);
+
+        var val = 1;
+        
+        var bucketIndex = lfuCache.GetBucketIndex(ref val);
+                
+        Assert.True(bucketIndex >= 0);
+                
+        Assert.True(bucketIndex < lfuCache.BucketCount);
     }
     
     [Test]

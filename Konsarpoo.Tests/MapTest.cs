@@ -140,6 +140,12 @@ namespace Konsarpoo.Collections.Tests
             for (int i = 0; i < 1000000; i++)
             {
                 testData.Add(i, i);
+
+                var bucketIndex = testData.GetBucketIndex(ref i);
+                
+                Assert.True(bucketIndex >= 0);
+                
+                Assert.True(bucketIndex < testData.BucketCount);
             }
             
             testData.Dispose();

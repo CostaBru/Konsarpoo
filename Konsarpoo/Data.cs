@@ -247,7 +247,7 @@ namespace Konsarpoo.Collections
         /// Returns the internal tree root. 
         /// </summary>
         [CanBeNull]
-        public INodeBase GetRoot()
+        public INode GetRoot()
         {
             return m_root;
         }

@@ -443,6 +443,14 @@ namespace Konsarpoo.Collections.Tests
             foreach (var i in Enumerable.Range(0, 1024))
             {
                 set.Add(i);
+
+                var val = i;
+                
+                var bucketIndex = set.GetBucketIndex(ref val);
+                
+                Assert.True(bucketIndex >= 0);
+                
+                Assert.True(bucketIndex < set.BucketCount);
             }
 
             var serializeWithDcs = SerializeHelper.SerializeWithDcs(set);

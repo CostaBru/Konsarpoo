@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
 
@@ -342,6 +343,21 @@ public partial class LfuCache<TKey, TValue> :
         {
             AddOrUpdate(key, value);
         }
+    }
+    
+    /// <summary>
+    /// Returns the actual buckets count. If the value is equal to values count resize will happen on text insert.
+    /// </summary>
+    public int BucketCount => m_map.BucketCount;
+        
+    /// <summary>
+    /// Returns the bucket index for given key.
+    /// </summary>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetBucketIndex([NotNull] ref TKey item)
+    {
+        return m_map.GetBucketIndex(ref item);
     }
 
     /// <inheritdoc />

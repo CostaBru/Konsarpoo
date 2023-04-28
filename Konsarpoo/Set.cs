@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using JetBrains.Annotations;
@@ -234,6 +235,28 @@ namespace Konsarpoo.Collections
             Add(item);
         }
 
+        /// <summary>
+        /// Returns the actual buckets count. If the value is equal to values count resize will happen on text insert.
+        /// </summary>
+        public int BucketCount => m_buckets.Count;
+        
+        /// <summary>
+        /// Returns the bucket index for given key.
+        /// </summary>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetBucketIndex([NotNull]ref T item)
+        {
+            if (item == null)
+            {
+                throw new ArgumentNullException(nameof(item));
+            }
+            
+            var hashCode = InternalGetHashCode(ref item);
+           
+            return hashCode % m_buckets.m_count;
+        }
+        
         /// <summary>Adds the specified element to a set.</summary>
         /// <param name="value">The element to add to the set.</param>
         /// <returns>

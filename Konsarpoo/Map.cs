@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
 
@@ -535,6 +536,28 @@ namespace Konsarpoo.Collections
             m_freeList = -1;
         }
 
+        /// <summary>
+        /// Returns the actual buckets count. If the value is equal to values count resize will happen on text insert.
+        /// </summary>
+        public int BucketCount => m_buckets.Count;
+        
+        /// <summary>
+        /// Returns the bucket index for given key.
+        /// </summary>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetBucketIndex([NotNull]ref  TKey key)
+        {
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+            
+            var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+           
+            return hashCode % m_buckets.m_count;
+        }
+
         private void Insert([NotNull] ref TKey key, ref TValue value, ref bool add)
         {
             if (key == null)
@@ -671,7 +694,7 @@ namespace Konsarpoo.Collections
             {
                 int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
                 
-                int index = hashCode % m_buckets.Count;
+                int index = hashCode % m_buckets.m_count;
                 int last = -1;
 
                 var entries = m_entries.m_root?.Storage;
