@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
@@ -22,7 +23,7 @@ public class LfuCacheTest : BaseTest
     [Test]
     public void BasicTest()
     {
-        var lfuCache = new LfuCache<int, int>(Enumerable.Range(1, 100).ToArray());
+        var lfuCache = new LfuCache<int, int>();
 
         lfuCache[1] = 1;
         lfuCache[2] = 2;
@@ -76,7 +77,8 @@ public class LfuCacheTest : BaseTest
         lfuCache[2] = 2;
         lfuCache[3] = 3;
 
-        var i = lfuCache[1]; i = lfuCache[1];
+        var i = lfuCache[1];
+        i = lfuCache[1];
         var i2 = lfuCache[2];
 
         lfuCache.RemoveLeastUsedItems(2);
@@ -140,79 +142,7 @@ public class LfuCacheTest : BaseTest
 
         public bool IsReadOnly => false;
     }
-    
-    [Test]
-    public void CustomAllocatorTest()
-    {
-        var mapStorage = new ConcurrentDictionary<int, LfuCache<int, int>.DataVal>();
-        var setStorageFactory = () => new ConcurrentHashset<int>();
-        
-        var lfuCache = new LfuCache<int, int>(mapStorage, setStorageFactory, Enumerable.Range(1, 100).ToArray());
-
-        lfuCache[1] = 1;
-        lfuCache[2] = 2;
-        lfuCache[3] = 3;
-        
-        Assert.AreEqual(3, lfuCache.Count);
-      
-        Assert.AreEqual(1, lfuCache.GetFrequency(1));
-        Assert.AreEqual(1, lfuCache.GetFrequency(2));
-        Assert.AreEqual(1, lfuCache.GetFrequency(3));
-
-        var i1 = lfuCache[1];
-        i1 = lfuCache[1];
-        
-        Assert.AreEqual(3, lfuCache.GetFrequency(1));
-        Assert.AreEqual(1, lfuCache.GetFrequency(2));
-        Assert.AreEqual(1, lfuCache.GetFrequency(3));
-        
-        i1 = lfuCache[2];
-        
-        Assert.AreEqual(3, lfuCache.GetFrequency(1));
-        Assert.AreEqual(2, lfuCache.GetFrequency(2));
-        Assert.AreEqual(1, lfuCache.GetFrequency(3));
-        
-        lfuCache.RemoveLeastUsedItems();
-        
-        Assert.AreEqual(2, lfuCache.Count);
-        
-        Assert.AreEqual(3, lfuCache.GetFrequency(1));
-        Assert.AreEqual(2, lfuCache.GetFrequency(2));
-        Assert.False(lfuCache.ContainsKey(3));
-        
-        lfuCache.RemoveLeastUsedItems();
-        
-        Assert.AreEqual(1, lfuCache.Count);
-        
-        Assert.AreEqual(3, lfuCache.GetFrequency(1));
-        Assert.False(lfuCache.ContainsKey(2));
-        Assert.False(lfuCache.ContainsKey(3));
-        
-        lfuCache[2] = 2;
-        lfuCache[3] = 3;
-        
-        Assert.AreEqual(3, lfuCache.Count);
-        
-        lfuCache.Clear();
-        
-        Assert.AreEqual(0, lfuCache.Count);
-        
-        lfuCache[1] = 1;
-        lfuCache[2] = 2;
-        lfuCache[3] = 3;
-
-        var i = lfuCache[1]; i = lfuCache[1];
-        var i2 = lfuCache[2];
-
-        lfuCache.RemoveLeastUsedItems(2);
-        
-        Assert.AreEqual(1, lfuCache.Count);
-        Assert.AreEqual(1, lfuCache[1]);
-        
-        lfuCache.Dispose();
-        Assert.AreEqual(0, lfuCache.Count);
-    }
-
+   
     [Test]
     public void TestRemove()
     {
@@ -459,5 +389,195 @@ public class LfuCacheTest : BaseTest
         Assert.AreEqual(2, cache.Count);
         Assert.True(cache.ContainsKey(2));
         Assert.True(cache.ContainsKey(3));
+    }
+
+    [Test, Ignore("This test is not reliable")]
+    public void TestConcurrentAccess()
+    {
+        var lfuCache = new LfuCache<string, object>();
+
+        lfuCache.StartTrackingObsolescence(new SystemStopwatch(), TimeSpan.FromMilliseconds(1));
+        
+        var updater1 = new Thread(() =>
+        {
+            var random = new Random(0);
+            
+            for (int i = 1; i < 100000; i += 2)
+            {
+                for (int j = 0; j < random.Next(0, 10); j++)
+                {
+                    lfuCache.GetSet(i.ToString(), (key, cache) => cache[key] = key);
+                }
+            }
+        });
+        
+        var updater2 = new Thread(() =>
+        {
+            var random = new Random(0);
+            
+            for (int i = 0; i < 100000; i += 2)
+            {
+                for (int j = 0; j < random.Next(0, 10); j++)
+                {
+                    lfuCache.GetSet(i.ToString(), (key, cache) => cache[key] = key);
+                }
+            }
+        });
+
+        var deleter1CancellationToken = false;
+
+        var deleter1 = new Thread(() =>
+        {
+            var random = new Random(0);
+
+            while (deleter1CancellationToken == false)
+            {
+                try
+                {
+                    var next = random.Next(0, 100000);
+
+                    lfuCache.RemoveKey(next.ToString());
+                }
+                catch (ThreadInterruptedException e)
+                {
+                    return;
+                }
+            }
+        });
+        
+        var deleter2CancellationToken = false;
+        
+        var deleter2 = new Thread(() =>
+        {
+            var random = new Random(0);
+
+            while (deleter2CancellationToken == false)
+            {
+                try
+                {
+                    var next = random.Next(10000, 100000);
+
+                    lfuCache.RemoveKey(next.ToString());
+                }
+                catch (ThreadInterruptedException e)
+                {
+                    return;
+                }
+            }
+        });
+        
+        var getter1CancellationToken = false;
+        
+        var getter1 = new Thread(() =>
+        {
+            var random = new Random(0);
+
+            while (getter1CancellationToken == false)
+            {
+                try
+                {
+                    var next = random.Next(10000, 100000);
+
+                    lfuCache.GetSet(next.ToString(), (key, cache) => cache[key] = key);
+                }
+                catch (ThreadInterruptedException e)
+                {
+                    return;
+                }
+            }
+        });
+        
+        var getter2CancellationToken = false;
+        
+        var getter2 = new Thread(() =>
+        {
+            var random = new Random(0);
+
+            while (getter2CancellationToken == false)
+            {
+                try
+                {
+                    var next = random.Next(10000, 100000);
+
+                    lfuCache.GetSet(next.ToString(), (key, cache) => cache[key] = key);
+                }
+                catch (ThreadInterruptedException e)
+                {
+                   return;
+                }
+            }
+        });
+        
+        var cleaner1CancellationToken = false;
+        
+        var cleaner1 = new Thread(() =>
+        {
+            while (cleaner1CancellationToken == false)
+            {
+                try
+                {
+                    if (lfuCache.Count > 10)
+                    {
+                        lfuCache.RemoveLeastUsedItems(5);
+                    }
+                }
+                catch (ThreadInterruptedException e)
+                {
+                   return;
+                }
+            }
+        });
+        
+        var cleaner2CancellationToken = false;
+        
+        var cleaner2 = new Thread(() =>
+        {
+            while (cleaner2CancellationToken == false)
+            {
+                try
+                {
+                    if (lfuCache.Count > 10)
+                    {
+                        lfuCache.ScanFrequentForObsolescence(10);
+                        lfuCache.RemoveObsoleteItems();
+                    }
+                }
+                catch (ThreadInterruptedException e)
+                {
+                   return;
+                }
+            }
+        });
+        
+        updater1.Start();
+        updater2.Start();
+        cleaner1.Start();
+        cleaner2.Start();
+        deleter1.Start();
+        deleter2.Start();
+        getter1.Start();
+        getter2.Start();
+
+        updater1.Join();
+        updater2.Join();
+
+        cleaner1CancellationToken = true;
+        cleaner2CancellationToken = true;
+        deleter1CancellationToken = true;
+        deleter2CancellationToken = true;
+        getter1CancellationToken = true;
+        getter2CancellationToken = true;
+
+        cleaner1.Join();
+        cleaner2.Join();
+        deleter1.Join();
+        deleter2.Join();
+        getter1.Join();
+        getter2.Join();
+        
+        lfuCache.ScanForObsolescence();
+        lfuCache.RemoveObsoleteItems();
+        
+        Assert.AreEqual(0, lfuCache.Count);
     }
 }

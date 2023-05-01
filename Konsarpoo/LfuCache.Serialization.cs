@@ -33,21 +33,12 @@ public partial class LfuCache<TKey, TValue>
             throw new ArgumentNullException(nameof(info));
         }
 
-        var valuePairs = new Data<KeyValuePair<TKey, (TValue value, int frequency, int accessCount)>>(m_map.Count);
+        var valuePairs = new Data<KeyValuePair<TKey, (TValue value, int frequency)>>();
 
-        valuePairs.AddRange(m_map.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency, int accessCount)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue, kv.Value.AccessCount))));
-
-        info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey,(TValue value, int frequency, int accessCount)>>));
-
-        if (m_map is Map<TKey, DataVal> mp)
-        {
-            info.AddValue(ComparerName, mp.Comparer, typeof(IEqualityComparer<TKey>));
-        }
+        valuePairs.AddRange(m_map.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue))));
         
-        if (m_map is Dictionary<TKey, DataVal> mdp)
-        {
-            info.AddValue(ComparerName, mdp.Comparer, typeof(IEqualityComparer<TKey>));
-        }
+        info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey,(TValue value, int frequency)>>));
+        info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
     }
 
     /// <inheritdoc />
@@ -60,7 +51,9 @@ public partial class LfuCache<TKey, TValue>
 
         var siInfo = m_sInfo;
 
-        var storage = (Data<KeyValuePair<TKey, (TValue value, int frequency, int accessCount)>>)siInfo.GetValue(StorageName, typeof(Data<KeyValuePair<TKey, (TValue value, int frequency, int accessCount)>>));
+        m_comparer = (IEqualityComparer<TKey>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<TKey>));
+
+        var storage = (Data<KeyValuePair<TKey, (TValue value, int frequency)>>)siInfo.GetValue(StorageName, typeof(Data<KeyValuePair<TKey, (TValue value, int frequency)>>));
 
         if (storage is null)
         {
@@ -68,35 +61,31 @@ public partial class LfuCache<TKey, TValue>
         }
 
         storage.OnDeserialization(this);
-        
-        var comparer = (IEqualityComparer<TKey>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<TKey>));
+
+        if (m_setTemplate == null)
+        {
+            m_setTemplate = new Set<TKey>(m_comparer);
+        }
 
         if (m_root == null)
         {
-            m_root = new FreqNode(new Set<TKey>(comparer));
+            m_root = new FreqNode(m_setTemplate);
         }
 
         if (m_map == null)
         {
-            m_map = new Map<TKey, DataVal>(comparer);
+            m_map = new Map<TKey, DataVal>(m_comparer);
         }
-       
+
         lock (m_root)
         {
             FreqNode prevNode = m_root;
             FreqNode nextNode = m_root.NextNode;
 
-            var bucketCount = 0;
-
             foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
             {
-                var newNode =
-                    new FreqNode(new Set<TKey>(comparer))
-                    {
-                        FreqValue = kv.Key,
-                        PrevNode = prevNode,
-                        NextNode = nextNode
-                    };
+                var newNode = new FreqNode(m_setTemplate)
+                    { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
 
                 m_root.NextNode.PrevNode = newNode;
                 m_root.NextNode = newNode;
@@ -104,16 +93,12 @@ public partial class LfuCache<TKey, TValue>
                 foreach (var st in kv)
                 {
                     newNode.Keys.Add(st.Key);
-                    m_map[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode, AccessCount = st.Value.accessCount };
+                    m_map[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode };
                 }
 
                 prevNode = newNode;
                 nextNode = newNode;
-
-                bucketCount++;
             }
-
-            m_bucketSize = bucketCount;
         }
 
         m_sInfo = null;
