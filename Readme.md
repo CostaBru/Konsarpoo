@@ -47,20 +47,6 @@ Implemented as a tree of ``.NET`` sub arrays. The array allocator and max size o
 
 The ``GcArrayPoolMixedAllocator<T>`` instance is the default array allocator. It takes advantage of GC and pool array. For small arrays with length 65 or less, it uses ``GC`` for larger ones the ``System.Buffers.ArrayPool<T>.Shared`` class.
 
-Here is how subtree random access support implemented:
-```csharp
-// Link node constructor:
-this.m_stepBase = Math.Log(Math.Pow(1024, m_level - 1) * m_leafCapacity, 2);
-
-// random access to contents:
- T ref this[int index] => get
- {
-     int current = index << this.m_stepBase;
-     int next = index - (current >> this.m_stepBase);
-     return ref this.m_nodes.m_items[current][next];
- }
-```
-
 ### MAP
 
 ``Map<K,V>`` is generic hashtable collection that supports the built in ``Dictionary`` API. To manage ``Map`` internal state the ``Konsarpoo.Collections.Data`` comes to the stage.  
