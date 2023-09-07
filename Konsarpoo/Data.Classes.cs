@@ -72,6 +72,15 @@ namespace Konsarpoo.Collections
             /// <param name="node"></param>
             /// <returns></returns>
             bool Ensure(ref int size, ref T defaultValue, out INode node);
+            
+            /// <summary>
+            /// Make sure node has given size or max size. If max size reached return new node.
+            /// </summary>
+            /// <param name="capacity">rest capacity</param>
+            /// <param name="defaultValue"></param>
+            /// <param name="node"></param>
+            /// <returns></returns>
+            bool EnsureCapacity(ref int capacity, ref T defaultValue, out INode node);
 
             /// <summary>
             /// Tries to insert item into existing node. Returns true if node can fit new item. Returns false if lastItem is required to push into next index.
@@ -81,6 +90,16 @@ namespace Konsarpoo.Collections
             /// <param name="lastItem"></param>
             /// <returns></returns>
             bool TryInsertAndPush(int index, ref T item, out T lastItem);
+
+            /// <summary>
+            /// Tries to insert item into existing node. Returns true if node can fit new item. Returns false if lastItem is required to push into next index.
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="itemIndex"></param>
+            /// <param name="item"></param>
+            /// <param name="lastItem"></param>
+            /// <returns></returns>
+            bool TryInsertAndPush(int index, ref int itemIndex, Data<T> items);
 
             /// <summary>
             /// Removes item at specified index. If node was full then newLastItem replaces the last item in the node
@@ -261,6 +280,34 @@ namespace Konsarpoo.Collections
                 return false;
             }
 
+            public bool TryInsertAndPush(int index, 
+                ref int itemIndex,
+                Data<T> items)
+            {
+                var current = index >> m_stepBase;
+                var next = index - (current << m_stepBase);
+
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    throw new IndexOutOfRangeException(
+                        $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                }
+
+                for (int i = current; i < m_nodes.m_items.Length && i < m_nodes.m_size; i++)
+                {
+                    var node = m_nodes.m_items[i];
+
+                    if (node.TryInsertAndPush(next, ref itemIndex, items))
+                    {
+                        return true;
+                    }
+
+                    next = 0;
+                }
+
+                return itemIndex >= items.Count;
+            }
+
             public T RemoveAtAndPop(int index, ref T newLastValue)
             {
                 var current = index >> m_stepBase;
@@ -335,6 +382,21 @@ namespace Konsarpoo.Collections
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
                 if (m_nodes[m_nodes.m_size - 1].Ensure(ref size, ref defaultValue, out var node1) == false)
+                {
+                    if (m_nodes.m_size == c_linkNodeCapacity)
+                    {
+                        node = new LinkNode(m_parent, m_level, m_leafCapacity, node1, m_nodesAllocator);
+                        return false;
+                    }
+                    m_nodes.Add(node1);
+                }
+                node = this;
+                return true;
+            }
+
+            public bool EnsureCapacity(ref int capacity, ref T defaultValue, out INode node)
+            {
+                if (m_nodes[m_nodes.m_size - 1].EnsureCapacity(ref capacity, ref defaultValue, out var node1) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
@@ -492,6 +554,49 @@ namespace Konsarpoo.Collections
                 }
             }
 
+            public bool TryInsertAndPush(int index, 
+                ref int itemIndex,
+                Data<T> items)
+            {
+                var itemCount = items.Count;
+                var maxItemsToInsert = items.Count - itemIndex;
+                var possibleItemsToInsert = m_items.Length - index;
+
+                if (possibleItemsToInsert >= maxItemsToInsert)
+                {
+                    possibleItemsToInsert = maxItemsToInsert;
+                }
+
+                var pushBack = Array.Empty<T>();
+                
+                if (m_items.Length - m_size >= possibleItemsToInsert)
+                {
+                    Array.Copy(m_items, index, m_items, index + possibleItemsToInsert, m_items.Length - possibleItemsToInsert - index);
+                }
+                else
+                {
+                    pushBack = new T[possibleItemsToInsert];
+
+                    Array.Copy(m_items, m_size - possibleItemsToInsert, pushBack, 0, possibleItemsToInsert);
+                    Array.Copy(m_items, index, m_items, index + possibleItemsToInsert, m_size - possibleItemsToInsert - index);
+                }
+                
+                for (int i = index; i < m_items.Length && itemIndex < itemCount; i++)
+                {
+                    m_items[i] = items.ValueByRef(itemIndex);
+
+                    if (m_size < m_maxCapacity)
+                    {
+                        m_size += 1;
+                    }
+                    itemIndex++;
+                }
+                
+                items.AddRange(pushBack);
+
+                return itemIndex >= items.Count;
+            }
+
             public T RemoveAtAndPop(int index, ref T newLastValue)
             {
                 var pushBackValue = this.m_items[index];
@@ -527,7 +632,7 @@ namespace Konsarpoo.Collections
                 //can extend this
                 if (extraSize <= restOfThis)
                 {
-                    Ensure(defaultValue, m_size + extraSize);
+                    EnsureCapacity(defaultValue, m_size + extraSize);
 
                     m_size += extraSize;
 
@@ -540,7 +645,7 @@ namespace Konsarpoo.Collections
 
                 if (restOfThis > 0)
                 {
-                    Ensure(defaultValue, m_size + restOfThis);
+                    EnsureCapacity(defaultValue, m_size + restOfThis);
 
                     m_size += restOfThis;
                     
@@ -574,8 +679,59 @@ namespace Konsarpoo.Collections
 
                 return true;
             }
+            
+            public bool EnsureCapacity(ref int extraSize, ref T defaultValue, out INode node)
+            {
+                var restOfThis = base.m_maxCapacity - m_items.Length;
 
-            private void Ensure(T defaultValue, int newSize)
+                //can extend this
+                if (extraSize <= restOfThis)
+                {
+                    EnsureCapacity(defaultValue, m_items.Length + extraSize);
+
+                    extraSize = 0;
+
+                    node = this;
+
+                    return true;
+                }
+
+                if (restOfThis > 0)
+                {
+                    EnsureCapacity(defaultValue, m_items.Length + restOfThis);
+                    
+                    extraSize -= restOfThis;
+                    
+                    node = this;
+
+                    return true;
+                }
+                
+                if(extraSize > 0)
+                    //allocate new with rest
+                {
+                    var arraySize = Math.Min(m_maxCapacity, extraSize);
+
+                    extraSize -= arraySize;
+
+                    var storeNode = new StoreNode(m_parent, base.ArrayAllocator, m_maxCapacity, arraySize);
+
+                    if (ArrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
+                    {
+                        Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
+                    }
+
+                    node = storeNode;
+                    
+                    return false;
+                }
+                
+                node = this;
+
+                return true;
+            }
+
+            private void EnsureCapacity(T defaultValue, int newSize)
             {
                 T[] vals = base.ArrayAllocator.Rent(newSize);
 

@@ -386,7 +386,7 @@ namespace Konsarpoo.Collections.Tests
         {
             var dataList = Enumerable.Range(0, count).Reverse().ToData();
 
-            if (insertPosition <= dataList.Count)
+            if (insertPosition < dataList.Count)
             {
                 var copy = dataList.ToList();
                 var vector = new std.vector<int>(dataList);
@@ -1914,6 +1914,96 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual(1000, ints.GetOrDefault(1000));
             
             Assert.AreEqual(0, ints.GetOrDefault(10000));
+        }
+        
+        [Test]
+        public void TestInsertRangeAtEnd()
+        {
+            var ints1 = new Data<int>(0, 16);
+            var ints2 = new Data<int>(0, 16);
+            var exp = new Data<int>(0, 16);
+            
+            ints1.AddRange(Enumerable.Range(0, 15));
+            ints2.AddRange(Enumerable.Range(16, 15));
+            
+            exp.AddRange(ints1);
+            exp.AddRange(ints2);
+            
+            ints1.InsertRange(ints1.Count - 1, ints2);
+            
+            Assert.AreEqual(exp, ints1);
+        }
+        
+        [Test]
+        public void TestInsertRangeAtStartNotFull()
+        {
+            var ints1 = new Data<int>(0, 16);
+            var ints2 = new Data<int>(0, 16);
+            var ints3 = new Data<int>(0, 16);
+            
+            ints1.AddRange(Enumerable.Range(0, 14));
+            ints2.Add(512);
+            
+            ints3.AddRange(ints1);
+            ints3.Insert(0, 512);
+            
+            ints1.InsertRange(0, ints2);
+            
+            Assert.AreEqual(ints3, ints1);
+        }
+        
+        [Test]
+        public void TestInsertRangeSingleAtStartFull([Values(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)] int insertIndex)
+        {
+            var ints1 = new Data<int>(0, 16);
+            var ints2 = new Data<int>(0, 16);
+            var exp1 = new Data<int>(0, 16);
+            
+            ints1.AddRange(Enumerable.Range(0, 16));
+            ints2.Add(512);
+            
+            exp1.AddRange(ints1);
+            exp1.Insert(insertIndex, 512);
+            
+            ints1.InsertRange(insertIndex, ints2);
+            
+            Assert.AreEqual(exp1, ints1);
+        }
+        
+        [Test]
+        public void TestInsertRangeRangeAtStartFull([Values(0,1,5,15,16)] int insertIndex, [Values(16, 2048)] int testCount, [Values(1, 3, 16, 1024, 2048)] int insertCount)
+        {
+            if (insertIndex > testCount)
+            {
+                return;
+            }
+            
+            var ints1 = new Data<int>(0, 16);
+            var ints2 = new Data<int>(0, 16);
+            var ints3 = new Data<int>(0, 16);
+            
+            var insertData = Enumerable.Range(512, insertCount).ToArray();
+
+            ints1.AddRange(Enumerable.Range(0, testCount));
+            ints2.AddRange(insertData);
+            
+            ints3.AddRange(ints1);
+
+            for (int i = 0; i < insertData.Length; i++)
+            {
+                var index = insertIndex + i;
+
+                if (index >= ints3.Count)
+                {
+                    index = ints3.Count;
+                }
+                
+                ints3.Insert(index, insertData[i]);
+            }
+            
+            ints1.InsertRange(insertIndex, ints2);
+            
+            Assert.AreEqual(ints3, ints1);
         }
     }
 }

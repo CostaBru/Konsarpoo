@@ -550,6 +550,50 @@ namespace Konsarpoo.Collections
             }
         }
 
+        public void InsertRange(int index, [NotNull] IEnumerable<T> items)
+        {
+            if (items == null) throw new ArgumentNullException(nameof(items));
+            
+            if (index > m_count)
+            {
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_count}).");
+            }
+
+            if (index == m_count)
+            {
+                AddRange(items);
+                return;
+            }
+
+            if (m_root == null)
+            {
+                AddRange(items);
+            }
+            else
+            {
+                var itemsToInsert = new Data<T>(items);
+
+                var newItemsCount = itemsToInsert.Count;
+                
+                EnsureCapacity(m_count + newItemsCount);
+
+                int itemIndex = 0;
+
+                m_root.TryInsertAndPush(index, ref itemIndex, itemsToInsert);
+
+                m_count += newItemsCount;
+                
+                itemsToInsert.Dispose();
+
+                unchecked
+                {
+                    ++m_version;
+                }
+            }
+        }
+
+       
+
         /// <summary>
         /// Adds the elements of the specified collection to the end of the Data&lt;T&gt;.
         /// </summary>
