@@ -450,7 +450,7 @@ namespace Konsarpoo.Collections
             
             public bool TryInsertAndPush(int index, ref T item, out T lastItem)
             { 
-                if (m_size < m_maxCapacity - 1)
+                if (m_size < m_maxCapacity)
                 {
                     if (m_size == m_items.Length)
                     {
