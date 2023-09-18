@@ -1,9 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections.Stackalloc;
+
+public struct KeyEntryStruct<TKey>
+{
+    public KeyEntryStruct(int hashCode, int next, TKey key)
+    {
+        HashCode = hashCode;
+        Next = next;
+        Key = key;
+    }
+
+    internal int HashCode;
+    internal int Next;
+    internal TKey Key;
+}
 
 [StructLayout(LayoutKind.Auto)]
 public ref struct MapStruct<TKey, TValue>
@@ -19,23 +34,9 @@ public ref struct MapStruct<TKey, TValue>
     
     private static TValue s_nullRef;
     
-    public struct KeyEntry
-    {
-        public KeyEntry(int hashCode, int next, TKey key)
-        {
-            HashCode = hashCode;
-            Next = next;
-            Key = key;
-        }
-
-        internal int HashCode;
-        internal int Next;
-        internal TKey Key;
-    }
-    
     public struct Entry
     {
-        public KeyEntry Key;
+        public KeyEntryStruct<TKey> Key;
         public TValue Value;
     }
 
@@ -81,7 +82,7 @@ public ref struct MapStruct<TKey, TValue>
         return Insert(ref key, ref value, ref set);
     }
     
-    public void Keys(Action<TKey> onKey) 
+    public void SelectKeys(Action<TKey> select) 
     {
         var index = 0;
 
@@ -89,28 +90,116 @@ public ref struct MapStruct<TKey, TValue>
         {
             if (m_entries[index].Key.HashCode >= 0)
             {
-                onKey(m_entries[index].Key.Key);
+                select(m_entries[index].Key.Key);
             }
 
             index++;
         }
     }
     
-    public void Values(Action<TValue> onValue)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public KeyValuePair<TKey, TValue>? FirstOrDefault()
+    {
+        if (m_count > 0)
+        {
+            var index = 0;
+            while (index < m_count)
+            {
+                if (m_entries[index].Key.HashCode >= 0)
+                {
+                    return new KeyValuePair<TKey, TValue>(m_entries[index].Key.Key, m_entries[index].Value);
+                }
+
+                index++;
+            }
+        }
+
+        return default;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public KeyValuePair<TKey, TValue>? LastOrDefault()
+    {
+        if (m_count > 0)
+        {
+            var index = m_count - 1;
+            while (index >= 0)
+            {
+                if (m_entries[index].Key.HashCode >= 0)
+                {
+                    return new KeyValuePair<TKey, TValue>(m_entries[index].Key.Key, m_entries[index].Value);
+                }
+
+                index--;
+            }
+        }
+
+        return default;
+    }
+
+    public void Select(Action<TValue> select)
     {
         var index = 0;
         while (index < m_count)
         {
             if (m_entries[index].Key.HashCode >= 0)
             {
-                onValue(m_entries[index].Value);
+                select(m_entries[index].Value);
+            }
+
+            index++;
+        }
+    }
+    
+    public void Select<W>(W pass, Action<W, TValue> select)
+    {
+        var index = 0;
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                select(pass, m_entries[index].Value);
+            }
+
+            index++;
+        }
+    }
+    
+    public void WhereSelect(Func<TKey, TValue, bool> where, Action<TKey, TValue> select)
+    {
+        var index = 0;
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                if (where(m_entries[index].Key.Key, m_entries[index].Value))
+                {
+                    select(m_entries[index].Key.Key, m_entries[index].Value);
+                }
+            }
+
+            index++;
+        }
+    }
+    
+    public void WhereSelect<W>(W pass, Func<W, TKey, TValue, bool> where, Action<W, TKey, TValue> select)
+    {
+        var index = 0;
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                if (where(pass, m_entries[index].Key.Key, m_entries[index].Value))
+                {
+                    select(pass, m_entries[index].Key.Key, m_entries[index].Value);
+                }
             }
 
             index++;
         }
     }
 
-    public void KeyValues(Action<KeyValuePair<TKey, TValue>> onKeyValue)
+    public void SelectKeyValues(Action<KeyValuePair<TKey, TValue>> onKeyValue)
     {
         var index = 0;
 

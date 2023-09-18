@@ -110,7 +110,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
 
             for (int i = 0; i < N; i++)
             {
-                storage.Add(ref i);
+                storage.Add(i);
             }
 
             return storage.Length;
