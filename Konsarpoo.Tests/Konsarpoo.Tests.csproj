@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>11</LangVersion>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>

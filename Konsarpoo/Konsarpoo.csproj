@@ -5,7 +5,7 @@
     <SccProvider>SAK</SccProvider>
     <SccAuxPath>SAK</SccAuxPath>
     <SccLocalPath>SAK</SccLocalPath>
-    <LangVersion>latestmajor</LangVersion>
+    <LangVersion>11</LangVersion>
     <RootNamespace>Konsarpoo.Collections</RootNamespace>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>The eco friendly set of array pool based collections for netstandard2.1</Title>
