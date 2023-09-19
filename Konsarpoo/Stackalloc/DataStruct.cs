@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
@@ -78,13 +80,39 @@ public ref struct DataStruct<T>
 
         return -1;
     }
-    
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndex(Func<T, bool> func)
+    {
+        return IndexOf(func);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int IndexOf(Func<T, bool> func)
     {
         for (int i = 0; i < m_count; i++)
         {
             if (func(m_buffer[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, int start = 0)
+    {
+        return FindIndex<V>(value, valueSelector, EqualityComparer<V>.Default, start);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
+    {
+        for (int i = start; i < m_count; i++)
+        {
+            if (equalityComparer.Equals(value, valueSelector(m_buffer[i])))
             {
                 return i;
             }
@@ -124,19 +152,19 @@ public ref struct DataStruct<T>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int BinarySearch<TComparable>(TComparable value, int startIndex, Func<T, TComparable, int> compare) where TComparable : IComparable<T>
+    public int BinarySearch<TComparable>(TComparable value, int startIndex, Func<TComparable, T, int> compare) 
     {
         return BinarySearch(value, startIndex, m_count, compare);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int BinarySearch<TComparable>(TComparable value, Func<T, TComparable, int> compare) where TComparable : IComparable<T>
+    public int BinarySearch<TComparable>(TComparable value, Func<TComparable, T, int> compare)
     {
         return BinarySearch(value, 0, m_count, compare);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int BinarySearch<TComparable>(TComparable value, int startIndex, int count, Func<T, TComparable, int> compare) where TComparable : IComparable<T>
+    public int BinarySearch<TComparable>(TComparable value, int startIndex, int count, Func<TComparable, T, int> compare) 
     {
         int lo = startIndex;
         int hi = count - 1;
@@ -145,14 +173,14 @@ public ref struct DataStruct<T>
         {
             int index = lo + ((hi - lo) >> 1);
 
-            var comp = compare(m_buffer[index], value);
+            var comp = compare(value, m_buffer[index]);
 
             if (comp == 0)
             {
                 return index;
             }
 
-            if (comp < 0)
+            if (comp > 0)
             {
                 lo = index + 1;
             }
@@ -163,8 +191,6 @@ public ref struct DataStruct<T>
         }
         return ~lo;
     }
-
-   
     
     public void Sort(IComparer<T> compare)
     {
@@ -198,7 +224,7 @@ public ref struct DataStruct<T>
             rent[i] = m_buffer[i];
         }
         
-        Array.Sort(rent, new Comparer(comparison));
+        Array.Sort(rent, 0, m_count, new Comparer(comparison));
         
         for (int i = 0; i < rent.Length && i < m_count; i++)
         {
@@ -251,7 +277,46 @@ public ref struct DataStruct<T>
         return RemoveAt(indexOf);
     }
 
-  
+    public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector)
+    {
+        return RemoveAll<V>(value, valueSelector, EqualityComparer<V>.Default);
+    }
+
+    public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer)
+    {
+        if (m_count == 0)
+        {
+            return 0;
+        }
+        
+        int counter = 0;
+        int matchedIndex;
+        do
+        {
+            matchedIndex = -1;
+
+            for (int i = 0; i < m_count; i++)
+            {
+                ref var item = ref m_buffer[i];
+
+                if (equalityComparer.Equals(value, valueSelector(item)))
+                {
+                    matchedIndex = i;
+                    break;
+                }
+            }
+
+            if (matchedIndex >= 0)
+            {
+                RemoveAt(matchedIndex);
+                counter++;
+            }
+        } while (m_count > 0 && matchedIndex >= 0);
+
+        return counter;
+    }
+
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int RemoveAll(Func<T, bool> match)
     {
@@ -499,14 +564,38 @@ public ref struct DataStruct<T>
             return true;
         }
  
-        m_count++;
- 
         for (var i = m_count; i > index; i--)
         {
             m_buffer[i] = m_buffer[i - 1];
         }
+        
+        m_count++;
  
         m_buffer[index] = value;
+
+        return true;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool AddRange(ref DataStruct<T> value)
+    {
+        if (m_count >= m_buffer.Length)
+        {
+            return false;
+        }
+
+        var valueCount = value.Count;
+        
+        if (valueCount + m_count > m_buffer.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < value.m_count; i++)
+        {
+            m_buffer[m_count] = value[i];
+            m_count++;
+        }
 
         return true;
     }
@@ -552,6 +641,7 @@ public ref struct DataStruct<T>
         for (int i = currentCount; i < newCount; i++)
         {
             m_buffer[i] = value;
+            m_count++;
         }
         
         return true;
@@ -574,9 +664,21 @@ public ref struct DataStruct<T>
         return list;
     }
     
-    public Data<T> ToData()
+    public Set<T> ToSet(ISetAllocatorSetup<T> allocatorSetup = null)
     {
-        var list = new Data<T>();
+        var set = new Set<T>(allocatorSetup, null);
+        
+        for (int i = 0; i < m_count; i++)
+        {
+            set.Add(m_buffer[i]);
+        }
+        
+        return set;
+    }
+    
+    public Data<T> ToData(IDataAllocatorSetup<T> allocatorSetup = null)
+    {
+        var list = new Data<T>(allocatorSetup);
 
         list.Ensure(m_count);
         
