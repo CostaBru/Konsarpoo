@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
@@ -38,7 +36,13 @@ public ref struct DataStruct<T>
 
     public int Count => m_count;
     public int Length => m_count;
-    
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndex(T value)
+    {
+        return IndexOf(value);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int IndexOf(T value)
     {
@@ -64,22 +68,6 @@ public ref struct DataStruct<T>
 
         return -1;
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int IndexOf<W>(W pass, Func<W, T, bool> func)
-    {
-        for (int i = 0; i < m_count; i++)
-        {
-            var obj = m_buffer[i];
-
-            if (func(pass, m_buffer[i]))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int FindIndex(Func<T, bool> func)
@@ -93,6 +81,20 @@ public ref struct DataStruct<T>
         for (int i = 0; i < m_count; i++)
         {
             if (func(m_buffer[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndex<W>(W pass, Func<W, T, bool> func, int start = 0)
+    {
+        for (int i = start; i < m_count; i++)
+        {
+            if (func(pass, m_buffer[i]))
             {
                 return i;
             }
@@ -126,8 +128,6 @@ public ref struct DataStruct<T>
     {
         for (int i = m_count - 1; i >= 0; i--)
         {
-            var obj = m_buffer[i];
-
             if (func(pass, m_buffer[i]))
             {
                 return i;
@@ -441,9 +441,30 @@ public ref struct DataStruct<T>
 
         return true;
     }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool SequenceEquals(IReadOnlyList<T> value, EqualityComparer<T> comparer = default)
+    {
+        var cmp = comparer ?? EqualityComparer<T>.Default;
+
+        if (m_count != value.Count)
+        {
+            return false;
+        }
+        
+        for (int i = 0; i < m_buffer.Length && i < m_count && i < value.Count; i++)
+        {
+            if (cmp.Equals(m_buffer[i], value[i]) == false)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Select(Action<int, T> onValue)
+    public void Aggregate(Action<int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -458,7 +479,7 @@ public ref struct DataStruct<T>
     public T LastOrDefault() => m_count > 0 ? m_buffer[m_count - 1] : default;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Select<W>(W pass, Action<W, int, T> onValue)
+    public void Aggregate<W>(W pass, Action<W, int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -481,7 +502,7 @@ public ref struct DataStruct<T>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereSelect<W>(W pass, Func<W, int, T, bool> where, Action<W, int, T> select)
+    public void WhereAggregate<W>(W pass, Func<W, int, T, bool> where, Action<W, int, T> select)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -493,7 +514,7 @@ public ref struct DataStruct<T>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereSelect(Func<int, T, bool> where, Action<int, T> select)
+    public void WhereAggregate(Func<int, T, bool> where, Action<int, T> select)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -518,6 +539,38 @@ public ref struct DataStruct<T>
         }
 
         return data;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool All(Func<T, bool> where)
+    {
+        int count = 0;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(m_buffer[i]))
+            {
+                count++;
+            }
+        }
+
+        return count == m_count;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Any(Func<T, bool> where)
+    {
+        int count = 0;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(m_buffer[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

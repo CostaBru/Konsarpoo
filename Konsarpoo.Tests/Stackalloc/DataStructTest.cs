@@ -712,4 +712,80 @@ public class DataTest
             Assert.True(hashSet.Contains(i));
         }
     }
+    
+    
+    [Test]
+    public void TestExpressions()
+    {
+        var l1 = (_.List(0, 1, 1, 2, 2, 4) + _.List(0, 1, 1, 2, 2, 4))
+            .Select(i => (i, i * 10))
+            .ToArray();
+
+        Span<(int key, int value)> initStore = stackalloc (int key, int value)[N];
+        var dataList = new DataStruct<(int key, int value)>(ref initStore);
+        dataList.AddRange(l1);
+
+        Assert.AreEqual(40, dataList.WhereFirstOrDefault(4, (val, index, dv) => val == dv.key).value);
+
+        var whereSelectResult = 0;
+        dataList.WhereAggregate(pass: 4, 
+            (val, index, dv) => val == dv.key, 
+            (val, index, dv) => whereSelectResult = dv.value);
+
+        Assert.AreEqual(40, whereSelectResult);
+
+        var tuples = dataList.ToData(i => i.key > 1);
+        
+        Assert.True(tuples.All(t => t.value > 1));
+        Assert.True(dataList.All(i => i.key >= 0));
+        Assert.True(dataList.Any(i => i.key == 4));
+        
+        var values = dataList.ToData((i,k) => k.key > 1, (i, k) => k.value);
+        
+        Assert.True(values.All(t => t > 1));
+
+        Assert.True(dataList.ToArray().SequenceEqual(l1));
+        Assert.True(dataList.ToList().SequenceEqual(l1));
+        
+        whereSelectResult = 0;
+        dataList.WhereAggregate((index, dv) => 4 == dv.key, 
+            (index, dv) => whereSelectResult = dv.value);
+        
+        Assert.AreEqual(40, whereSelectResult);
+        
+        Assert.AreEqual(0, dataList.FirstOrDefault().key);
+        Assert.AreEqual(4, dataList.LastOrDefault().key);
+        
+        Span<(int key, int value)> initStore1 = stackalloc (int key, int value)[N];
+        var dataList1 = new DataStruct<(int key, int value)>(ref initStore1);
+        dataList1.AddRange(l1);
+        
+        Assert.True(dataList1.SequenceEquals(dataList));
+        Assert.True(dataList1.SequenceEquals(l1));
+        
+        Assert.AreEqual(dataList1.Length - 2, dataList1.LastIndexOf((2, 20)));
+        Assert.AreEqual(dataList1.Length - 2, dataList1.LastIndexOf(2, (p, k) => p == k.key));
+        Assert.AreEqual(6, dataList1.LastIndexOf(k => k.key == 0));
+        Assert.AreEqual(dataList1.Length - 1, dataList1.LastIndexOf(k => k.key == 4));
+        
+        Assert.AreEqual(3, dataList1.FindIndex((2, 20)));
+        Assert.AreEqual(3, dataList1.FindIndex(2, (p, k) => p == k.key));
+        Assert.AreEqual(0, dataList1.FindIndex(k => k.key == 0));
+        Assert.AreEqual(5, dataList1.FindIndex(k => k.key == 4));
+        
+        var valSum = 0;
+        dataList.Aggregate((index, dv) => valSum += dv.value);
+        
+        Assert.AreEqual(l1.Sum( i=> i.Item2), valSum);
+        
+        var agg = new Aggregator();
+        dataList.Aggregate(agg, (a, index, dv) => a.Val += dv.value);
+        
+        Assert.AreEqual(l1.Sum( i=> i.Item2), agg.Val);
+    }
+    
+    private class Aggregator
+    {
+        public int Val { get; set; }
+    }
 }
