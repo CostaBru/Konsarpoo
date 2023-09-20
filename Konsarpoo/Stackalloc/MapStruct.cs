@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
@@ -55,6 +57,74 @@ public ref struct MapStruct<TKey, TValue>
     }
 
     public int Count => m_count;
+    public double Length => m_count;
+    
+    public Data<TKey> GetKeys(IDataAllocatorSetup<TKey> allocatorSetup = null) 
+    {
+        var index = 0;
+
+        var keys = new Data<TKey>(allocatorSetup);
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                keys.Add(m_entries[index].Key.Key);
+            }
+
+            index++;
+        }
+
+        return keys;
+    }
+    
+    public Data<TValue> GetValues(IDataAllocatorSetup<TValue> allocatorSetup = null) 
+    {
+        var index = 0;
+
+        var keys = new Data<TValue>(allocatorSetup);
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                keys.Add(m_entries[index].Value);
+            }
+
+            index++;
+        }
+
+        return keys;
+    }
+
+    public KeyValuePair<TKey, TValue>[] ToArray()
+    {
+        var index = 0;
+
+        var dataAllocatorSetup = ArrayPoolAllocatorSetup.GetDataAllocatorSetup<KeyValuePair<TKey, TValue>>();
+        
+        var kv = new Data<KeyValuePair<TKey, TValue>>(dataAllocatorSetup);
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                kv.Add(new KeyValuePair<TKey, TValue>(m_entries[index].Key.Key, m_entries[index].Value));
+            }
+
+            index++;
+        }
+
+        var keyValuePairs = kv.ToArray();
+        
+        kv.Dispose();
+        
+        return keyValuePairs;
+    }
+
+    public Data<TKey> Keys => GetKeys();
+    public Data<TValue> Values => GetValues();
+
 
     public bool ContainsKey(TKey key)
     {
@@ -82,6 +152,52 @@ public ref struct MapStruct<TKey, TValue>
         return Insert(ref key, ref value, ref set);
     }
     
+    public bool? ContainsValue(TValue val, IEqualityComparer<TValue> comparer = null)
+    {
+        var cmp = comparer ?? EqualityComparer<TValue>.Default;
+
+        var index = 0;
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                if (cmp.Equals(val, m_entries[index].Value))
+                {
+                    return true;
+                }
+            }
+
+            index++;
+        }
+
+        return false;
+    }
+  
+    public TKey KeyAt(int keyIndex)
+    {
+        var index = 0;
+
+        int ki = 0;
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                if (ki == keyIndex)
+                {
+                    return m_entries[index].Key.Key;
+                }
+
+                ki++;
+            }
+
+            index++;
+        }
+
+        throw new IndexOutOfRangeException();
+    }
+
     public void SelectKeys(Action<TKey> select) 
     {
         var index = 0;
@@ -321,5 +437,101 @@ public ref struct MapStruct<TKey, TValue>
         m_buckets[index] = freeList + 1;
 
         return true;
+    }
+    
+    
+    public bool Remove(TKey key)
+    {
+        if (m_count > 0)
+        {
+            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+
+            int index = hashCode % m_count;
+            int last = -1;
+
+            var entries = m_entries;
+            var buckets = m_buckets;
+
+            for (int i = buckets[index] - 1; i >= 0;)
+            {
+                ref var keyEntry = ref entries[i];
+
+                if ((keyEntry.Key.HashCode == hashCode) && m_comparer.Equals(keyEntry.Key.Key, key))
+                {
+                    if (last < 0)
+                    {
+                        buckets[index] = keyEntry.Key.Next + 1;
+                    }
+                    else
+                    {
+                        entries[last].Key.Next = keyEntry.Key.Next;
+                    }
+
+                    entries[i] = new Entry() { Key = new KeyEntryStruct<TKey>(-1, m_freeList, default) };
+                    m_freeList = i;
+                    m_freeCount++;
+
+                    return true;
+                }
+
+                last = i;
+                i = keyEntry.Key.Next;
+            }
+
+        }
+
+        return false;
+    }
+
+    public Map<TKey, TValue> ToMap(IMapAllocatorSetup<TKey, TValue> allocatorSetup = null)
+    {
+        var index = 0;
+
+        var map = new Map<TKey, TValue>(allocatorSetup, m_comparer);
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                map.Add(m_entries[index].Key.Key, m_entries[index].Value);
+            }
+
+            index++;
+        }
+
+        return map;
+    }
+
+    public bool Contains(KeyValuePair<TKey,TValue> keyValuePair, IEqualityComparer<TValue> equalityComparer = null)
+    {
+       if(TryGetValue(keyValuePair.Key, out var val))
+       {
+           var cmp = equalityComparer ?? EqualityComparer<TValue>.Default;
+           
+           return cmp.Equals(val, keyValuePair.Value);
+       }
+
+       return false;
+    }
+
+    public void Clear()
+    {
+        m_buckets.Clear();
+        m_entries.Clear();
+
+        m_freeList = -1;
+        m_count = 0;
+        m_freeCount = 0;
+    }
+
+    public bool TryAdd(TKey key, TValue val)
+    {
+        if (ContainsKey(key))
+        {
+            return false;
+        }
+        
+        var set = false;
+        return Insert(ref key, ref val, ref set);
     }
 }
