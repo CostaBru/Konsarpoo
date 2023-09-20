@@ -4,27 +4,25 @@ using System.Runtime.CompilerServices;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
-public ref struct QuStruct<T>
+public ref struct StackStruct<T>
 {
-    private int m_startOffset;
-
     private Span<T> m_buffer;
     private int m_count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public QuStruct(ref Span<T> span)
+    public StackStruct(ref Span<T> span)
     {
         m_buffer = span;
         m_count = 0;
     }
 
-    public T Dequeue()
+    public T Pop()
     {
-        var val = m_buffer[m_startOffset];
+        var val = m_buffer[m_count - 1];
 
-        m_buffer[m_startOffset] = default;
+        m_buffer[m_count - 1] = default;
 
-        m_startOffset++;
+        m_count--;
 
         if (Count == 0)
         {
@@ -34,14 +32,14 @@ public ref struct QuStruct<T>
         return val;
     }
 
-    public T Peek() => m_buffer[m_startOffset];
+    public T Peek() => m_buffer[m_count - 1];
 
-    public bool Any => m_count - m_startOffset > 0;
+    public bool Any => m_count > 0;
 
-    public int Count => m_count - m_startOffset;
+    public int Count => m_count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Enqueue(T item)
+    public bool Push(T item)
     {
         if (m_count >= m_buffer.Length)
         {
@@ -54,7 +52,7 @@ public ref struct QuStruct<T>
         return true;
     }
 
-    public bool EnqueueRange(IReadOnlyList<T> items)
+    public bool PushRange(IReadOnlyList<T> items)
     {
         if (m_count >= m_buffer.Length)
         {
@@ -77,10 +75,5 @@ public ref struct QuStruct<T>
         return true;
     }
 
-    public void Clear()
-    {
-        m_count = 0;
-
-        m_startOffset = 0;
-    }
+    public void Clear() => m_count = 0;
 }
