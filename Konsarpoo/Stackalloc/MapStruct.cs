@@ -296,36 +296,6 @@ public ref struct MapStruct<TKey, TValue>
 
         return default;
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Aggregate(Action<TValue> select)
-    {
-        var index = 0;
-        while (index < m_count)
-        {
-            if (m_entries[index].Key.HashCode >= 0)
-            {
-                select(m_entries[index].Value);
-            }
-
-            index++;
-        }
-    }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Aggregate<W>(W pass, Action<W, TValue> select)
-    {
-        var index = 0;
-        while (index < m_count)
-        {
-            if (m_entries[index].Key.HashCode >= 0)
-            {
-                select(pass, m_entries[index].Value);
-            }
-
-            index++;
-        }
-    }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WhereAggregate(Func<TKey, TValue, bool> where, Action<TKey, TValue> select)
@@ -357,22 +327,6 @@ public ref struct MapStruct<TKey, TValue>
                 {
                     select(pass, m_entries[index].Key.Key, m_entries[index].Value);
                 }
-            }
-
-            index++;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateKeyValues(Action<KeyValuePair<TKey, TValue>> onKeyValue)
-    {
-        var index = 0;
-
-        while (index < m_count)
-        {
-            if (m_entries[index].Key.HashCode >= 0)
-            {
-                onKeyValue(new KeyValuePair<TKey, TValue>(m_entries[index].Key.Key, m_entries[index].Value));
             }
 
             index++;

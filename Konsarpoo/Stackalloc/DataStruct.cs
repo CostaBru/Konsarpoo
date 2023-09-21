@@ -11,8 +11,8 @@ namespace Konsarpoo.Collections.Stackalloc;
 [StructLayout(LayoutKind.Auto)]
 public ref struct DataStruct<T> 
 {
-    private Span<T> m_buffer;
-    private int m_count;
+    internal Span<T> m_buffer;
+    internal int m_count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DataStruct(ref Span<T> span)
@@ -648,6 +648,37 @@ public ref struct DataStruct<T>
         {
             m_buffer[m_count] = value[i];
             m_count++;
+        }
+
+        return true;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool AddRange(ref SetStruct<T> value)
+    {
+        if (m_count >= m_buffer.Length)
+        {
+            return false;
+        }
+
+        var valueCount = value.m_count;
+        
+        if (valueCount + m_count > m_buffer.Length)
+        {
+            return false;
+        }
+        
+        var index = 0;
+
+        while (index < value.m_count)
+        {
+            if (value.m_entries[index].HashCode >= 0)
+            {
+                m_buffer[m_count] = value.m_entries[index].Key;
+                m_count++;
+            }
+
+            index++;
         }
 
         return true;

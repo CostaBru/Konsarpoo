@@ -25,13 +25,15 @@ public class MapStructTest
         Span<int> buckets = stackalloc int[N];
         Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
 
-        var map = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        var map = new MapStruct<int, int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         map.Add(1, 1);
         map.Add(2, 2);
         map.Add(3, 3);
         map.Add(4, 4);
         map.Add(5, 5);
+        
+        Assert.AreEqual(1, map.KeyAt(0));
 
         var keys = new Data<int>();
         var values = new Data<int>();
@@ -54,7 +56,27 @@ public class MapStructTest
         Assert.AreEqual(new KeyValuePair<int,int>(1,1), map.FirstOrDefault());
         Assert.AreEqual(new KeyValuePair<int,int>(5,5), map.LastOrDefault());
         
-        Assert.False(map.Remove(0));
+        keys.Clear();
+        values.Clear();
+        
+        map.WhereAggregate((k, v) => k == v, (k, v) =>
+        {
+            keys.Add(k);
+            values.Add(v);
+        });
+        
+        Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
+        Assert.AreEqual(keys, values);
+        
+        keys.Clear();
+        
+        map.WhereAggregate(keys, (kk, k, v) => k == v, (kk, k, v) =>
+        {
+            kk.Add(k);
+        });
+        
+        Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
+        Assert.AreEqual(keys, values);
     }
     
 
