@@ -534,4 +534,14 @@ public ref struct MapStruct<TKey, TValue>
         var set = false;
         return Insert(ref key, ref val, ref set);
     }
+
+    public TValue GetOrDefault(TKey key, TValue defaultVal = default)
+    {
+        if(TryGetValue(key, out var val))
+        {
+            return val;
+        }
+
+        return defaultVal;
+    }
 }
