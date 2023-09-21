@@ -22,7 +22,7 @@ public class QuStructTest
     public void TestQueue()
     {
         Span<int> initStore = stackalloc int[N];
-        var qu = new QuStruct<int>(ref initStore);
+        var qu = new QueueRs<int>(ref initStore);
         
         var queue = new Queue<int>();
 

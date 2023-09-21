@@ -43,9 +43,9 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         public int MapStruct_Add()
         {
             Span<int> buckets = stackalloc int[N];
-            Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
+            Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
 
-            var testData = new MapStruct<int, int>(ref buckets, ref entriesHash);
+            var testData = new MapRs<int, int>(ref buckets, ref entriesHash);
             
             for (int i = 0; i < N; i++)
             {

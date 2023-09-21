@@ -9,11 +9,11 @@ namespace Konsarpoo.Collections.Tests.Stackalloc;
 [TestFixture(16)]
 [TestFixture(32)]
 [TestFixture(1000)]
-public class DataTest 
+public class DataStructTest 
 {
     public int N { get; set; }
         
-    public DataTest(int capacity)
+    public DataStructTest(int capacity)
     {
         N = capacity;
     }
@@ -29,7 +29,7 @@ public class DataTest
             
         var list = Enumerable.Range(0, count).ToList();
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(list);
 
         list.Reverse();
@@ -45,6 +45,23 @@ public class DataTest
     }
 
     [Test]
+    public void TestAddRange()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        var set = new SetRs<int>(ref buckets, ref entriesHash);
+
+        set.Add(1);
+        set.Add(2);
+        
+        Span<int> initStore = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore);
+        dataList.AddRange(ref set);
+        
+        Assert.True(dataList.ToData().SequenceEqual(set.ToData()));
+    }
+
+    [Test]
     public void TestArgs([Values(1000, 6, 5, 4, 3, 2, 1, 0)] int count)
     {
         if (count > N)
@@ -55,7 +72,7 @@ public class DataTest
         var array = Enumerable.Range(0, count).ToArray();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         try
@@ -100,7 +117,7 @@ public class DataTest
             var array = Enumerable.Range(1, count).ToArray();
 
             Span<int> initStore = stackalloc int[N];
-            var dataList = new DataStruct<int>(ref initStore);
+            var dataList = new DataRs<int>(ref initStore);
             dataList.AddRange(array);
             
             var copy = dataList.ToList();
@@ -123,7 +140,7 @@ public class DataTest
         var array = Enumerable.Range(0, N).ToArray();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         var list = dataList.ToData();
@@ -163,11 +180,11 @@ public class DataTest
         var list = Enumerable.Range(1, N - 2).Reverse().ToList();
         
         Span<int> initStore1 = stackalloc int[N];
-        var dataList1 = new DataStruct<int>(ref initStore1);
+        var dataList1 = new DataRs<int>(ref initStore1);
         dataList1.AddRange(list);
         
         Span<int> initStore2 = stackalloc int[N];
-        var dataList2 = new DataStruct<int>(ref initStore2);
+        var dataList2 = new DataRs<int>(ref initStore2);
         dataList2.AddRange(list);
 
         dataList2.Sort((x, y) => x.CompareTo(y));
@@ -219,7 +236,7 @@ public class DataTest
         var l3 = l1 + l2;
         
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(l3);
 
         var cnt = dataList.RemoveAll(i => i >= 5);
@@ -229,7 +246,7 @@ public class DataTest
         Assert.AreEqual(l1, dataList.ToData());
         
         Span<int> initStore1 = stackalloc int[N];
-        var dataList1 = new DataStruct<int>(ref initStore1);
+        var dataList1 = new DataRs<int>(ref initStore1);
         dataList1.AddRange(Enumerable.Range(0, 100).ToArray());
 
         var list = new Data<int>(Enumerable.Range(0, 100).ToArray());
@@ -248,7 +265,7 @@ public class DataTest
         var list = Enumerable.Range(0, N).ToList();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(list);
 
         list.Remove(555);
@@ -271,7 +288,7 @@ public class DataTest
         var list = Enumerable.Range(0, N).ToList();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(list);
 
         Assert.AreEqual(list.Count, dataList.Count);
@@ -298,7 +315,7 @@ public class DataTest
         var array = Enumerable.Range(0, N).Select(i => random.Next()).ToArray();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         Assert.AreEqual(array.Length, dataList.Length);
@@ -323,7 +340,7 @@ public class DataTest
     {
         var list = Enumerable.Range(0, N).ToList();
         Span<int> initStore = stackalloc int[N];
-        var data = new DataStruct<int>(ref initStore);
+        var data = new DataRs<int>(ref initStore);
         data.AddRange(list);
 
         for (int i = 0; i < 10; i++)
@@ -366,7 +383,7 @@ public class DataTest
     public void TestRemoveOnEmpty()
     {
         Span<int> initStore = stackalloc int[N];
-        var data = new DataStruct<int>(ref initStore);
+        var data = new DataRs<int>(ref initStore);
         
         Assert.AreEqual(0, data.RemoveAll(r => r == 1));
     }
@@ -378,7 +395,7 @@ public class DataTest
         var array = Enumerable.Range(1, N).ToArray();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
 
         dataList.AddRange(array);
 
@@ -404,7 +421,7 @@ public class DataTest
         var list = Enumerable.Range(0, N - 1).ToList();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
 
         dataList.AddRange(list);
 
@@ -428,7 +445,7 @@ public class DataTest
         for (int e = 0; e < 5; e++)
         {
             Span<int> initStore = stackalloc int[N];
-            var list = new DataStruct<int>(ref initStore);
+            var list = new DataRs<int>(ref initStore);
 
             var newSize = size + size + e;
 
@@ -460,7 +477,7 @@ public class DataTest
             var list = Enumerable.Range(0, count).ToList();
 
             Span<int> initStore = stackalloc int[N];
-            var dataList = new DataStruct<int>(ref initStore);
+            var dataList = new DataRs<int>(ref initStore);
 
             dataList.AddRange(list.Select(i => i).ToData());
 
@@ -504,7 +521,7 @@ public class DataTest
         }
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         dataList.RemoveAll(r => r == item);
@@ -525,10 +542,10 @@ public class DataTest
     public void RemoveAll2()
     {
         Span<KeyValuePair<int, Guid>> initStore = stackalloc KeyValuePair<int, Guid>[N];
-        var dataList = new DataStruct<KeyValuePair<int, Guid>>(ref initStore);
+        var dataList = new DataRs<KeyValuePair<int, Guid>>(ref initStore);
 
         Span<KeyValuePair<int, Guid>> initStore2 = stackalloc KeyValuePair<int, Guid>[N];
-        var dataList2 = new DataStruct<KeyValuePair<int, Guid>>(ref initStore2);
+        var dataList2 = new DataRs<KeyValuePair<int, Guid>>(ref initStore2);
         
         dataList2.AddRange(Enumerable.Range(1, N).Select(i => new KeyValuePair<int, Guid>(i, Guid.NewGuid())).ToArray());
 
@@ -549,7 +566,7 @@ public class DataTest
     public void RemoveAll4()
     {
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
 
         dataList.AddRange(Enumerable.Range(1, 100).Select(i => i).ToArray());
 
@@ -575,7 +592,7 @@ public class DataTest
         }
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         dataList.RemoveAll(r => r == item);
@@ -609,7 +626,7 @@ public class DataTest
         }
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         Assert.True(dataList.IndexOf(v => v == item) == array.FindIndex(v => v == item));
@@ -628,7 +645,7 @@ public class DataTest
         }
         
         Span<KeyValuePair<int, int>> initStore = stackalloc KeyValuePair<int, int>[N];
-        var dataList = new DataStruct<KeyValuePair<int, int>>(ref initStore);
+        var dataList = new DataRs<KeyValuePair<int, int>>(ref initStore);
 
         dataList.AddRange(list);
 
@@ -646,7 +663,7 @@ public class DataTest
         var array = Enumerable.Range(0, count).Select(i => new KeyValuePair<int, int>(i, -i)).ToArray();
 
         Span<KeyValuePair<int, int>> initStore = stackalloc KeyValuePair<int, int>[N];
-        var dataList = new DataStruct<KeyValuePair<int, int>>(ref initStore);
+        var dataList = new DataRs<KeyValuePair<int, int>>(ref initStore);
 
         dataList.AddRange(array);
         
@@ -675,7 +692,7 @@ public class DataTest
         var array = Enumerable.Range(0, count).ToArray();
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
 
         var ab = Array.BinarySearch(array, 0, array.Length, item);
@@ -698,7 +715,7 @@ public class DataTest
         var l1 = _.List(0, 1, 1, 2, 2, 4) + _.List(0, 1, 1, 2, 2, 4);
 
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(l1);
         
         var hashSet = dataList.ToSet();
@@ -722,7 +739,7 @@ public class DataTest
             .ToArray();
 
         Span<(int key, int value)> initStore = stackalloc (int key, int value)[N];
-        var dataList = new DataStruct<(int key, int value)>(ref initStore);
+        var dataList = new DataRs<(int key, int value)>(ref initStore);
         dataList.AddRange(l1);
 
         Assert.AreEqual(40, dataList.WhereFirstOrDefault(4, (val, index, dv) => val == dv.key).value);
@@ -757,7 +774,7 @@ public class DataTest
         Assert.AreEqual(4, dataList.LastOrDefault().key);
         
         Span<(int key, int value)> initStore1 = stackalloc (int key, int value)[N];
-        var dataList1 = new DataStruct<(int key, int value)>(ref initStore1);
+        var dataList1 = new DataRs<(int key, int value)>(ref initStore1);
         dataList1.AddRange(l1);
         
         Assert.True(dataList1.SequenceEquals(dataList));

@@ -106,7 +106,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         {
             Span<int> initStore = stackalloc int[N];
 
-            var storage = new DataStruct<int>(ref initStore);
+            var storage = new DataRs<int>(ref initStore);
 
             for (int i = 0; i < N; i++)
             {
@@ -121,7 +121,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         {
             Span<int> initStore = stackalloc int[N];
             
-            var storage = new DataStruct<int>(ref initStore);
+            var storage = new DataRs<int>(ref initStore);
             
             storage.Ensure(N);
 

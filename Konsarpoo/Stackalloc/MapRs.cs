@@ -9,7 +9,7 @@ using Konsarpoo.Collections.Allocators;
 namespace Konsarpoo.Collections.Stackalloc;
 
 [StructLayout(LayoutKind.Auto)]
-public ref struct MapStruct<TKey, TValue>
+public ref struct MapRs<TKey, TValue>
 {
     private readonly Span<int> m_buckets;
     private readonly Span<Entry> m_entries;
@@ -28,18 +28,75 @@ public ref struct MapStruct<TKey, TValue>
         public TValue Value;
     }
 
-    public MapStruct(ref Span<int> buckets, ref Span<Entry> entries, IEqualityComparer<TKey> comparer)
+    public MapRs(ref Span<int> buckets, ref Span<Entry> entries, IEqualityComparer<TKey> comparer)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = comparer;
     }
 
-    public MapStruct(ref Span<int> buckets, ref Span<Entry> entries)
+    public MapRs(ref Span<int> buckets, ref Span<Entry> entries)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = EqualityComparer<TKey>.Default;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public KeyEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => new(m_buckets, m_entries,  m_count);
+   
+    public ref struct KeyEnumerator<T>
+    {
+        private readonly Span<int> m_buckets;
+        private readonly Span<Entry> m_entries;
+        
+        private readonly int m_count;
+        private int m_index = -1;
+
+        public KeyEnumerator(Span<int> buckets, Span<Entry> entries, int count)
+        {
+            m_buckets = buckets;
+            m_entries = entries;
+            m_count = count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            var index = m_index + 1;
+            
+            while (index < m_count)
+            {
+                if (m_entries[index].Key.HashCode >= 0)
+                {
+                    m_index = index;
+
+                    return true;
+                }
+
+                index++;
+            }
+
+            return false;
+        }
+
+        public KeyValuePair<TKey,TValue> Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => new KeyValuePair<TKey,TValue>(m_entries[m_index].Key.Key, m_entries[m_index].Value);
+        }
+        
+        public ref TKey CurrentKey
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref m_entries[m_index].Key.Key;
+        }
+        
+        public ref TValue CurrentValue
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref m_entries[m_index].Value;
+        }
     }
 
     public int Count => m_count;

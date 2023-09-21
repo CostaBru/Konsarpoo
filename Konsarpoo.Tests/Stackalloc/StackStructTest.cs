@@ -22,7 +22,7 @@ public class StackStructTest
     public void TestStack()
     {
         Span<int> initStore = stackalloc int[N];
-        var st = new StackStruct<int>(ref initStore);
+        var st = new StackRs<int>(ref initStore);
         st.Push(0);
         
         var stack = new Stack<int>();

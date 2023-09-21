@@ -23,7 +23,7 @@ public class SetStructTest
     {
         Span<int> buckets = stackalloc int[N];
         Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
-        var set = new SetStruct<int>(ref buckets, ref entriesHash);
+        var set = new SetRs<int>(ref buckets, ref entriesHash);
 
         set.Add(1);
         set.Add(2);
@@ -76,7 +76,7 @@ public class SetStructTest
     {
         Span<int> buckets = stackalloc int[N];
         Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
-        var set = new SetStruct<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
 
         Assert.False(set.Remove(0));
@@ -87,7 +87,7 @@ public class SetStructTest
     {
         Span<int> buckets = stackalloc int[N];
         Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
-        var set = new SetStruct<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
         var dict = new HashSet<int>();
 
         set.Add(1);
@@ -136,7 +136,7 @@ public class SetStructTest
     {
         Span<int> buckets = stackalloc int[N];
         Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
-        var set = new SetStruct<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         var array = Enumerable.Range(1, N).ToArray();
 
@@ -149,7 +149,7 @@ public class SetStructTest
         }
         
         Span<int> initStore = stackalloc int[N];
-        var dataList = new DataStruct<int>(ref initStore);
+        var dataList = new DataRs<int>(ref initStore);
         dataList.AddRange(array);
         
         set.Clear();
@@ -170,7 +170,7 @@ public class SetStructTest
         
         Span<int> buckets1 = stackalloc int[N];
         Span<KeyEntryStruct<int>> entriesHash1 = stackalloc KeyEntryStruct<int>[N];
-        var set1 = new SetStruct<int>(ref buckets1, ref entriesHash1, EqualityComparer<int>.Default);
+        var set1 = new SetRs<int>(ref buckets1, ref entriesHash1, EqualityComparer<int>.Default);
 
         set1.AddRange(array);
         

@@ -23,9 +23,9 @@ public class MapStructTest
     public void TestAggregate()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
 
-        var map = new MapStruct<int, int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+        var map = new MapRs<int, int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         map.Add(1, 1);
         map.Add(2, 2);
@@ -84,9 +84,9 @@ public class MapStructTest
     public void TestRemoveIfEmpty()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
 
-        var map = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        var map = new MapRs<int, int>(ref buckets, ref entriesHash);
 
         Assert.False(map.Remove(0));
     }
@@ -95,9 +95,9 @@ public class MapStructTest
     public void TestSmall()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, TimeSpan>.Entry> entriesHash = stackalloc MapStruct<int, TimeSpan>.Entry[N];
+        Span<MapRs<int, TimeSpan>.Entry> entriesHash = stackalloc MapRs<int, TimeSpan>.Entry[N];
         
-        var map = new MapStruct<int, TimeSpan>(ref buckets, ref entriesHash);
+        var map = new MapRs<int, TimeSpan>(ref buckets, ref entriesHash);
         var dict = new Dictionary<int, TimeSpan>();
 
         map.Add(0, TimeSpan.FromMilliseconds(1));
@@ -144,8 +144,8 @@ public class MapStructTest
     public void TestAddHuge()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, TimeSpan>.Entry> entriesHash = stackalloc MapStruct<int, TimeSpan>.Entry[N];
-        var testData = new MapStruct<int, TimeSpan>(ref buckets, ref entriesHash);
+        Span<MapRs<int, TimeSpan>.Entry> entriesHash = stackalloc MapRs<int, TimeSpan>.Entry[N];
+        var testData = new MapRs<int, TimeSpan>(ref buckets, ref entriesHash);
         
         for (int i = 0; i < N; i++)
         {
@@ -160,8 +160,8 @@ public class MapStructTest
     public void TestCommon()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, TimeSpan>.Entry> entriesHash = stackalloc MapStruct<int, TimeSpan>.Entry[N];
-        var map = new MapStruct<int, TimeSpan>(ref buckets, ref entriesHash);
+        Span<MapRs<int, TimeSpan>.Entry> entriesHash = stackalloc MapRs<int, TimeSpan>.Entry[N];
+        var map = new MapRs<int, TimeSpan>(ref buckets, ref entriesHash);
         
         var dict = new Dictionary<int, TimeSpan>();
 
@@ -202,8 +202,8 @@ public class MapStructTest
         }
         
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
-        var map = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var map = new MapRs<int, int>(ref buckets, ref entriesHash);
         
         var dict = new Dictionary<int, int>();
 
@@ -275,8 +275,8 @@ public class MapStructTest
     public void ValueByRefTest()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
-        var dict = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var dict = new MapRs<int, int>(ref buckets, ref entriesHash);
 
         dict.TryAdd(1, 10);
         dict.TryAdd(2, 20);
@@ -295,7 +295,7 @@ public class MapStructTest
         Assert.False(fail);
     }
 
-    private static void Test(Dictionary<int, TimeSpan> dict, ref MapStruct<int, TimeSpan> map)
+    private static void Test(Dictionary<int, TimeSpan> dict, ref MapRs<int, TimeSpan> map)
     {
         var keyTest = 999;
 
@@ -375,8 +375,8 @@ public class MapStructTest
     public void TestGetOrDefault()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
-        var dict = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var dict = new MapRs<int, int>(ref buckets, ref entriesHash);
 
         Assert.AreEqual(0, dict.GetOrDefault(1));
         Assert.AreEqual(1, dict.GetOrDefault(1, 1));
@@ -386,8 +386,8 @@ public class MapStructTest
     public void TestAddExc()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
-        var dict = new MapStruct<int, int>(ref buckets, ref entriesHash);
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var dict = new MapRs<int, int>(ref buckets, ref entriesHash);
 
         dict.Add(1, 1);
 

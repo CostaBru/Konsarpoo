@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
-public ref struct SetStruct<TKey>
+[StructLayout(LayoutKind.Auto)]
+public ref struct SetRs<TKey>
 {
     internal readonly Span<int> m_buckets;
     internal readonly Span<KeyEntryStruct<TKey>> m_entries;
@@ -18,18 +20,62 @@ public ref struct SetStruct<TKey>
 
     private IEqualityComparer<TKey> m_comparer;
 
-    public SetStruct(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries, IEqualityComparer<TKey> comparer)
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries, IEqualityComparer<TKey> comparer)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = comparer;
     }
 
-    public SetStruct(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries)
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = EqualityComparer<TKey>.Default;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public KeyEnumerator<TKey> GetEnumerator() => new(m_buckets, m_entries,  m_count);
+   
+    public ref struct KeyEnumerator<T>
+    {
+        internal readonly Span<int> m_buckets;
+        internal readonly Span<KeyEntryStruct<TKey>> m_entries;
+        private readonly int m_count;
+        private int m_index = -1;
+
+        public KeyEnumerator(Span<int> buckets, Span<KeyEntryStruct<TKey>> entries, int count)
+        {
+            m_buckets = buckets;
+            m_entries = entries;
+            m_count = count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            var index = m_index + 1;
+            
+            while (index < m_count)
+            {
+                if (m_entries[index].HashCode >= 0)
+                {
+                    m_index = index;
+
+                    return true;
+                }
+
+                index++;
+            }
+
+            return false;
+        }
+
+        public ref TKey Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref m_entries[m_index].Key;
+        }
     }
 
     public int Count => m_count;
@@ -90,7 +136,7 @@ public ref struct SetStruct<TKey>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref SetStruct<TKey> value)
+    public bool AddRange(ref SetRs<TKey> value)
     {
         if (m_count >= m_buckets.Length)
         {
@@ -120,7 +166,7 @@ public ref struct SetStruct<TKey>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref DataStruct<TKey> value)
+    public bool AddRange(ref DataRs<TKey> value)
     {
         if (m_count >= m_buckets.Length)
         {

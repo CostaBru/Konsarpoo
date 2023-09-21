@@ -9,16 +9,54 @@ using Konsarpoo.Collections.Allocators;
 namespace Konsarpoo.Collections.Stackalloc;
 
 [StructLayout(LayoutKind.Auto)]
-public ref struct DataStruct<T> 
+public ref struct DataRs<T> 
 {
     internal Span<T> m_buffer;
     internal int m_count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public DataStruct(ref Span<T> span)
+    public DataRs(ref Span<T> span)
     {
         m_buffer = span;
         m_count = 0;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public RsEnumerator<T> GetEnumerator() => new RsEnumerator<T>(m_buffer, m_count);
+   
+    public ref struct RsEnumerator<T>
+    {
+        private readonly Span<T> m_span;
+        private readonly int m_count;
+        private int m_index;
+
+     
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal RsEnumerator(Span<T> span, int count)
+        {
+            m_span = span;
+            m_count = count;
+            m_index = -1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            int index = m_index + 1;
+            if (index < m_count)
+            {
+                m_index = index;
+                return true;
+            }
+
+            return false;
+        }
+
+        public ref T Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref m_span[m_index];
+        }
     }
     
     public ref T this[int index]
@@ -422,7 +460,7 @@ public ref struct DataStruct<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool SequenceEquals(DataStruct<T> value, EqualityComparer<T> comparer = default)
+    public bool SequenceEquals(DataRs<T> value, EqualityComparer<T> comparer = default)
     {
         var cmp = comparer ?? EqualityComparer<T>.Default;
 
@@ -630,7 +668,7 @@ public ref struct DataStruct<T>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref DataStruct<T> value)
+    public bool AddRange(ref DataRs<T> value)
     {
         if (m_count >= m_buffer.Length)
         {
@@ -654,7 +692,7 @@ public ref struct DataStruct<T>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref SetStruct<T> value)
+    public bool AddRange(ref SetRs<T> value)
     {
         if (m_count >= m_buffer.Length)
         {
