@@ -18,6 +18,45 @@ public class MapStructTest
     {
         N = capacity;
     }
+    
+    [Test]
+    public void TestAggregate()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<MapStruct<int, int>.Entry> entriesHash = stackalloc MapStruct<int, int>.Entry[N];
+
+        var map = new MapStruct<int, int>(ref buckets, ref entriesHash);
+
+        map.Add(1, 1);
+        map.Add(2, 2);
+        map.Add(3, 3);
+        map.Add(4, 4);
+        map.Add(5, 5);
+
+        var keys = new Data<int>();
+        var values = new Data<int>();
+
+        map.AggregateKeys((k) => { keys.Add(k);});
+        map.AggregateValues((v) => { values.Add(v);});
+
+        Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
+        Assert.AreEqual(keys, values);
+        
+        keys.Clear();
+        values.Clear();
+        
+        map.AggregateKeys(keys, (kk, k) => { kk.Add(k);});
+        map.AggregateValues(values, (vv, v) => { vv.Add(v);});
+        
+        Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
+        Assert.AreEqual(keys, values);
+        
+        Assert.AreEqual(new KeyValuePair<int,int>(1,1), map.FirstOrDefault());
+        Assert.AreEqual(new KeyValuePair<int,int>(5,5), map.LastOrDefault());
+        
+        Assert.False(map.Remove(0));
+    }
+    
 
     [Test]
     public void TestRemoveIfEmpty()

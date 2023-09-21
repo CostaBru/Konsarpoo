@@ -8,20 +8,6 @@ using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
-public struct KeyEntryStruct<TKey>
-{
-    public KeyEntryStruct(int hashCode, int next, TKey key)
-    {
-        HashCode = hashCode;
-        Next = next;
-        Key = key;
-    }
-
-    internal int HashCode;
-    internal int Next;
-    internal TKey Key;
-}
-
 [StructLayout(LayoutKind.Auto)]
 public ref struct MapStruct<TKey, TValue>
 {
@@ -59,6 +45,7 @@ public ref struct MapStruct<TKey, TValue>
     public int Count => m_count;
     public double Length => m_count;
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Data<TKey> GetKeys(IDataAllocatorSetup<TKey> allocatorSetup = null) 
     {
         var index = 0;
@@ -78,6 +65,7 @@ public ref struct MapStruct<TKey, TValue>
         return keys;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Data<TValue> GetValues(IDataAllocatorSetup<TValue> allocatorSetup = null) 
     {
         var index = 0;
@@ -97,6 +85,7 @@ public ref struct MapStruct<TKey, TValue>
         return keys;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public KeyValuePair<TKey, TValue>[] ToArray()
     {
         var index = 0;
@@ -125,7 +114,7 @@ public ref struct MapStruct<TKey, TValue>
     public Data<TKey> Keys => GetKeys();
     public Data<TValue> Values => GetValues();
 
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsKey(TKey key)
     {
         ValueByRef(key, out var success);
@@ -133,6 +122,7 @@ public ref struct MapStruct<TKey, TValue>
         return success;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetValue(TKey key, out TValue value)
     {
         value = ValueByRef(key, out var success);
@@ -140,18 +130,21 @@ public ref struct MapStruct<TKey, TValue>
         return success;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Add(TKey key, TValue value)
     {
         var add = true;
         return Insert(ref key, ref value, ref add);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryUpdate(TKey key, TValue value)
     {
         var set = false;
         return Insert(ref key, ref value, ref set);
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool? ContainsValue(TValue val, IEqualityComparer<TValue> comparer = null)
     {
         var cmp = comparer ?? EqualityComparer<TValue>.Default;
@@ -174,6 +167,7 @@ public ref struct MapStruct<TKey, TValue>
         return false;
     }
   
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TKey KeyAt(int keyIndex)
     {
         var index = 0;
@@ -197,8 +191,9 @@ public ref struct MapStruct<TKey, TValue>
 
         throw new IndexOutOfRangeException();
     }
-
-    public void SelectKeys(Action<TKey> select) 
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AggregateKeys(Action<TKey> select) 
     {
         var index = 0;
 
@@ -207,6 +202,55 @@ public ref struct MapStruct<TKey, TValue>
             if (m_entries[index].Key.HashCode >= 0)
             {
                 select(m_entries[index].Key.Key);
+            }
+
+            index++;
+        }
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AggregateValues(Action<TValue> select) 
+    {
+        var index = 0;
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                select(m_entries[index].Value);
+            }
+
+            index++;
+        }
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AggregateValues<W>(W pass, Action<W, TValue> select) 
+    {
+        var index = 0;
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                select(pass, m_entries[index].Value);
+            }
+
+            index++;
+        }
+    }
+
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AggregateKeys<W>(W pass, Action<W, TKey> select) 
+    {
+        var index = 0;
+
+        while (index < m_count)
+        {
+            if (m_entries[index].Key.HashCode >= 0)
+            {
+                select(pass, m_entries[index].Key.Key);
             }
 
             index++;
@@ -253,7 +297,8 @@ public ref struct MapStruct<TKey, TValue>
         return default;
     }
 
-    public void Select(Action<TValue> select)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Aggregate(Action<TValue> select)
     {
         var index = 0;
         while (index < m_count)
@@ -267,7 +312,8 @@ public ref struct MapStruct<TKey, TValue>
         }
     }
     
-    public void Select<W>(W pass, Action<W, TValue> select)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Aggregate<W>(W pass, Action<W, TValue> select)
     {
         var index = 0;
         while (index < m_count)
@@ -281,7 +327,8 @@ public ref struct MapStruct<TKey, TValue>
         }
     }
     
-    public void WhereSelect(Func<TKey, TValue, bool> where, Action<TKey, TValue> select)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WhereAggregate(Func<TKey, TValue, bool> where, Action<TKey, TValue> select)
     {
         var index = 0;
         while (index < m_count)
@@ -298,7 +345,8 @@ public ref struct MapStruct<TKey, TValue>
         }
     }
     
-    public void WhereSelect<W>(W pass, Func<W, TKey, TValue, bool> where, Action<W, TKey, TValue> select)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WhereAggregate<W>(W pass, Func<W, TKey, TValue, bool> where, Action<W, TKey, TValue> select)
     {
         var index = 0;
         while (index < m_count)
@@ -315,7 +363,8 @@ public ref struct MapStruct<TKey, TValue>
         }
     }
 
-    public void SelectKeyValues(Action<KeyValuePair<TKey, TValue>> onKeyValue)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AggregateKeyValues(Action<KeyValuePair<TKey, TValue>> onKeyValue)
     {
         var index = 0;
 
@@ -345,6 +394,7 @@ public ref struct MapStruct<TKey, TValue>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ref TValue ValueByRef([NotNull] TKey key, out bool success)
     {
         success = false;
@@ -377,6 +427,7 @@ public ref struct MapStruct<TKey, TValue>
         return ref s_nullRef;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Insert([NotNull] ref TKey key, ref TValue value, ref bool add)
     {
         if (key == null)
@@ -439,7 +490,7 @@ public ref struct MapStruct<TKey, TValue>
         return true;
     }
     
-    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Remove(TKey key)
     {
         if (m_count > 0)
@@ -483,6 +534,7 @@ public ref struct MapStruct<TKey, TValue>
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Map<TKey, TValue> ToMap(IMapAllocatorSetup<TKey, TValue> allocatorSetup = null)
     {
         var index = 0;
@@ -502,6 +554,7 @@ public ref struct MapStruct<TKey, TValue>
         return map;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(KeyValuePair<TKey,TValue> keyValuePair, IEqualityComparer<TValue> equalityComparer = null)
     {
        if(TryGetValue(keyValuePair.Key, out var val))
@@ -514,6 +567,7 @@ public ref struct MapStruct<TKey, TValue>
        return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {
         m_buckets.Clear();
@@ -524,6 +578,7 @@ public ref struct MapStruct<TKey, TValue>
         m_freeCount = 0;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryAdd(TKey key, TValue val)
     {
         if (ContainsKey(key))
@@ -535,6 +590,7 @@ public ref struct MapStruct<TKey, TValue>
         return Insert(ref key, ref val, ref set);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TValue GetOrDefault(TKey key, TValue defaultVal = default)
     {
         if(TryGetValue(key, out var val))
