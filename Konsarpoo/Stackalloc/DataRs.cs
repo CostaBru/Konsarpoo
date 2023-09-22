@@ -8,7 +8,6 @@ using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
-
 /// <summary>
 /// The universal random access data container build on top of stack allocator.
 /// It can contain more than predefined number of elements
@@ -76,6 +75,11 @@ public ref struct DataRs<T>
         }
     }
     
+    /// <summary>Gets  the element at the specified index.</summary>
+    /// <param name="index">The zero-based index of the element to get or set.</param>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">
+    /// <paramref name="index" /> is not a valid index in the DataRs container.</exception>
+    /// <returns>The element at the specified index.</returns>
     public ref T this[int index]
     {
         get
@@ -95,12 +99,18 @@ public ref struct DataRs<T>
     /// <summary> Returns items count in container. Array API. </summary>
     public int Length => m_count;
 
+    /// <summary>Determines the index of a specific item in the DataRs container.</summary>
+    /// <param name="value">The object to locate in the <see cref="T:System.Collections.IList" />.</param>
+    /// <returns>The index of <paramref name="value" /> if found in the list; otherwise, -1.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int FindIndex(T value)
     {
         return IndexOf(value);
     }
 
+    /// <summary>Determines the index of a specific item in the DataRs container.</summary>
+    /// <param name="value">The object to locate in the <see cref="T:System.Collections.IList" />.</param>
+    /// <returns>The index of <paramref name="value" /> if found in the list; otherwise, -1.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int IndexOf(T value)
     {
