@@ -605,7 +605,7 @@ namespace Konsarpoo.Collections
         }
        
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        public IEnumerator<T> GetEnumerator()
         {
             return Values().GetEnumerator();
         }

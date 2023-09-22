@@ -67,4 +67,64 @@ public class QuStructTest
             qu12.Dequeue();
         }
     }
+    
+    [Test]
+    public void TestEnumeration()
+    {
+        var list = Enumerable.Range(0, N).ToList();
+        Span<int> initStore = stackalloc int[N];
+        var queueRs = new QueueRs<int>(ref initStore);
+        
+        Assert.False(queueRs.GetEnumerator().MoveNext());
+        
+        queueRs.EnqueueRange(list);
+        
+        Assert.False(queueRs.Enqueue(10000));
+
+        var le = list.GetEnumerator();
+        var de = queueRs.GetEnumerator();
+
+        while (le.MoveNext())
+        {
+            Assert.True(de.MoveNext());
+            
+            Assert.AreEqual(le.Current, de.Current);
+        }
+
+        queueRs.Dequeue();
+        list.Remove(0);
+        
+        le = list.GetEnumerator();
+        de = queueRs.GetEnumerator();
+
+        while (le.MoveNext())
+        {
+            Assert.True(de.MoveNext());
+            
+            Assert.AreEqual(le.Current, de.Current);
+        }
+
+        for (int i = 0; i < N - 2; i++)
+        {
+            queueRs.Dequeue();
+        }
+        
+        Assert.True(queueRs.Any);
+        Assert.True(queueRs.Enqueue(-1));
+
+        queueRs.Dequeue();
+        
+        Assert.True(queueRs.Any);
+        Assert.AreNotEqual(0, queueRs.m_startOffset);
+        
+        queueRs.ResetTail();
+        
+        Assert.True(queueRs.Any);
+        Assert.AreEqual(0, queueRs.m_startOffset);
+        Assert.AreEqual(-1, queueRs.Peek());
+        
+        Assert.AreEqual(-1, queueRs.Dequeue());
+        
+        Assert.False(queueRs.GetEnumerator().MoveNext());
+    }
 }

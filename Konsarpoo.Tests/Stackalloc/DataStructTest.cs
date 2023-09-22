@@ -43,6 +43,28 @@ public class DataStructTest
             Assert.AreEqual(val, arrVal);
         }
     }
+    
+    [Test]
+    public void TestEnumeration()
+    {
+        var list = Enumerable.Range(0, N).ToList();
+        Span<int> initStore = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore);
+        
+        Assert.False(dataList.GetEnumerator().MoveNext());
+        
+        dataList.AddRange(list);
+
+        var le = list.GetEnumerator();
+        var de = dataList.GetEnumerator();
+
+        while (le.MoveNext())
+        {
+            Assert.True(de.MoveNext());
+            
+            Assert.AreEqual(le.Current, de.Current);
+        }
+    }
 
     [Test]
     public void TestAddRange()

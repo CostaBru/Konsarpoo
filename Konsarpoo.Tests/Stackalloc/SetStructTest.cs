@@ -185,7 +185,30 @@ public class SetStructTest
         }
     }
 
-   
+    [Test]
+    public void TestEnumeration()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+        
+        Assert.False(set.GetEnumerator().MoveNext());
+        
+        set.Add(1);
+        set.Add(2);
+        set.Add(3);
 
+        var ss = set.ToSet();
+
+        var le = ss.GetEnumerator();
+        var de = set.GetEnumerator();
+
+        while (le.MoveNext())
+        {
+            Assert.True(de.MoveNext());
+            
+            Assert.AreEqual(le.Current, de.Current);
+        }
+    }
 }
 

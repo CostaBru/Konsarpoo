@@ -24,7 +24,6 @@ public ref struct StackRs<T>
     public ref struct StEnumerator<T>
     {
         private readonly Span<T> m_span;
-        private readonly int m_count;
         private int m_index;
 
      
@@ -32,8 +31,7 @@ public ref struct StackRs<T>
         internal StEnumerator(Span<T> span, int count)
         {
             m_span = span;
-            m_count = count;
-            m_index = count - 1;
+            m_index = count;
         }
 
         /// <summary>Advances the enumerator to the next element of the span.</summary>

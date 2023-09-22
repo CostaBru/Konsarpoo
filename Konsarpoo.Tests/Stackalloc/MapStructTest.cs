@@ -400,5 +400,31 @@ public class MapStructTest
         {
         }
     }
+    
+    [Test]
+    public void TestEnumeration()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var dict = new MapRs<int, int>(ref buckets, ref entriesHash);
+        
+        Assert.False(dict.GetEnumerator().MoveNext());
+        
+        dict.TryAdd(1, 10);
+        dict.TryAdd(2, 20);
+        dict.TryAdd(3, 30);
+
+        var map = dict.ToMap();
+
+        var le = map.GetEnumerator();
+        var de = dict.GetEnumerator();
+
+        while (le.MoveNext())
+        {
+            Assert.True(de.MoveNext());
+            
+            Assert.AreEqual(le.Current, de.Current);
+        }
+    }
 }
 

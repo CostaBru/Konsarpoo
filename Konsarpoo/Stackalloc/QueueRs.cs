@@ -8,7 +8,7 @@ namespace Konsarpoo.Collections.Stackalloc;
 [StructLayout(LayoutKind.Auto)]
 public ref struct QueueRs<T>
 {
-    private int m_startOffset;
+    internal int m_startOffset;
 
     private Span<T> m_buffer;
     private int m_count;
@@ -27,7 +27,6 @@ public ref struct QueueRs<T>
     {
         private readonly Span<T> m_span;
         private readonly int m_count;
-        private readonly int m_offset;
         private int m_index;
 
      
@@ -36,8 +35,7 @@ public ref struct QueueRs<T>
         {
             m_span = span;
             m_count = count;
-            m_offset = offset;
-            m_index = offset;
+            m_index = offset - 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -58,6 +56,22 @@ public ref struct QueueRs<T>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_span[m_index];
         }
+    }
+
+    public void ResetTail()
+    {
+        if (m_count == 0 || m_startOffset == 0)
+        {
+            return;
+        }
+        
+        var slice = m_buffer.Slice(m_startOffset);
+        
+        slice.CopyTo(m_buffer);
+
+        m_count = Count;
+        
+        m_startOffset = 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -87,9 +101,14 @@ public ref struct QueueRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Enqueue(T item)
     {
-        if (m_count >= m_buffer.Length)
+        if (m_count >= m_buffer.Length - m_startOffset)
         {
-            return false;
+            ResetTail();
+
+            if (m_count >= m_buffer.Length - m_startOffset)
+            {
+                return false;
+            }
         }
 
         m_buffer[m_count] = item;
@@ -101,15 +120,29 @@ public ref struct QueueRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool EnqueueRange(IReadOnlyList<T> items)
     {
-        if (m_count >= m_buffer.Length)
+        if (m_count >= m_buffer.Length - m_startOffset)
         {
+            ResetTail();
+
+            if (m_count >= m_buffer.Length - m_startOffset)
+            {
+                return false;
+            }
+            
             return false;
         }
 
         var valueCount = items.Count;
         
-        if (valueCount + m_count > m_buffer.Length)
+        if (valueCount + m_count > m_buffer.Length - m_startOffset)
         {
+            ResetTail();
+
+            if (m_count >= m_buffer.Length - m_startOffset)
+            {
+                return false;
+            }
+            
             return false;
         }
 
@@ -125,14 +158,14 @@ public ref struct QueueRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool EnqueueRange(ref DataRs<T> value)
     {
-        if (m_count >= m_buffer.Length)
+        if (m_count >= m_buffer.Length - m_startOffset)
         {
             return false;
         }
 
         var valueCount = value.m_count;
         
-        if (valueCount + m_count > m_buffer.Length)
+        if (valueCount + m_count > m_buffer.Length - m_startOffset)
         {
             return false;
         }
@@ -149,14 +182,14 @@ public ref struct QueueRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool EnqueueRange(ref SetRs<T> value)
     {
-        if (m_count >= m_buffer.Length)
+        if (m_count >= m_buffer.Length - m_startOffset)
         {
             return false;
         }
 
         var valueCount = value.m_count;
         
-        if (valueCount + m_count > m_buffer.Length)
+        if (valueCount + m_count > m_buffer.Length - m_startOffset)
         {
             return false;
         }
