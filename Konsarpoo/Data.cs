@@ -1347,11 +1347,12 @@ namespace Konsarpoo.Collections
         /// <param name="value"></param>
         /// <param name="valueSelector"></param>
         /// <param name="start"></param>
+        /// <param name="end"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int FindIndex<V>(V value, Func<T, V> valueSelector, int start = 0)
+        public int FindIndex<V>(V value, Func<T, V> valueSelector, int start = 0, int end = int.MaxValue)
         {
-            return FindIndex<V>(value, valueSelector, EqualityComparer<V>.Default, start);
+            return FindIndex<V>(value, valueSelector, EqualityComparer<V>.Default, start, end);
         }
 
         /// <summary>
@@ -1361,8 +1362,9 @@ namespace Konsarpoo.Collections
         /// <param name="valueSelector"></param>
         /// <param name="equalityComparer"></param>
         /// <param name="start"></param>
+        /// <param name="end"></param>
         /// <returns></returns>
-        public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
+        public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0, int end = int.MaxValue)
         {
             if (valueSelector == null)
             {
@@ -1372,13 +1374,15 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentNullException(nameof(equalityComparer));
             }
+
+            end = Math.Min(m_count, end);
             
             if (start >= m_count || start < 0)
             {
                 return -1;
             }
 
-            for (int index = start; index < m_count; ++index)
+            for (int index = start; index < end; ++index)
             {
                 if (equalityComparer.Equals(valueSelector(ValueByRef(index)), value))
                 {
@@ -1388,19 +1392,20 @@ namespace Konsarpoo.Collections
 
             return -1;
         }
-        
+
         /// <summary>
         /// Searches for the last equality condition match index using T to V value selector function and comparer given. Returns the zero-based index of the last occurrence within the Data&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
         /// </summary>
         /// <param name="value"></param>
         /// <param name="valueSelector"></param>
-        /// <param name="end"></param>
+        /// <param name="startingIndex"></param>
+        /// <param name="endingIndex"></param>
         /// <typeparam name="V"></typeparam>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int FindLastIndex<V>(V value, Func<T, V> valueSelector, int end = int.MinValue)
+        public int FindLastIndex<V>(V value, Func<T, V> valueSelector, int startingIndex = int.MinValue, int endingIndex = 0)
         {
-            return FindLastIndex<V>(value, valueSelector, EqualityComparer<V>.Default, end);
+            return FindLastIndex<V>(value, valueSelector, EqualityComparer<V>.Default, startingIndex, endingIndex);
         }
         
         /// <summary>
@@ -1409,12 +1414,13 @@ namespace Konsarpoo.Collections
         /// <param name="value"></param>
         /// <param name="valueSelector"></param>
         /// <param name="equalityComparer"></param>
-        /// <param name="end"></param>
+        /// <param name="startingIndex"></param>
+        /// <param name="endingIndex"></param>
         /// <typeparam name="V"></typeparam>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int FindLastIndex<V>(V value, [NotNull] Func<T, V> valueSelector, [NotNull] IEqualityComparer<V> equalityComparer, int end = int.MinValue)
+        public int FindLastIndex<V>(V value, [NotNull] Func<T, V> valueSelector, [NotNull] IEqualityComparer<V> equalityComparer, int startingIndex = int.MinValue, int endingIndex = 0)
         {
             if (valueSelector == null)
             {
@@ -1426,17 +1432,17 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(equalityComparer));
             }
             
-            if (end >= m_count)
+            if (startingIndex >= m_count)
             {
                 return -1;
             }
             
-            if (end == int.MinValue)
+            if (startingIndex == int.MinValue)
             {
-                end = m_count - 1;
+                startingIndex = m_count - 1;
             }
 
-            for (int index = end; index >= 0; --index)
+            for (int index = startingIndex; index >= endingIndex; --index)
             {
                 ref var valueByRef = ref ValueByRef(index);
 

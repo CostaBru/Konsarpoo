@@ -117,7 +117,6 @@ namespace Konsarpoo.Collections
             return BinarySearchSlow(value, startIndex, count, Comparer<T>.Default);
         }
 
-        // ReSharper disable once UnusedMember.Global
         /// <summary>
         /// Array and List API. Searches the entire sorted Data&lt;T&gt; for an element using the default comparer and returns the zero-based index of the element.
         /// </summary>

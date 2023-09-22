@@ -240,7 +240,7 @@ public class DataStructTest
         {
             var binarySearch = dataList1.BinarySearch(val, (v1, v2) => v1.CompareTo(v2));
 
-            Assert.True(dataList1.Insert(~binarySearch, val));
+            dataList1.Insert(~binarySearch, val);
         }
 
         for (var index = 0; index < list.Count; index++)
@@ -269,9 +269,9 @@ public class DataStructTest
         
         Span<int> initStore1 = stackalloc int[N];
         var dataList1 = new DataRs<int>(ref initStore1);
-        dataList1.AddRange(Enumerable.Range(0, 100).ToArray());
+        dataList1.AddRange(Enumerable.Range(0, N).ToArray());
 
-        var list = new Data<int>(Enumerable.Range(0, 100).ToArray());
+        var list = new Data<int>(Enumerable.Range(0, N).ToArray());
 
         list.RemoveAll(i => i + 1 % 2 != 0);
         dataList1.RemoveAll(i => i + 1 % 2 != 0);
@@ -590,7 +590,7 @@ public class DataStructTest
         Span<int> initStore = stackalloc int[N];
         var dataList = new DataRs<int>(ref initStore);
 
-        dataList.AddRange(Enumerable.Range(1, 100).Select(i => i).ToArray());
+        dataList.AddRange(Enumerable.Range(1, N).Select(i => i).ToArray());
 
         dataList.RemoveAll((x) => true);
             
@@ -765,19 +765,25 @@ public class DataStructTest
         dataList.AddRange(l1);
 
         Assert.AreEqual(40, dataList.WhereFirstOrDefault(4, (val, index, dv) => val == dv.key).value);
+        Assert.AreEqual(20, dataList.WhereLastOrDefault(2, (val, index, dv) => val == dv.key).value);
 
         var whereSelectResult = 0;
-        dataList.WhereAggregate(pass: 4, 
+        dataList.WhereAggregate(target: 4, 
             (val, index, dv) => val == dv.key, 
             (val, index, dv) => whereSelectResult = dv.value);
 
         Assert.AreEqual(40, whereSelectResult);
 
         var tuples = dataList.ToData(i => i.key > 1);
+        var tuples1 = dataList.ToData(1, (w, i) => i.key > w);
+        
+        Assert.AreEqual(tuples, tuples1);
         
         Assert.True(tuples.All(t => t.value > 1));
         Assert.True(dataList.All(i => i.key >= 0));
+        Assert.True(dataList.All(0, (w, i) => i.key >= w));
         Assert.True(dataList.Any(i => i.key == 4));
+        Assert.True(dataList.Any(4, (w, i) => i.key == w));
         
         var values = dataList.ToData((i,k) => k.key > 1, (i, k) => k.value);
         
@@ -787,7 +793,7 @@ public class DataStructTest
         Assert.True(dataList.ToList().SequenceEqual(l1));
         
         whereSelectResult = 0;
-        dataList.WhereAggregate((index, dv) => 4 == dv.key, 
+        dataList.WhereForEach((index, dv) => 4 == dv.key, 
             (index, dv) => whereSelectResult = dv.value);
         
         Assert.AreEqual(40, whereSelectResult);
@@ -802,10 +808,10 @@ public class DataStructTest
         Assert.True(dataList1.SequenceEquals(dataList));
         Assert.True(dataList1.SequenceEquals(l1));
         
-        Assert.AreEqual(dataList1.Length - 2, dataList1.LastIndexOf((2, 20)));
-        Assert.AreEqual(dataList1.Length - 2, dataList1.LastIndexOf(2, (p, k) => p == k.key));
-        Assert.AreEqual(6, dataList1.LastIndexOf(k => k.key == 0));
-        Assert.AreEqual(dataList1.Length - 1, dataList1.LastIndexOf(k => k.key == 4));
+        Assert.AreEqual(dataList1.Length - 2, dataList1.FindLastIndex((2, 20)));
+        Assert.AreEqual(dataList1.Length - 2, dataList1.FindLastIndex(2, (p, k) => p == k.key));
+        Assert.AreEqual(6, dataList1.FindLastIndex(k => k.key == 0));
+        Assert.AreEqual(dataList1.Length - 1, dataList1.FindLastIndex(k => k.key == 4));
         
         Assert.AreEqual(3, dataList1.FindIndex((2, 20)));
         Assert.AreEqual(3, dataList1.FindIndex(2, (p, k) => p == k.key));
@@ -813,7 +819,7 @@ public class DataStructTest
         Assert.AreEqual(5, dataList1.FindIndex(k => k.key == 4));
         
         var valSum = 0;
-        dataList.Aggregate((index, dv) => valSum += dv.value);
+        dataList.ForEach((index, dv) => valSum += dv.value);
         
         Assert.AreEqual(l1.Sum( i=> i.Item2), valSum);
         

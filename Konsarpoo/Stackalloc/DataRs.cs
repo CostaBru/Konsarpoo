@@ -8,12 +8,23 @@ using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
+
+/// <summary>
+/// The universal random access data container build on top of stack allocator.
+/// It can contain more than predefined number of elements
+/// and will throw InsufficientMemoryException exception after reaching the maximum capacity. 
+/// </summary>
+/// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct DataRs<T> 
 {
     internal Span<T> m_buffer;
     internal int m_count;
 
+    /// <summary>
+    /// Default constructor that expect the maximum storage capacity it can contain.
+    /// </summary>
+    /// <param name="span"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DataRs(ref Span<T> span)
     {
@@ -21,9 +32,15 @@ public ref struct DataRs<T>
         m_count = 0;
     }
     
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public RsEnumerator<T> GetEnumerator() => new RsEnumerator<T>(m_buffer, m_count);
    
+    /// <summary> DataRs Enumerator </summary>
+    /// <typeparam name="T"></typeparam>
     public ref struct RsEnumerator<T>
     {
         private readonly Span<T> m_span;
@@ -72,7 +89,10 @@ public ref struct DataRs<T>
         }
     }
 
+    /// <summary> Returns items count in container. </summary>
     public int Count => m_count;
+    
+    /// <summary> Returns items count in container. Array API. </summary>
     public int Length => m_count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -107,16 +127,28 @@ public ref struct DataRs<T>
         return -1;
     }
 
+    /// <summary>
+    /// Searches for an element that matches the conditions defined by a specified predicate, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="match"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int FindIndex(Func<T, bool> func)
+    public int FindIndex(Func<T, bool> func, int start = 0)
     {
-        return IndexOf(func);
+        return IndexOf(func, start);
     }
 
+    /// <summary>
+    /// Searches for an element that matches the conditions defined by a specified predicate, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="match"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int IndexOf(Func<T, bool> func)
+    public int IndexOf(Func<T, bool> func, int start = 0)
     {
-        for (int i = 0; i < m_count; i++)
+        for (int i = start; i < m_count; i++)
         {
             if (func(m_buffer[i]))
             {
@@ -127,6 +159,13 @@ public ref struct DataRs<T>
         return -1;
     }
     
+    /// <summary>
+    /// Searches for the first equality condition matching predicate. Returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="valueSelector"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int FindIndex<W>(W pass, Func<W, T, bool> func, int start = 0)
     {
@@ -141,12 +180,26 @@ public ref struct DataRs<T>
         return -1;
     }
 
+    /// <summary>
+    /// Searches for the first equality condition match index using T to V value selector function and default comparer. Returns the zero-based index of the first occurrence within the Data&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="valueSelector"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, int start = 0)
     {
         return FindIndex<V>(value, valueSelector, EqualityComparer<V>.Default, start);
     }
 
+    /// <summary>
+    /// Searches for the first equality condition match index using T to V value selector function and default comparer. Returns the zero-based index of the first occurrence within the Data&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="valueSelector"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int FindIndex<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer, int start = 0)
     {
@@ -160,11 +213,31 @@ public ref struct DataRs<T>
 
         return -1;
     }
-    
+
+    /// <summary>
+    /// Searches for the last equality condition match index using T to V value comparer function. Returns the zero-based index of the last occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="pass"></param>
+    /// <param name="func"></param>
+    /// <param name="startingIndex"></param>
+    /// <param name="endIndex"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int LastIndexOf<W>(W pass, Func<W, T, bool> func)
+    public int FindLastIndex<W>(W pass, Func<W, T, bool> func, int startingIndex = int.MaxValue, int endingIndex = 0)
     {
-        for (int i = m_count - 1; i >= 0; i--)
+        if (endingIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(endingIndex));
+        }
+        
+        if (startingIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startingIndex));
+        }
+        
+        startingIndex = Math.Min(startingIndex, m_count - 1);
+        
+        for (int i = startingIndex; i >= endingIndex; i--)
         {
             if (func(pass, m_buffer[i]))
             {
@@ -175,10 +248,29 @@ public ref struct DataRs<T>
         return -1;
     }
     
+    /// <summary>
+    /// Searches for the last equality condition match index a given comparer function. Returns the zero-based index of the last occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="func"></param>
+    /// <param name="startingIndex"></param>
+    /// <param name="endingIndex"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int LastIndexOf(Func<T, bool> func)
+    public int FindLastIndex(Func<T, bool> func, int startingIndex = int.MaxValue, int endingIndex = 0)
     {
-        for (int i = m_count - 1; i >= 0; i--)
+        if (endingIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(endingIndex));
+        }
+        
+        if (startingIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startingIndex));
+        }
+
+        startingIndex = Math.Min(startingIndex, m_count - 1);
+        
+        for (int i = startingIndex; i >= endingIndex; i--)
         {
             if (func(m_buffer[i]))
             {
@@ -188,22 +280,59 @@ public ref struct DataRs<T>
 
         return -1;
     }
-    
+
+    /// <summary>
+    /// Array and List API. Searches the entire sorted DataRs&lt;T&gt; for an element using the default comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="startIndex"></param>
+    /// <param name="compare"></param>
+    /// <returns>The zero-based index of item in the sorted Data&lt;T&gt;, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of Count.</returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int BinarySearch<TComparable>(TComparable value, int startIndex, Func<TComparable, T, int> compare) 
     {
         return BinarySearch(value, startIndex, m_count, compare);
     }
 
+    /// <summary>
+    /// Array and List API. Searches the entire sorted DataRs&lt;T&gt; for an element using the default comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="compare"></param>
+    /// <returns>The zero-based index of item in the sorted Data&lt;T&gt;, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of Count.</returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int BinarySearch<TComparable>(TComparable value, Func<TComparable, T, int> compare)
     {
         return BinarySearch(value, 0, m_count, compare);
     }
 
+    /// <summary>
+    /// Array and List API. Searches the entire sorted DataRs&lt;T&gt; for an element using the default comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="count"></param>
+    /// <param name="compare"></param>
+    /// <param name="startIndex"></param>
+    /// <returns>The zero-based index of item in the sorted Data&lt;T&gt;, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of Count.</returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int BinarySearch<TComparable>(TComparable value, int startIndex, int count, Func<TComparable, T, int> compare) 
+    public int BinarySearch<TComparable>(TComparable value, int startIndex, int count, Func<TComparable, T, int> compare)
     {
+        if (startIndex < 0 || startIndex >= m_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startIndex));
+        }
+        
+        if (count < 0 || count > m_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+        
         int lo = startIndex;
         int hi = count - 1;
 
@@ -230,8 +359,13 @@ public ref struct DataRs<T>
         return ~lo;
     }
     
-    public void Sort(IComparer<T> compare)
+    /// <summary>
+    /// Sorts the elements in the Data&lt;T&gt; using given comparer. 
+    /// </summary>
+    public void Sort([NotNull] IComparer<T> compare)
     {
+        if (compare == null) throw new ArgumentNullException(nameof(compare));
+        
         var arrayPool = ArrayPool<T>.Shared;
         
         var rent = arrayPool.Rent(m_count);
@@ -251,8 +385,13 @@ public ref struct DataRs<T>
         arrayPool.Return(rent);
     }
     
-    public void Sort(Comparison<T> comparison)
+    /// <summary>
+    /// Sorts the elements in the Data&lt;T&gt; using given comparison. 
+    /// </summary>
+    public void Sort([NotNull] Comparison<T> comparison)
     {
+        if (comparison == null) throw new ArgumentNullException(nameof(comparison));
+        
         var arrayPool = ArrayPool<T>.Shared;
         
         var rent = arrayPool.Rent(m_count);
@@ -287,6 +426,11 @@ public ref struct DataRs<T>
         }
     }
 
+    /// <summary>
+    /// Removes the element at the specified index of the DataRs&lt;T&gt;.
+    /// </summary>
+    /// <param name="index"></param>
+    /// <exception cref="IndexOutOfRangeException"></exception>
     public bool RemoveAt(int index)
     {
         if ( index < 0 || index >= m_count) 
@@ -303,9 +447,14 @@ public ref struct DataRs<T>
         return true;
     }
     
-    public bool Remove(T value)
+    /// <summary>
+    /// Removes the first occurrence of a specific object from the DataRs&lt;T&gt;.
+    /// </summary>
+    /// <param name="item"></param>
+    /// <returns>True if any item was removed.</returns>
+    public bool Remove(T item)
     {
-        var indexOf = IndexOf(value);
+        var indexOf = IndexOf(item);
 
         if ( indexOf < 0 || indexOf >= m_count) 
         {
@@ -314,12 +463,41 @@ public ref struct DataRs<T>
        
         return RemoveAt(indexOf);
     }
+    
+    /// <summary>
+    /// Removes the last element of the Data&lt;T&gt;.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public bool RemoveLast()
+    {
+        if (m_count > 0)
+        {
+            return RemoveAt(m_count - 1);
+        }
+        
+        return false;
+    }
 
+    /// <summary>
+    /// Removes all occurrences of a specific object from the DataRs&lt;T&gt; using allocation free values selection comparison using default comparer.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="valueSelector"></param>
+    /// <typeparam name="V"></typeparam>
+    /// <returns>True if any item was removed.</returns>
     public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector)
     {
         return RemoveAll<V>(value, valueSelector, EqualityComparer<V>.Default);
     }
 
+    /// <summary>
+    /// Removes all occurrences of a specific object from the DataRs&lt;T&gt; using allocation free values selection comparison using given comparer.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="valueSelector"></param>
+    /// <param name="equalityComparer"></param>
+    /// <typeparam name="V"></typeparam>
+    /// <returns>True if any item was removed.</returns>
     public int RemoveAll<V>(V value, [NotNull] Func<T, V> valueSelector, IEqualityComparer<V> equalityComparer)
     {
         if (m_count == 0)
@@ -355,6 +533,11 @@ public ref struct DataRs<T>
     }
 
 
+    /// <summary>
+    /// Removes all elements that match function delegated.
+    /// </summary>
+    /// <param name="match"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int RemoveAll(Func<T, bool> match)
     {
@@ -390,6 +573,9 @@ public ref struct DataRs<T>
         return counter;
     }
 
+    /// <summary>
+    /// List API. Reverses the order of the elements in the entire DataRs&lt;T&gt;.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Reverse()
     {
@@ -403,9 +589,31 @@ public ref struct DataRs<T>
         }
     }
 
+    /// <summary>Copies the elements of the DataRs&lt;T&gt; to an <see cref="T:System.Collections.Generic.IList" /> collection, starting at a particular <see cref="T:System.Collections.Generic.IList" /> index.</summary>
+    /// <param name="target">The one-dimensional <see cref="T:System.Array" /> that is the destination of the elements copied from <see cref="T:System.Collections.ICollection" />. The <see cref="T:System.Collections.Generic.IList" /> must have zero-based indexing.</param>
+    /// <param name="startIndex">The zero-based index in <paramref name="target" /> at which copying begins.</param>
+    /// <exception cref="T:System.ArgumentNullException">
+    /// <paramref name="target" /> is <see langword="null" />.</exception>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">
+    /// <paramref name="startIndex" /> is less than zero.</exception>
+    /// 
+    /// -or-
+    /// 
+    /// The number of elements in the source DataRs&lt;T&gt; is greater than the available space from <paramref name="index" /> to the end of the destination <paramref name="array" />.
+    /// 
+    /// -or-
+    /// 
+    /// The type of the source DataRs&lt;T&gt;  cannot be cast automatically to the type of the destination <paramref name="target" />.</exception>
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void CopyTo(IList<T> target, int startIndex = 0)
+    public void CopyTo([NotNull] IList<T> target, int startIndex = 0)
     {
+        if (target == null) throw new ArgumentNullException(nameof(target));
+        if(startIndex < 0 || startIndex >= m_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startIndex));
+        }
+        
         int li = startIndex;
         for (int i = 0; i < m_count && i < target.Count; i++)
         {
@@ -415,7 +623,21 @@ public ref struct DataRs<T>
         }
     }
     
-    public void CopyTo(int index, T[] target, int arrayIndex, int count)
+    /// <summary>
+    /// Copies the Data&lt;T&gt; or a portion of it to an array.
+    /// </summary>
+    /// <param name="index">Source index.</param>
+    /// <param name="array">Target array.</param>
+    /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
+    /// <param name="count">The number of elements to copy.</param>
+    /// <exception cref="ArgumentNullException"/>
+    /// <exception cref="IndexOutOfRangeException">
+    /// length is greater than the number of elements from sourceIndex to the end of sourceArray.
+    /// -or- length is greater than the number of elements from destinationIndex to the end of destinationArray.
+    /// -or- arrayIndex is greater or equal destinationArray length.
+    /// -or- count is greater than collection size.
+    /// </exception>
+    public void CopyTo(int index, T[] array, int arrayIndex, int count)
     {
         if (m_count - index < count)
         {
@@ -426,16 +648,26 @@ public ref struct DataRs<T>
         int cnt = 0;
         for (int i = index; i < m_count && cnt < count; i++)
         {
-            target[li] = m_buffer[i];
+            array[li] = m_buffer[i];
             
             li++;
             cnt++;
         }
     }
 
+    /// <summary>
+    /// Searches for a last element index that matches the given value and equality comparer, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="equalityComparer"></param>
+    /// <typeparam name="V"></typeparam>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int LastIndexOf(T value)
+    public int FindLastIndex(T value, IEqualityComparer<T> equalityComparer = null)
     {
+        var cmp = equalityComparer  ?? EqualityComparer<T>.Default;
+        
         for (int i = m_count - 1; i >= 0; i--)
         {
             var obj = m_buffer[i];
@@ -449,7 +681,7 @@ public ref struct DataRs<T>
             }
             else
             {
-                if (obj.Equals(value))
+                if (cmp.Equals(obj, value))
                 {
                     return i;
                 }
@@ -459,6 +691,12 @@ public ref struct DataRs<T>
         return -1;
     }
 
+    /// <summary>
+    /// Determines whether the specified DataRs&lt;T&gt; instances are considered equal by comparing type, sizes and elements.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="comparer"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool SequenceEquals(DataRs<T> value, EqualityComparer<T> comparer = default)
     {
@@ -480,6 +718,12 @@ public ref struct DataRs<T>
         return true;
     }
     
+    /// <summary>
+    /// Determines whether the specified DataRs&lt;T&gt; instances are considered equal by comparing type, sizes and elements.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="comparer"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool SequenceEquals(IReadOnlyList<T> value, EqualityComparer<T> comparer = default)
     {
@@ -501,8 +745,12 @@ public ref struct DataRs<T>
         return true;
     }
 
+    /// <summary>
+    /// Calls the given onValue action for each item in list.
+    /// </summary>
+    /// <param name="onValue"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Aggregate(Action<int, T> onValue)
+    public void ForEach(Action<int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -510,27 +758,48 @@ public ref struct DataRs<T>
         }
     }
     
+    /// <summary>
+    /// Returns first or default item in list.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T FirstOrDefault() => m_count > 0 ? m_buffer[0] : default;
     
+    /// <summary>
+    /// Returns last or default item in list.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T LastOrDefault() => m_count > 0 ? m_buffer[m_count - 1] : default;
 
+    /// <summary>
+    /// Calls given onValue action for each value in list and pass the given target to it. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Aggregate<W>(W pass, Action<W, int, T> onValue)
+    public void Aggregate<W>(W target, Action<W, int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
-            onValue(pass, i, m_buffer[i]);
+            onValue(target, i, m_buffer[i]);
         }
     }
     
+    /// <summary>
+    /// Takes a list's first matched item with the given value and compare delegate or default if no one.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="where"></param>
+    /// <typeparam name="W"></typeparam>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T WhereFirstOrDefault<W>(W pass, Func<W, int, T, bool> where)
+    public T WhereFirstOrDefault<W>(W value, Func<W, int, T, bool> where)
     {
         for (int i = 0; i < m_count; i++)
         {
-            if (where(pass, i, m_buffer[i]))
+            if (where(value, i, m_buffer[i]))
             {
                 return m_buffer[i];
             }
@@ -539,20 +808,53 @@ public ref struct DataRs<T>
         return default;
     }
     
+    /// <summary>
+    /// Takes a list's last matched item with the given value and compare delegate or default if no one.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="where"></param>
+    /// <typeparam name="W"></typeparam>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate<W>(W pass, Func<W, int, T, bool> where, Action<W, int, T> select)
+    public T WhereLastOrDefault<W>(W value, Func<W, int, T, bool> where)
+    {
+        for (int i = m_count; i >= 0; i--)
+        {
+            if (where(value, i, m_buffer[i]))
+            {
+                return m_buffer[i];
+            }
+        }
+
+        return default;
+    }
+    
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void WhereAggregate<W>(W target, Func<W, int, T, bool> where, Action<W, int, T> select)
     {
         for (int i = 0; i < m_count; i++)
         {
-            if (where(pass, i, m_buffer[i]))
+            if (where(target, i, m_buffer[i]))
             {
-                select(pass, i, m_buffer[i]);
+                select(target, i, m_buffer[i]);
             }
         }
     }
     
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate(Func<int, T, bool> where, Action<int, T> select)
+    public void WhereForEach(Func<int, T, bool> where, Action<int, T> select)
     {
         for (int i = 0; i < m_count; i++)
         {
@@ -562,23 +864,12 @@ public ref struct DataRs<T>
             }
         }
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Data<T> ToData(Func<T, bool> where)
-    {
-        var data = new Data<T>();
 
-        for (int i = 0; i < m_count; i++)
-        {
-            if (where(m_buffer[i]))
-            {
-                data.Add(m_buffer[i]);
-            }
-        }
-
-        return data;
-    }
-    
+    /// <summary>
+    /// Returns true if given where condition returns true for all items in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool All(Func<T, bool> where)
     {
@@ -595,6 +886,53 @@ public ref struct DataRs<T>
         return count == m_count;
     }
     
+    /// <summary>
+    /// Returns true if given where condition returns true for all items in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool All<W>(W pass, Func<W, T, bool> where)
+    {
+        int count = 0;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(pass, m_buffer[i]))
+            {
+                count++;
+            }
+        }
+
+        return count == m_count;
+    }
+    
+    /// <summary>
+    /// Returns true if given where condition returns true for any items in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Any<W>(W pass, Func<W, T, bool> where)
+    {
+        int count = 0;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(pass, m_buffer[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    /// <summary>
+    /// Returns true if given where condition returns true for any items in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Any(Func<T, bool> where)
     {
@@ -610,11 +948,60 @@ public ref struct DataRs<T>
 
         return false;
     }
-    
+
+    /// <summary>
+    /// Copies each item that meets condition of DataRs to a new Data class instance. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <param name="allocatorSetup"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Data<W> ToData<W>(Func<int, T, bool> where, Func<int, T, W> select)
+    public Data<T> ToData(Func<T, bool> where, IDataAllocatorSetup<T> allocatorSetup = null)
     {
-        var data = new Data<W>();
+        var data = new Data<T>(allocatorSetup);
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(m_buffer[i]))
+            {
+                data.Add(m_buffer[i]);
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// Copies each item that meets condition of DataRs to a new Data class instance. 
+    /// </summary>
+    /// <param name="pass"></param>
+    /// <param name="where"></param>
+    /// <param name="allocatorSetup"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Data<T> ToData<W>(W pass, Func<W, T, bool> where, IDataAllocatorSetup<T> allocatorSetup = null)
+    {
+        var data = new Data<T>(allocatorSetup);
+
+        for (int i = 0; i < m_count; i++)
+        {
+            if (where(pass, m_buffer[i]))
+            {
+                data.Add(m_buffer[i]);
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// Copies each item that meets condition of DataRs to a new Data class instance. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <param name="select"></param>
+    /// <param name="allocatorSetup"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Data<W> ToData<W>(Func<int, T, bool> where, Func<int, T, W> select, IDataAllocatorSetup<W> allocatorSetup = null)
+    {
+        var data = new Data<W>(allocatorSetup);
 
         for (int i = 0; i < m_count; i++)
         {
@@ -627,32 +1014,49 @@ public ref struct DataRs<T>
         return data;
     }
     
+    
+    /// <summary>
+    /// Adds a new item to the list.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Add(T value)
+    public void Add(T value)
     {
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add a new item to the DataRs list. The {m_buffer.Length} maximum reached.");
         }
         
         m_buffer[m_count] = value;
         m_count++;
-
-        return true;
     }
 
-    public bool Insert(int index, T value)
+    /// <summary>
+    /// Insert a new item at given index.
+    /// </summary>
+    /// <param name="index"></param>
+    /// <param name="value"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    public void Insert(int index, T value)
     {
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be greater or equal to zero.");
+        }
+        
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot insert a new item to the DataRs list. The {m_buffer.Length} maximum reached.");
         }
 
         if (index == m_count)
         {
             m_buffer[m_count] = value;
             m_count++;
-            return true;
+            return;
         }
  
         for (var i = m_count; i > index; i--)
@@ -663,117 +1067,141 @@ public ref struct DataRs<T>
         m_count++;
  
         m_buffer[index] = value;
-
-        return true;
     }
     
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref DataRs<T> value)
+    public void AddRange(ref DataRs<T> list)
     {
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
         }
 
-        var valueCount = value.Count;
+        var valueCount = list.Count;
         
         if (valueCount + m_count > m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
         }
 
-        for (int i = 0; i < value.m_count; i++)
+        for (int i = 0; i < list.m_count; i++)
         {
-            m_buffer[m_count] = value[i];
+            m_buffer[m_count] = list[i];
             m_count++;
         }
-
-        return true;
     }
     
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref SetRs<T> value)
+    public void AddRange(ref SetRs<T> list)
     {
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
         }
 
-        var valueCount = value.m_count;
+        var valueCount = list.m_count;
         
         if (valueCount + m_count > m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
         }
         
         var index = 0;
 
-        while (index < value.m_count)
+        while (index < list.m_count)
         {
-            if (value.m_entries[index].HashCode >= 0)
+            if (list.m_entries[index].HashCode >= 0)
             {
-                m_buffer[m_count] = value.m_entries[index].Key;
+                m_buffer[m_count] = list.m_entries[index].Key;
                 m_count++;
             }
 
             index++;
         }
-
-        return true;
     }
     
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(IReadOnlyList<T> value)
+    public void AddRange([NotNull] IReadOnlyList<T> list)
     {
+        if (list == null) throw new ArgumentNullException(nameof(list));
+        
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
         }
 
-        var valueCount = value.Count;
+        var valueCount = list.Count;
         
         if (valueCount + m_count > m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
         }
 
-        foreach (var v in value)
+        foreach (var v in list)
         {
             m_buffer[m_count] = v;
             m_count++;
         }
-
-        return true;
     }
 
+    /// <summary>
+    /// Array API. Ensures that current DataRs&lt;T&gt; container has given size.
+    /// </summary>
+    /// <param name="size"></param>
+    /// <param name="defaultValue"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Ensure(int newCount, T value = default)
+    public bool Ensure(int size, T defaultValue = default)
     {
         var currentCount = m_count;
-        if (newCount == currentCount)
+        if (size == currentCount)
         {
             return true;
         }
         
-        if (newCount >= m_buffer.Length)
+        if (size >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot extend the DataRs list to fit the {size} items. The {m_buffer.Length} is a maximum.");
         }
         
-        for (int i = currentCount; i < newCount; i++)
+        for (int i = currentCount; i < size; i++)
         {
-            m_buffer[i] = value;
+            m_buffer[i] = defaultValue;
             m_count++;
         }
         
         return true;
     }
-
+    
+    /// <summary>
+    /// List API. Clears Data&lt;T&gt; and returns all arrays allocated back to array pool.
+    /// </summary>
     public void Clear()
     {
         m_count = 0;
     }
 
+    /// <summary>
+    /// Copies each item of DataRs to a new List class instance. 
+    /// </summary>
     public List<T> ToList()
     {
         var list = new List<T>(m_count);
@@ -786,6 +1214,9 @@ public ref struct DataRs<T>
         return list;
     }
     
+    /// <summary>
+    /// Copies each item of DataRs to a new Set class instance. 
+    /// </summary>
     public Set<T> ToSet(ISetAllocatorSetup<T> allocatorSetup = null)
     {
         var set = new Set<T>(allocatorSetup, null);
@@ -798,6 +1229,9 @@ public ref struct DataRs<T>
         return set;
     }
     
+    /// <summary>
+    /// Copies each item of DataRs to a new Data class instance. 
+    /// </summary>
     public Data<T> ToData(IDataAllocatorSetup<T> allocatorSetup = null)
     {
         var list = new Data<T>(allocatorSetup);
@@ -812,6 +1246,9 @@ public ref struct DataRs<T>
         return list;
     }
     
+    /// <summary>
+    /// Copies each item of DataRs to a new array instance. 
+    /// </summary>
     public T[] ToArray()
     {
         var array = new T[m_count];
