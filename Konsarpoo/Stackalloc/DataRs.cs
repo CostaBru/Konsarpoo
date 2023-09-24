@@ -10,7 +10,7 @@ namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
 /// The universal random access data container build on top of stack allocator.
-/// It can contain more than predefined number of elements
+/// It cannot contain more than predefined number of elements
 /// and will throw InsufficientMemoryException exception after reaching the maximum capacity. 
 /// </summary>
 /// <typeparam name="T"></typeparam>

@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
+/// <summary>
+/// Default Queue implementation based on stack allocation. 
+/// </summary>
+/// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct QueueRs<T>
 {
@@ -20,9 +24,16 @@ public ref struct QueueRs<T>
         m_count = 0;
     }
     
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public QuRsEnumerator GetEnumerator() => new QuRsEnumerator(m_buffer, m_count, m_startOffset);
     
+    /// <summary>
+    ///  Queue enumerator.
+    /// </summary>
     public ref struct QuRsEnumerator
     {
         private readonly Span<T> m_span;
@@ -57,8 +68,8 @@ public ref struct QueueRs<T>
             get => ref m_span[m_index];
         }
     }
-
-    public void ResetTail()
+   
+    internal void ResetTail()
     {
         if (m_count == 0 || m_startOffset == 0)
         {
@@ -74,6 +85,10 @@ public ref struct QueueRs<T>
         m_startOffset = 0;
     }
 
+    /// <summary>
+    /// Returns and removes item from the queue.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T Dequeue()
     {
@@ -91,15 +106,30 @@ public ref struct QueueRs<T>
         return val;
     }
 
+    /// <summary>
+    /// Returns but does not remove an item from the queue.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T Peek() => m_buffer[m_startOffset];
 
+    /// <summary>
+    /// Gets the flag indicating whether queue has any element.
+    /// </summary>
     public bool Any => m_count - m_startOffset > 0;
 
+    /// <summary>
+    /// Gets the number of items in queue.
+    /// </summary>
     public int Count => m_count - m_startOffset;
 
+    /// <summary>
+    /// Adds an element to the queue.
+    /// </summary>
+    /// <param name="item"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Enqueue(T item)
+    public void Enqueue(T item)
     {
         if (m_count >= m_buffer.Length - m_startOffset)
         {
@@ -107,92 +137,83 @@ public ref struct QueueRs<T>
 
             if (m_count >= m_buffer.Length - m_startOffset)
             {
-                return false;
+                throw new InsufficientMemoryException($"Cannot enqueue a new item to the QueueRs. The {m_buffer.Length} maximum reached.");
             }
         }
 
         m_buffer[m_count] = item;
         m_count++;
-
-        return true;
     }
 
+    /// <summary>
+    ///  Adds all elements in given collection to the queue.
+    /// </summary>
+    /// <param name="items"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool EnqueueRange(IReadOnlyList<T> items)
+    public void EnqueueRange(IReadOnlyList<T> items)
     {
-        if (m_count >= m_buffer.Length - m_startOffset)
-        {
-            ResetTail();
-
-            if (m_count >= m_buffer.Length - m_startOffset)
-            {
-                return false;
-            }
-            
-            return false;
-        }
-
-        var valueCount = items.Count;
-        
-        if (valueCount + m_count > m_buffer.Length - m_startOffset)
-        {
-            ResetTail();
-
-            if (m_count >= m_buffer.Length - m_startOffset)
-            {
-                return false;
-            }
-            
-            return false;
-        }
+        CheckCanEnqueue(items.Count);
 
         foreach (var v in items)
         {
             m_buffer[m_count] = v;
             m_count++;
         }
-
-        return true;
     }
     
+    /// <summary>
+    ///  Adds all elements in given collection to the queue.
+    /// </summary>
+    /// <param name="items"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool EnqueueRange(ref DataRs<T> value)
+    public void EnqueueRange(ref DataRs<T> value)
     {
-        if (m_count >= m_buffer.Length - m_startOffset)
-        {
-            return false;
-        }
+        var count = value.m_count;
 
-        var valueCount = value.m_count;
-        
-        if (valueCount + m_count > m_buffer.Length - m_startOffset)
-        {
-            return false;
-        }
-        
-        for (int i = 0; i < value.m_count; i++)
+        CheckCanEnqueue(count);
+
+        for (int i = 0; i < count; i++)
         {
             m_buffer[m_count] = value.m_buffer[i];
             m_count++;
         }
-
-        return true;
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool EnqueueRange(ref SetRs<T> value)
+
+    private void CheckCanEnqueue(int count)
     {
         if (m_count >= m_buffer.Length - m_startOffset)
         {
-            return false;
+            ResetTail();
+
+            if (m_count >= m_buffer.Length - m_startOffset)
+            {
+                throw new InsufficientMemoryException($"Cannot enqueue a new item to the QueueRs. The {m_buffer.Length} maximum reached.");
+            }
         }
 
-        var valueCount = value.m_count;
-        
+        var valueCount = count;
+
         if (valueCount + m_count > m_buffer.Length - m_startOffset)
         {
-            return false;
+            ResetTail();
+
+            if (m_count >= m_buffer.Length - m_startOffset)
+            {
+                throw new InsufficientMemoryException($"Cannot enqueue the {valueCount} of new items to the QueueRs. The {m_buffer.Length} is a maximum.");
+            }
         }
+    }
+
+    /// <summary>
+    /// Adds all elements in given collection to the queue.
+    /// </summary>
+    /// <param name="items"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool EnqueueRange(ref SetRs<T> value)
+    {
+        CheckCanEnqueue(value.m_count);
         
         var index = 0;
 
@@ -210,6 +231,9 @@ public ref struct QueueRs<T>
         return true;
     }
 
+    /// <summary>
+    /// Clears the queue.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {

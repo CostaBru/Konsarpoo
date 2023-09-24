@@ -78,8 +78,15 @@ public class QuStructTest
         Assert.False(queueRs.GetEnumerator().MoveNext());
         
         queueRs.EnqueueRange(list);
-        
-        Assert.False(queueRs.Enqueue(10000));
+
+        try
+        {
+            queueRs.Enqueue(10000);
+            Assert.Fail();
+        }
+        catch(InsufficientMemoryException)
+        {
+        }
 
         var le = list.GetEnumerator();
         var de = queueRs.GetEnumerator();
@@ -110,7 +117,7 @@ public class QuStructTest
         }
         
         Assert.True(queueRs.Any);
-        Assert.True(queueRs.Enqueue(-1));
+       queueRs.Enqueue(-1);
 
         queueRs.Dequeue();
         
@@ -126,5 +133,58 @@ public class QuStructTest
         Assert.AreEqual(-1, queueRs.Dequeue());
         
         Assert.False(queueRs.GetEnumerator().MoveNext());
+    }
+
+    [Test]
+    public void TestAddRangeSet()
+    {
+        Span<int> initStore = stackalloc int[N];
+        var queueRs = new QueueRs<int>(ref initStore);
+        
+        Span<int> buckets = stackalloc int[N];
+        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+
+        var readOnlyList = Enumerable.Range(0, N / 2).ToData();
+
+        set.AddRange(readOnlyList);
+        
+        queueRs.EnqueueRange(ref set);
+
+        var asQueue = readOnlyList.AsQueue();
+
+        while (asQueue.Any)
+        {
+            var dq1 = asQueue.Dequeue();
+            var dq2 = queueRs.Dequeue();
+            
+            Assert.AreEqual(dq1, dq2);
+        }
+    }
+    
+    [Test]
+    public void TestAddRangeData()
+    {
+        Span<int> initStore = stackalloc int[N];
+        var queueRs = new QueueRs<int>(ref initStore);
+        
+        Span<int> initStore1 = stackalloc int[N];
+        var dataRs = new DataRs<int>(ref initStore1);
+
+        var readOnlyList = Enumerable.Range(0, N / 2).ToData();
+
+        dataRs.AddRange(readOnlyList);
+        
+        queueRs.EnqueueRange(ref dataRs);
+
+        var asQueue = readOnlyList.AsQueue();
+
+        while (asQueue.Any)
+        {
+            var dq1 = asQueue.Dequeue();
+            var dq2 = queueRs.Dequeue();
+            
+            Assert.AreEqual(dq1, dq2);
+        }
     }
 }
