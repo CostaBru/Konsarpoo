@@ -71,8 +71,16 @@ public class StackStructTest
         Assert.False(stackRs.GetEnumerator().MoveNext());
         
         stackRs.PushRange(list);
-        
-        Assert.False(stackRs.Push(10000));
+
+        try
+        {
+            stackRs.Push(10000);
+            
+            Assert.Fail();
+        }
+        catch (InsufficientMemoryException e)
+        {
+        }
 
         list.Reverse();
         
@@ -105,13 +113,86 @@ public class StackStructTest
         }
         
         Assert.True(stackRs.Any);
-        Assert.True(stackRs.Push(-1));
-        Assert.True(stackRs.Push(-2));
+        stackRs.Push(-1);
+        stackRs.Push(-2);
 
         stackRs.Pop();
         stackRs.Pop();
         stackRs.Pop();
        
         Assert.False(stackRs.GetEnumerator().MoveNext());
+    }
+
+    [Test]
+    public void TestAddRangeSet()
+    {
+        Span<int> initStore = stackalloc int[N];
+        var stackRs = new StackRs<int>(ref initStore);
+        
+        Span<int> buckets = stackalloc int[N];
+        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+
+        var data = Enumerable.Range(0, N).ToData();
+        
+        set.AddRange(data);
+        
+        stackRs.PushRange(ref set);
+
+        var asStack = data.AsStack();
+
+        while (asStack.Any)
+        {
+            var p1 = asStack.Pop();
+            
+            var p2 = stackRs.Pop();
+            
+            Assert.AreEqual(p1, p2);
+        }
+
+        try
+        {
+            stackRs.Pop();
+            Assert.Fail();
+        }
+        catch (IndexOutOfRangeException e)
+        {
+        }
+        
+        try
+        {
+            asStack.Pop();
+            Assert.Fail();
+        }
+        catch (IndexOutOfRangeException e)
+        {
+        }
+    }
+    
+    [Test]
+    public void TestAddRangeDataRs()
+    {
+        Span<int> initStore = stackalloc int[N];
+        var stackRs = new StackRs<int>(ref initStore);
+        
+        Span<int> initStore1 = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore1);
+        
+        var data = Enumerable.Range(0, N).ToData();
+        
+        dataList.AddRange(data);
+        
+        stackRs.PushRange(ref dataList);
+
+        var asStack = data.AsStack();
+
+        while (asStack.Any)
+        {
+            var p1 = asStack.Pop();
+            
+            var p2 = stackRs.Pop();
+            
+            Assert.AreEqual(p1, p2);
+        }
     }
 }

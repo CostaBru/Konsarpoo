@@ -12,12 +12,12 @@ namespace Konsarpoo.Collections
         /// <summary>
         /// Returns and removes item from the queue.
         /// </summary>
-        /// <returns></returns>
+        /// <exception cref="IndexOutOfRangeException">If qu is empty.</exception>
         T Dequeue();
         /// <summary>
         /// Returns but does not remove an item from the queue.
         /// </summary>
-        /// <returns></returns>
+        /// <exception cref="IndexOutOfRangeException">If qu is empty.</exception>
         T Peek();
     }
     

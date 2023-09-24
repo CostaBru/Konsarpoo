@@ -11,14 +11,14 @@ namespace Konsarpoo.Collections
     {
         /// <summary>
         /// Gets element and removes it from stack in LIFO order.
-        /// <exception cref="InvalidOperationException"></exception>
         /// </summary>
+        /// <exception cref="IndexOutOfRangeException">If stack is empty.</exception>
         T Pop();
         
         /// <summary>
         /// Gets element it from stack in LIFO order.
-        /// <exception cref="InvalidOperationException"></exception>
         /// </summary>
+        /// <exception cref="IndexOutOfRangeException">If stack is empty.</exception>
         T Peek();
     }
     
@@ -47,7 +47,7 @@ namespace Konsarpoo.Collections
     public interface IStack<T> : IPopStack<T>, IPushStack<T>
     {
         /// <summary>
-        /// Gets the flac indicating whether stack has any item.
+        /// Gets the flag indicating whether stack has any item.
         /// </summary>
         bool Any { get; }
 

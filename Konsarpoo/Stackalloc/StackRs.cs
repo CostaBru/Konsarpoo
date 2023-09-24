@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
+/// <summary>
+/// Stack data struct implementation based on stack allocation.
+/// </summary>
+/// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct StackRs<T>
 {
@@ -18,9 +22,17 @@ public ref struct StackRs<T>
         m_count = 0;
     }
     
+    /// <summary>
+    /// Allows enumerate StackRs contents.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public StEnumerator<T> GetEnumerator() => new StEnumerator<T>(m_buffer, m_count);
    
+    /// <summary>
+    /// StackRs enumerator.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public ref struct StEnumerator<T>
     {
         private readonly Span<T> m_span;
@@ -56,6 +68,10 @@ public ref struct StackRs<T>
         }
     }
 
+    /// <summary>
+    /// Gets element and removes it from stack in LIFO order.
+    /// <exception cref="IndexOutOfRangeException"></exception>
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T Pop()
     {
@@ -73,106 +89,114 @@ public ref struct StackRs<T>
         return val;
     }
 
+    /// <summary>
+    /// Gets element it from stack in LIFO order.
+    /// <exception cref="IndexOutOfRangeException">If stack is empty.</exception>
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T Peek() => m_buffer[m_count - 1];
 
+    /// <summary>
+    /// Gets the flag indicating whether stack has any item.
+    /// </summary>
     public bool Any => m_count > 0;
 
+    /// <summary>
+    /// Returns number of elements is stack.
+    /// </summary>
     public int Count => m_count;
 
+    /// <summary>
+    /// Pushes element to the stack in LIFO order.
+    /// </summary>
+    /// <param name="item"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Push(T item)
+    public void Push(T item)
     {
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot push a new item to the StackRs. The {m_buffer.Length} maximum reached.");
         }
 
         m_buffer[m_count] = item;
         m_count++;
-
-        return true;
     }
-
+    
+    /// <summary>
+    /// Pushes a range of elements to the stack in LIFO order.
+    /// </summary>
+    /// <param name="items"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool PushRange(IReadOnlyList<T> items)
+    public void PushRange(IReadOnlyList<T> items)
     {
-        if (m_count >= m_buffer.Length)
-        {
-            return false;
-        }
-
-        var valueCount = items.Count;
-        
-        if (valueCount + m_count > m_buffer.Length)
-        {
-            return false;
-        }
+        CheckCanPush(items.Count);
 
         foreach (var v in items)
         {
             m_buffer[m_count] = v;
             m_count++;
         }
-
-        return true;
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool PushRange(ref DataRs<T> value)
+
+    private void CheckCanPush(int count)
     {
         if (m_count >= m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot push a new item to the StackRs. The {m_buffer.Length} maximum reached.");
         }
 
-        var valueCount = value.m_count;
-        
-        if (valueCount + m_count > m_buffer.Length)
+
+        if (count + m_count > m_buffer.Length)
         {
-            return false;
+            throw new InsufficientMemoryException($"Cannot enqueue the {count} of new items to the StackRs. The {m_buffer.Length} is a maximum.");
         }
+    }
+
+    /// <summary>
+    /// Pushes a range of elements to the stack in LIFO order.
+    /// </summary>
+    /// <param name="items"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void PushRange(ref DataRs<T> items)
+    {
+        CheckCanPush(items.Count);
         
-        for (int i = 0; i < value.m_count; i++)
+        for (int i = 0; i < items.m_count; i++)
         {
-            m_buffer[m_count] = value.m_buffer[i];
+            m_buffer[m_count] = items.m_buffer[i];
             m_count++;
         }
-
-        return true;
     }
     
+    /// <summary>
+    /// Pushes a range of elements to the stack in LIFO order.
+    /// </summary>
+    /// <param name="items"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool PushRange(ref SetRs<T> value)
+    public void PushRange(ref SetRs<T> items)
     {
-        if (m_count >= m_buffer.Length)
-        {
-            return false;
-        }
-
-        var valueCount = value.m_count;
-        
-        if (valueCount + m_count > m_buffer.Length)
-        {
-            return false;
-        }
+        CheckCanPush(items.Count);
         
         var index = 0;
 
-        while (index < value.m_count)
+        while (index < items.m_count)
         {
-            if (value.m_entries[index].HashCode >= 0)
+            if (items.m_entries[index].HashCode >= 0)
             {
-                m_buffer[m_count] = value.m_entries[index].Key;
+                m_buffer[m_count] = items.m_entries[index].Key;
                 m_count++;
             }
 
             index++;
         }
-
-        return true;
     }
 
+    /// <summary>
+    /// Clears the stack.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear() => m_count = 0;
 }
