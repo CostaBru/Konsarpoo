@@ -8,43 +8,68 @@ using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
+/// <summary>
+/// Represents a distinct set of values. 
+/// </summary>
+/// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
-public ref struct SetRs<TKey>
+public ref struct SetRs<T>
 {
     internal readonly Span<int> m_buckets;
-    internal readonly Span<KeyEntryStruct<TKey>> m_entries;
+    internal readonly Span<KeyEntryStruct<T>> m_entries;
 
     internal int m_count;
     private int m_freeCount;
     private int m_freeList;
 
-    private IEqualityComparer<TKey> m_comparer;
+    private IEqualityComparer<T> m_comparer;
 
-    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries, IEqualityComparer<TKey> comparer)
+    /// <summary>
+    /// Constructor takes stack allocated storage and equalityComparer.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    /// <param name="comparer"></param>
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<T>> entries, IEqualityComparer<T> comparer)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = comparer;
     }
 
-    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<TKey>> entries)
+    /// <summary>
+    /// Constructor takes stack allocated storage.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<T>> entries)
     {
         m_buckets = buckets;
         m_entries = entries;
-        m_comparer = EqualityComparer<TKey>.Default;
+        m_comparer = EqualityComparer<T>.Default;
     }
     
+    /// <summary>
+    /// Allows enumerate set.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public KeyEnumerator<TKey> GetEnumerator() => new(m_buckets, m_entries,  m_count);
+    public SetRsEnumerator GetEnumerator() => new(m_buckets, m_entries,  m_count);
+    
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
+    public RsEnumerator<T, T> GetRsEnumerator() => new RsEnumerator<T, T>(new SetRsEnumerator(m_buckets, m_entries,  m_count));
    
-    public ref struct KeyEnumerator<T>
+    public ref struct SetRsEnumerator
     {
         internal readonly Span<int> m_buckets;
-        internal readonly Span<KeyEntryStruct<TKey>> m_entries;
+        internal readonly Span<KeyEntryStruct<T>> m_entries;
         private readonly int m_count;
         private int m_index = -1;
 
-        public KeyEnumerator(Span<int> buckets, Span<KeyEntryStruct<TKey>> entries, int count)
+        public SetRsEnumerator(Span<int> buckets, Span<KeyEntryStruct<T>> entries, int count)
         {
             m_buckets = buckets;
             m_entries = entries;
@@ -71,24 +96,37 @@ public ref struct SetRs<TKey>
             return false;
         }
 
-        public ref TKey Current
+        public ref T Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_entries[m_index].Key;
         }
+
+        public int Count => m_count;
     }
 
+    /// <summary>
+    /// Gets the number of values contained in the SetRs&lt;TKey,TValue&gt;.
+    /// </summary>
     public int Count => m_count;
+    
+    /// <summary>
+    /// Array API. Gets the number of values contained in the Set&lt;T&gt;.
+    /// </summary>
     public double Length => m_count;
 
+    /// <summary>
+    /// Copies set to a new array.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TKey[] ToArray()
+    public T[] ToArray()
     {
         var index = 0;
 
-        var dataAllocatorSetup = ArrayPoolAllocatorSetup.GetDataAllocatorSetup<TKey>();
+        var dataAllocatorSetup = ArrayPoolAllocatorSetup.GetDataAllocatorSetup<T>();
         
-        var kv = new Data<TKey>(dataAllocatorSetup);
+        var kv = new Data<T>(dataAllocatorSetup);
 
         while (index < m_count)
         {
@@ -107,56 +145,83 @@ public ref struct SetRs<TKey>
         return array;
     }
 
+    /// <summary>
+    /// Map api: Checks whether given key exist in the set.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool ContainsKey(TKey key)
+    public bool ContainsKey(T key)
     {
         return Contains(key);
     }
 
+    /// <summary>
+    /// Set Map API &lt;TKey, bool&gt; Attempts to get the value associated with the specified key.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <returns>True in case of success.</returns>
+    /// <exception cref="ArgumentNullException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetValue(TKey key, out TKey value)
+    public bool TryGetValue(T key, out bool value)
     {
         if (Contains(key))
         {
-            value = key;
+            value = true;
 
             return true;
         }
 
-        value = default;
+        value = false;
 
         return false;
     }
     
+    /// <summary>Adds the specified element to a set.</summary>
+    /// <param name="value">The element to add to the set.</param>
+    /// <returns>
+    /// <see langword="true" /> if the element is added to the set object; <see langword="false" /> if the element is already present.</returns>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Add(TKey key)
+    public bool Add(T key)
     {
-        var add = true;
         return Insert(ref key);
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref SetRs<TKey> value)
+   
+    private void CheckCanAdd(int valueCount)
     {
         if (m_count >= m_buckets.Length)
         {
-            return false;
+            throw new InsufficientMemoryException(
+                $"Cannot add the {valueCount} of new items to the StackRs container. The {m_buckets.Length} maximum reached.");
         }
 
-        var valueCount = value.m_count;
-        
         if (valueCount + m_count > m_buckets.Length)
         {
-            return false;
+            throw new InsufficientMemoryException(
+                $"Cannot add the {valueCount} of new items to the StackRs container. The {m_buckets.Length} is a maximum.");
         }
+    }
+    
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool AddRange(ref SetRs<T> list)
+    {
+        CheckCanAdd(list.Count);
         
         var index = 0;
 
-        while (index < value.m_count)
+        while (index < list.m_count)
         {
-            if (value.m_entries[index].HashCode >= 0)
+            if (list.m_entries[index].HashCode >= 0)
             {
-               Insert(ref value.m_entries[index].Key);
+               Insert(ref list.m_entries[index].Key);
             }
 
             index++;
@@ -165,45 +230,42 @@ public ref struct SetRs<TKey>
         return true;
     }
     
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(ref DataRs<TKey> value)
+    public bool AddRange(ref DataRs<T> list)
     {
-        if (m_count >= m_buckets.Length)
-        {
-            return false;
-        }
-
-        var valueCount = value.m_count;
+        CheckCanAdd(list.Count);
         
-        if (valueCount + m_count > m_buckets.Length)
+        for (int i = 0; i < list.m_count; i++)
         {
-            return false;
-        }
-        
-        for (int i = 0; i < value.m_count; i++)
-        {
-            Insert(ref value.m_buffer[i]);
+            Insert(ref list.m_buffer[i]);
         }
 
         return true;
     }
     
+    /// <summary>
+    /// Adds a bunch of new items to the DataRs.
+    /// </summary>
+    /// <param name="list"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool AddRange(IReadOnlyList<TKey> value)
+    public bool AddRange([NotNull] IReadOnlyList<T> list)
     {
-        if (m_count >= m_buckets.Length)
+        if (list == null)
         {
-            return false;
+            throw new ArgumentNullException(nameof(list));
         }
-
-        var valueCount = value.Count;
         
-        if (valueCount + m_count > m_buckets.Length)
-        {
-            return false;
-        }
+        CheckCanAdd(list.Count);
 
-        foreach (var v in value)
+        foreach (var v in list)
         {
             var tKey = v;
             Insert(ref tKey);
@@ -212,34 +274,43 @@ public ref struct SetRs<TKey>
         return true;
     }
 
-
+    /// <summary>
+    /// Inefficient way to get key by its index.
+    /// </summary>
+    /// <param name="index"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TKey KeyAt(int keyIndex)
+    public T KeyAt(int index)
     {
-        var index = 0;
+        var i = 0;
 
         int ki = 0;
 
-        while (index < m_count)
+        while (i < m_count)
         {
-            if (m_entries[index].HashCode >= 0)
+            if (m_entries[i].HashCode >= 0)
             {
-                if (ki == keyIndex)
+                if (ki == index)
                 {
-                    return m_entries[index].Key;
+                    return m_entries[i].Key;
                 }
 
                 ki++;
             }
 
-            index++;
+            i++;
         }
 
         throw new IndexOutOfRangeException();
     }
     
+    /// <summary>
+    /// Calls the given onValue action for each item in list.
+    /// </summary>
+    /// <param name="onValue"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateKeys(Action<TKey> select) 
+    public void ForEach(Action<T> onValue) 
     {
         var index = 0;
 
@@ -247,15 +318,21 @@ public ref struct SetRs<TKey>
         {
             if (m_entries[index].HashCode >= 0)
             {
-                select(m_entries[index].Key);
+                onValue(m_entries[index].Key);
             }
 
             index++;
         }
     }
 
+    /// <summary>
+    /// Calls given onValue action for each value in list and pass the given target to it. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateKeys<W>(W pass, Action<W, TKey> select) 
+    public void Aggregate<W>(W target, Action<W, T> onValue) 
     {
         var index = 0;
 
@@ -263,15 +340,19 @@ public ref struct SetRs<TKey>
         {
             if (m_entries[index].HashCode >= 0)
             {
-                select(pass, m_entries[index].Key);
+                onValue(target, m_entries[index].Key);
             }
 
             index++;
         }
     }
     
+    /// <summary>
+    /// Returns first or default item in list.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TKey? FirstOrDefault()
+    public T FirstOrDefault(T defaultVal = default)
     {
         if (m_count > 0)
         {
@@ -287,11 +368,15 @@ public ref struct SetRs<TKey>
             }
         }
 
-        return default;
+        return defaultVal;
     }
 
+    /// <summary>
+    /// Returns last or default item in list.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TKey? LastOrDefault()
+    public T LastOrDefault(T defaultVal = default)
     {
         if (m_count > 0)
         {
@@ -307,11 +392,17 @@ public ref struct SetRs<TKey>
             }
         }
 
-        return default;
+        return defaultVal;
     }
     
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="T"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate(Func<TKey, bool> where, Action<TKey> select)
+    public void WhereForEach(Func<T, bool> where, Action<T> onValue)
     {
         var index = 0;
         while (index < m_count)
@@ -320,7 +411,7 @@ public ref struct SetRs<TKey>
             {
                 if (where(m_entries[index].Key))
                 {
-                    select(m_entries[index].Key);
+                    onValue(m_entries[index].Key);
                 }
             }
 
@@ -328,17 +419,24 @@ public ref struct SetRs<TKey>
         }
     }
     
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="where"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate<W>(W pass, Func<W, TKey, bool> where, Action<W, TKey> select)
+    public void WhereAggregate<W>(W target, Func<W, T, bool> where, Action<W, T> onValue)
     {
         var index = 0;
         while (index < m_count)
         {
             if (m_entries[index].HashCode >= 0)
             {
-                if (where(pass, m_entries[index].Key))
+                if (where(target, m_entries[index].Key))
                 {
-                    select(pass, m_entries[index].Key);
+                    onValue(target, m_entries[index].Key);
                 }
             }
 
@@ -346,7 +444,13 @@ public ref struct SetRs<TKey>
         }
     }
  
-    public TKey this[TKey key]
+    /// <summary>
+    /// Set Map API &lt;TKey, bool&gt;. Gets or sets value in set.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <exception cref="KeyNotFoundException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    public T this[T key]
     {
         get
         {
@@ -357,24 +461,32 @@ public ref struct SetRs<TKey>
                 
             throw new KeyNotFoundException($"Key '{key}' was not found.");
         }
+        set
+        {
+            Add(key);
+        }
     }
     
+    /// <summary>
+    /// Determines whether the SetRs&lt;T&gt; contains the item.
+    /// </summary>
+    /// <param name="item"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Contains([NotNull] TKey key)
+    public bool Contains([NotNull] T item)
     {
-        if (key == null)
+        if (item == null)
         {
-            throw new ArgumentNullException(nameof(key));
+            throw new ArgumentNullException(nameof(item));
         }
 
         if (m_count > 0)
         {
-            var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+            var hashCode = m_comparer.GetHashCode(item) & 0x7fffffff;
             for (var i = m_buckets[hashCode % m_buckets.Length] - 1; i >= 0;)
             {
                 ref var kv = ref m_entries[i];
                 
-                if ((kv.HashCode == hashCode) && m_comparer.Equals(kv.Key, key))
+                if ((kv.HashCode == hashCode) && m_comparer.Equals(kv.Key, item))
                 {
                     return true;
                 }
@@ -387,13 +499,8 @@ public ref struct SetRs<TKey>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool Insert([NotNull] ref TKey key)
+    private bool Insert([NotNull] ref T key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
         int freeList;
 
         int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
@@ -407,7 +514,7 @@ public ref struct SetRs<TKey>
             ref var kv = ref m_entries[i];
             if (hashCode == kv.HashCode && m_comparer.Equals(kv.Key, key))
             {
-                return true;
+                return false;
             }
 
             i = kv.Next;
@@ -423,7 +530,7 @@ public ref struct SetRs<TKey>
         {
             if (m_count == m_entries.Length)
             {
-                return false;
+                throw new InsufficientMemoryException($"Cannot add a new item to the SetRs container. The {m_entries.Length} maximum reached.");
             }
 
             freeList = m_count;
@@ -441,8 +548,13 @@ public ref struct SetRs<TKey>
         return true;
     }
     
+    /// <summary>
+    /// Removes the item from the Set&lt;T&gt;.
+    /// </summary>
+    /// <param name="item"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Remove(TKey key)
+    public bool Remove(T key)
     {
         if (m_count > 0)
         {
@@ -469,7 +581,7 @@ public ref struct SetRs<TKey>
                         entries[last].Next = keyEntry.Next;
                     }
 
-                    entries[i] = new KeyEntryStruct<TKey>(-1, m_freeList, default);
+                    entries[i] = new KeyEntryStruct<T>(-1, m_freeList, default);
                     m_freeList = i;
                     m_freeCount++;
 
@@ -485,6 +597,7 @@ public ref struct SetRs<TKey>
         return false;
     }
 
+    /// <summary>Removes all elements from a SetRs container.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {
@@ -496,10 +609,15 @@ public ref struct SetRs<TKey>
         m_freeCount = 0;
     }
 
+    /// <summary>
+    /// Copies all contents to a new Set container.
+    /// </summary>
+    /// <param name="allocatorSetup"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Set<TKey> ToSet(ISetAllocatorSetup<TKey> allocatorSetup = null)
+    public Set<T> ToSet(ISetAllocatorSetup<T> allocatorSetup = null)
     {
-        var set = new Set<TKey>(allocatorSetup, m_comparer);
+        var set = new Set<T>(allocatorSetup, m_comparer);
 
         var index = 0;
         while (index < m_count)
@@ -515,10 +633,15 @@ public ref struct SetRs<TKey>
         return set;
     }
     
+    /// <summary>
+    /// Copies all contents to a new Data container.
+    /// </summary>
+    /// <param name="allocatorSetup"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Data<TKey> ToData(IDataAllocatorSetup<TKey> allocatorSetup = null)
+    public Data<T> ToData(IDataAllocatorSetup<T> allocatorSetup = null)
     {
-        var data = new Data<TKey>(allocatorSetup);
+        var data = new Data<T>(allocatorSetup);
 
         var index = 0;
         while (index < m_count)

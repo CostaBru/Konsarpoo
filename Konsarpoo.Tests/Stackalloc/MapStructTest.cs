@@ -38,8 +38,8 @@ public class MapStructTest
         var keys = new Data<int>();
         var values = new Data<int>();
 
-        map.AggregateKeys((k) => { keys.Add(k);});
-        map.AggregateValues((v) => { values.Add(v);});
+        map.ForEachKey((k) => { keys.Add(k);});
+        map.ForEachValue((v) => { values.Add(v);});
 
         Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
         Assert.AreEqual(keys, values);
@@ -59,7 +59,7 @@ public class MapStructTest
         keys.Clear();
         values.Clear();
         
-        map.WhereAggregate((k, v) => k == v, (k, v) =>
+        map.WhereForEach((k, v) => k == v, (k, v) =>
         {
             keys.Add(k);
             values.Add(v);
@@ -209,7 +209,7 @@ public class MapStructTest
 
         for (int i = 0; i < count; i++)
         {
-            map.TryUpdate(i, i);
+            map[i] = i;
             dict[i] = i;
 
             if (i < 1000)
@@ -313,7 +313,7 @@ public class MapStructTest
         {
         }
 
-        map.TryUpdate(keyTest, TimeSpan.FromMilliseconds(999));
+        map[keyTest] = TimeSpan.FromMilliseconds(999);
 
         Assert.True(map.TryGetValue(keyTest, out val1));
         Assert.AreEqual(TimeSpan.FromMilliseconds(999), val1);
@@ -409,21 +409,49 @@ public class MapStructTest
         var dict = new MapRs<int, int>(ref buckets, ref entriesHash);
         
         Assert.False(dict.GetEnumerator().MoveNext());
+        Assert.False(dict.GetRsEnumerator().MoveNext());
+        Assert.AreEqual(0, dict.GetRsEnumerator().Count);
         
-        dict.TryAdd(1, 10);
-        dict.TryAdd(2, 20);
-        dict.TryAdd(3, 30);
+        dict.Add(1, 10);
+        dict.Add(2, 20);
+        dict.Add(3, 30);
 
         var map = dict.ToMap();
 
         var le = map.GetEnumerator();
         var de = dict.GetEnumerator();
+        var dre = dict.GetRsEnumerator();
+        Assert.AreEqual(3, dre.Count);
 
         while (le.MoveNext())
         {
             Assert.True(de.MoveNext());
+            Assert.True(dre.MoveNext());
             
             Assert.AreEqual(le.Current, de.Current);
+            Assert.AreEqual(le.Current.Key, dre.Current);
+        }
+    }
+
+    [Test]
+    public void TestExc()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+        var map = new MapRs<int, int>(ref buckets, ref entriesHash);
+
+        foreach (var i in Enumerable.Range(0, N))
+        {
+            map[i] = i;
+        }
+
+        try
+        {
+            map[-1] = -1;
+            Assert.Fail();
+        }
+        catch (InsufficientMemoryException e)
+        {
         }
     }
 }

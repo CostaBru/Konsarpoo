@@ -52,17 +52,24 @@ public class DataStructTest
         var dataList = new DataRs<int>(ref initStore);
         
         Assert.False(dataList.GetEnumerator().MoveNext());
+        Assert.False(dataList.GetRsEnumerator().MoveNext());
+        Assert.AreEqual(0, dataList.GetRsEnumerator().Count);
         
         dataList.AddRange(list);
 
         var le = list.GetEnumerator();
         var de = dataList.GetEnumerator();
+        var dre = dataList.GetRsEnumerator();
+        
+        Assert.AreEqual(list.Count, dre.Count);
 
         while (le.MoveNext())
         {
             Assert.True(de.MoveNext());
+            Assert.True(dre.MoveNext());
             
             Assert.AreEqual(le.Current, de.Current);
+            Assert.AreEqual(le.Current, dre.Current);
         }
     }
 

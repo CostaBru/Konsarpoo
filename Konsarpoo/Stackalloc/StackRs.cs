@@ -27,23 +27,32 @@ public ref struct StackRs<T>
     /// </summary>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StEnumerator<T> GetEnumerator() => new StEnumerator<T>(m_buffer, m_count);
+    public StackRsEnumerator GetEnumerator() => new (m_buffer, m_count);
+    
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
+    public RsEnumerator<T, T> GetRsEnumerator() => new (new StackRsEnumerator(m_buffer, m_count));
    
     /// <summary>
     /// StackRs enumerator.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public ref struct StEnumerator<T>
+    public ref struct StackRsEnumerator
     {
         private readonly Span<T> m_span;
+        private readonly int m_count;
+
         private int m_index;
 
      
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal StEnumerator(Span<T> span, int count)
+        internal StackRsEnumerator(Span<T> span, int count)
         {
             m_span = span;
             m_index = count;
+            m_count = count;
         }
 
         /// <summary>Advances the enumerator to the next element of the span.</summary>
@@ -66,6 +75,8 @@ public ref struct StackRs<T>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_span[m_index];
         }
+
+        public int Count => m_count;
     }
 
     /// <summary>

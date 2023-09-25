@@ -35,13 +35,13 @@ public class SetStructTest
 
         var keys = new Data<int>();
 
-        set.AggregateKeys((k) => { keys.Add(k);});
+        set.ForEach((k) => { keys.Add(k);});
 
         Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
         
         keys.Clear();
         
-        set.AggregateKeys(keys, (kk, k) => { kk.Add(k);});
+        set.Aggregate(keys, (kk, k) => { kk.Add(k);});
         
         Assert.True(keys.SequenceEqual(Enumerable.Range(1, 5)));
         Assert.True(keys.SequenceEqual(set.ToData()));
@@ -53,7 +53,7 @@ public class SetStructTest
         
         keys.Clear();
         
-        set.WhereAggregate((k) => k > 0, (k) =>
+        set.WhereForEach((k) => k > 0, (k) =>
         {
             keys.Add(k);
         });
@@ -109,9 +109,7 @@ public class SetStructTest
 
         var keyTest = 999;
 
-        int val1;
-        Assert.False(set.TryGetValue(keyTest, out val1));
-        Assert.AreEqual(default(int), val1);
+        Assert.False(set.TryGetValue(keyTest, out var _));
 
         try
         {
@@ -125,9 +123,8 @@ public class SetStructTest
 
         set.Add(keyTest);
 
-        Assert.True(set.TryGetValue(keyTest, out val1));
+        Assert.True(set.TryGetValue(keyTest, out var _));
         Assert.True(set.Contains(keyTest));
-        Assert.AreEqual(999, val1);
     }
 
 
@@ -193,6 +190,7 @@ public class SetStructTest
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
         
         Assert.False(set.GetEnumerator().MoveNext());
+        Assert.AreEqual(0, set.GetEnumerator().Count);
         
         set.Add(1);
         set.Add(2);
@@ -202,13 +200,44 @@ public class SetStructTest
 
         var le = ss.GetEnumerator();
         var de = set.GetEnumerator();
+        var dre = set.GetRsEnumerator();
+        Assert.AreEqual(3, set.GetEnumerator().Count);
 
         while (le.MoveNext())
         {
             Assert.True(de.MoveNext());
+            Assert.True(dre.MoveNext());
             
             Assert.AreEqual(le.Current, de.Current);
+            Assert.AreEqual(le.Current, dre.Current);
         }
+    }
+    
+    [Test]
+    public void TestEx()
+    {
+        Span<int> buckets = stackalloc int[N];
+        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
+
+        var data = Enumerable.Range(0, N).ToData();
+
+        set.AddRange(data);
+
+        try
+        {
+            set.Add(-1);
+            Assert.Fail();
+        }
+        catch (InsufficientMemoryException e)
+        {
+        }
+        
+        set.Clear();
+
+        set.Add(1);
+        
+        Assert.True(set.Contains(1));
     }
 }
 

@@ -76,6 +76,8 @@ public class QuStructTest
         var queueRs = new QueueRs<int>(ref initStore);
         
         Assert.False(queueRs.GetEnumerator().MoveNext());
+        Assert.False(queueRs.GetRsEnumerator().MoveNext());
+        Assert.AreEqual(0, queueRs.GetRsEnumerator().Count);
         
         queueRs.EnqueueRange(list);
 
@@ -90,12 +92,16 @@ public class QuStructTest
 
         var le = list.GetEnumerator();
         var de = queueRs.GetEnumerator();
-
+        var dre = queueRs.GetRsEnumerator();
+        Assert.AreEqual(list.Count, dre.Count);
+        
         while (le.MoveNext())
         {
             Assert.True(de.MoveNext());
+            Assert.True(dre.MoveNext());
             
             Assert.AreEqual(le.Current, de.Current);
+            Assert.AreEqual(le.Current, dre.Current);
         }
 
         queueRs.Dequeue();

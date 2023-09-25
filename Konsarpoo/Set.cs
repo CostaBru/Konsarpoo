@@ -212,12 +212,12 @@ namespace Konsarpoo.Collections
         public IEqualityComparer<T> Comparer => m_comparer;
 
         /// <summary>
-        /// Gets the number of values contained in the Set&lt;TKey,TValue&gt;.
+        /// Gets the number of values contained in the Set&lt;T&gt;.
         /// </summary>
         public int Count => m_count;
         
         /// <summary>
-        /// Array API. Gets the number of values contained in the Set&lt;TKey,TValue&gt;.
+        /// Array API. Gets the number of values contained in the Set&lt;T&gt;.
         /// </summary>
         public int Length => m_count;
         
@@ -260,7 +260,7 @@ namespace Konsarpoo.Collections
         /// <summary>Adds the specified element to a set.</summary>
         /// <param name="value">The element to add to the set.</param>
         /// <returns>
-        /// <see langword="true" /> if the element is added to the <see cref="T:System.Collections.Generic.HashSet`1" /> object; <see langword="false" /> if the element is already present.</returns>
+        /// <see langword="true" /> if the element is added to the set object; <see langword="false" /> if the element is already present.</returns>
         public bool Add(T value)
         {
             if (m_buckets.m_count == 0)

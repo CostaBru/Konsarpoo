@@ -29,7 +29,13 @@ public ref struct QueueRs<T>
     /// </summary>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public QuRsEnumerator GetEnumerator() => new QuRsEnumerator(m_buffer, m_count, m_startOffset);
+    public QuRsEnumerator GetEnumerator() => new(m_buffer, m_count, m_startOffset);
+    
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
+    public RsEnumerator<T, T> GetRsEnumerator() => new (new QuRsEnumerator(m_buffer, m_count, m_startOffset));
     
     /// <summary>
     ///  Queue enumerator.
@@ -38,6 +44,7 @@ public ref struct QueueRs<T>
     {
         private readonly Span<T> m_span;
         private readonly int m_count;
+        private readonly int m_startOffset;
         private int m_index;
 
      
@@ -47,6 +54,7 @@ public ref struct QueueRs<T>
             m_span = span;
             m_count = count;
             m_index = offset - 1;
+            m_startOffset = offset;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -67,6 +75,8 @@ public ref struct QueueRs<T>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_span[m_index];
         }
+
+        public int Count => m_count - m_startOffset;
     }
    
     internal void ResetTail()

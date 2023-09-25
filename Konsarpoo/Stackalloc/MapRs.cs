@@ -8,6 +8,13 @@ using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
+/// <summary>
+/// The MapRs&lt;TKey,TValue&gt; generic class provides a mapping from a set of keys to a set of values.
+/// Each addition to the Map consists of a value and its associated key.
+/// Retrieving a value by using its key is very fast, close to O(1), because the MapRs&lt;TKey,TValue&gt; class is implemented as a hash table with allocation on stack.
+/// </summary>
+/// <typeparam name="TKey"></typeparam>
+/// <typeparam name="TValue"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct MapRs<TKey, TValue>
 {
@@ -28,6 +35,12 @@ public ref struct MapRs<TKey, TValue>
         public TValue Value;
     }
 
+    /// <summary>
+    /// Constructor that takes stack allocated storage and equality comparer.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    /// <param name="comparer"></param>
     public MapRs(ref Span<int> buckets, ref Span<Entry> entries, IEqualityComparer<TKey> comparer)
     {
         m_buckets = buckets;
@@ -35,6 +48,12 @@ public ref struct MapRs<TKey, TValue>
         m_comparer = comparer;
     }
 
+    /// <summary>
+    /// Constructor that takes stack allocated storage.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    /// <param name="comparer"></param>
     public MapRs(ref Span<int> buckets, ref Span<Entry> entries)
     {
         m_buckets = buckets;
@@ -42,10 +61,20 @@ public ref struct MapRs<TKey, TValue>
         m_comparer = EqualityComparer<TKey>.Default;
     }
     
+    /// <summary>
+    /// Allows to enumerate key values.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public KeyEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => new(m_buckets, m_entries,  m_count);
+    public MapRsKeyValueEnumerator GetEnumerator() => new MapRsKeyValueEnumerator(m_buckets, m_entries,  m_count);
    
-    public ref struct KeyEnumerator<T>
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
+    public RsEnumerator<TKey, TValue> GetRsEnumerator() => new RsEnumerator<TKey, TValue>(new MapRsKeyEnumerator<TKey, TValue>(m_entries, m_count));
+   
+    public ref struct MapRsKeyValueEnumerator
     {
         private readonly Span<int> m_buckets;
         private readonly Span<Entry> m_entries;
@@ -53,7 +82,7 @@ public ref struct MapRs<TKey, TValue>
         private readonly int m_count;
         private int m_index = -1;
 
-        public KeyEnumerator(Span<int> buckets, Span<Entry> entries, int count)
+        public MapRsKeyValueEnumerator(Span<int> buckets, Span<Entry> entries, int count)
         {
             m_buckets = buckets;
             m_entries = entries;
@@ -98,10 +127,22 @@ public ref struct MapRs<TKey, TValue>
             get => ref m_entries[m_index].Value;
         }
     }
+    
+   
 
+    /// <summary>
+    /// Gets the number of key/value pairs contained in the Map&lt;TKey,TValue&gt;.
+    /// </summary>
     public int Count => m_count;
+    
+    /// <summary>
+    /// Array API. Gets the number of key/value pairs contained in the Map&lt;TKey,TValue&gt;.
+    /// </summary>
     public double Length => m_count;
     
+    /// <summary> Returns keys in Data container. </summary>
+    /// <param name="allocatorSetup"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Data<TKey> GetKeys(IDataAllocatorSetup<TKey> allocatorSetup = null) 
     {
@@ -122,6 +163,11 @@ public ref struct MapRs<TKey, TValue>
         return keys;
     }
     
+    /// <summary>
+    /// Returns values in data container.
+    /// </summary>
+    /// <param name="allocatorSetup"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Data<TValue> GetValues(IDataAllocatorSetup<TValue> allocatorSetup = null) 
     {
@@ -142,6 +188,10 @@ public ref struct MapRs<TKey, TValue>
         return keys;
     }
 
+    /// <summary>
+    /// Copies key value pairs to a new array.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public KeyValuePair<TKey, TValue>[] ToArray()
     {
@@ -167,10 +217,21 @@ public ref struct MapRs<TKey, TValue>
         
         return keyValuePairs;
     }
-
+    
+    /// <summary>
+    /// Gets the keys in the MapRs&lt;TKey,TValue&gt;.
+    /// </summary>
     public Data<TKey> Keys => GetKeys();
+    
+    /// <summary>
+    /// Gets the values in the MapRs&lt;TKey,TValue&gt;. 
+    /// </summary>
     public Data<TValue> Values => GetValues();
 
+    /// <summary>
+    /// Determines whether the Map&lt;TKey,TValue&gt; contains the specified key.
+    /// </summary>
+    /// <param name="key"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsKey(TKey key)
     {
@@ -178,7 +239,13 @@ public ref struct MapRs<TKey, TValue>
 
         return success;
     }
-
+    
+    /// <summary>
+    /// Attempts to get the value associated with the specified key.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <returns>True in case of success.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetValue(TKey key, out TValue value)
     {
@@ -187,22 +254,26 @@ public ref struct MapRs<TKey, TValue>
         return success;
     }
     
+    /// <summary>
+    /// Adds the specified key and value to the map.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <exception cref="InsufficientMemoryException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Add(TKey key, TValue value)
+    public void Add(TKey key, TValue value)
     {
         var add = true;
-        return Insert(ref key, ref value, ref add);
+        Insert(ref key, ref value, ref add);
     }
-    
+
+    /// <summary>
+    /// Determines whether the Map&lt;TKey,TValue&gt; contains the specified value.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="comparer"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryUpdate(TKey key, TValue value)
-    {
-        var set = false;
-        return Insert(ref key, ref value, ref set);
-    }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool? ContainsValue(TValue val, IEqualityComparer<TValue> comparer = null)
+    public bool? ContainsValue(TValue value, IEqualityComparer<TValue> comparer = null)
     {
         var cmp = comparer ?? EqualityComparer<TValue>.Default;
 
@@ -212,7 +283,7 @@ public ref struct MapRs<TKey, TValue>
         {
             if (m_entries[index].Key.HashCode >= 0)
             {
-                if (cmp.Equals(val, m_entries[index].Value))
+                if (cmp.Equals(value, m_entries[index].Value))
                 {
                     return true;
                 }
@@ -224,33 +295,39 @@ public ref struct MapRs<TKey, TValue>
         return false;
     }
   
+    /// <summary>
+    /// Inefficient way to get key by its index.
+    /// </summary>
+    /// <param name="index"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TKey KeyAt(int keyIndex)
+    public TKey KeyAt(int index)
     {
-        var index = 0;
+        var i = 0;
 
         int ki = 0;
 
-        while (index < m_count)
+        while (i < m_count)
         {
-            if (m_entries[index].Key.HashCode >= 0)
+            if (m_entries[i].Key.HashCode >= 0)
             {
-                if (ki == keyIndex)
+                if (ki == index)
                 {
-                    return m_entries[index].Key.Key;
+                    return m_entries[i].Key.Key;
                 }
 
                 ki++;
             }
 
-            index++;
+            i++;
         }
 
         throw new IndexOutOfRangeException();
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateKeys(Action<TKey> select) 
+    public void ForEachKey(Action<TKey> select) 
     {
         var index = 0;
 
@@ -266,7 +343,7 @@ public ref struct MapRs<TKey, TValue>
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateValues(Action<TValue> select) 
+    public void ForEachValue(Action<TValue> select) 
     {
         var index = 0;
 
@@ -281,8 +358,14 @@ public ref struct MapRs<TKey, TValue>
         }
     }
     
+    /// <summary>
+    /// Calls given onValue action for each value in map and pass the given target to it. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AggregateValues<W>(W pass, Action<W, TValue> select) 
+    public void AggregateValues<W>(W target, Action<W, TValue> onValue) 
     {
         var index = 0;
 
@@ -290,14 +373,19 @@ public ref struct MapRs<TKey, TValue>
         {
             if (m_entries[index].Key.HashCode >= 0)
             {
-                select(pass, m_entries[index].Value);
+                onValue(target, m_entries[index].Value);
             }
 
             index++;
         }
     }
 
-    
+    /// <summary>
+    /// Calls given onValue action for each key in map and pass the given target to it. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="onValue"></param>
+    /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AggregateKeys<W>(W pass, Action<W, TKey> select) 
     {
@@ -314,8 +402,12 @@ public ref struct MapRs<TKey, TValue>
         }
     }
     
+    /// <summary>
+    /// Returns first or default key value pair in map.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public KeyValuePair<TKey, TValue>? FirstOrDefault()
+    public KeyValuePair<TKey, TValue> FirstOrDefault(KeyValuePair<TKey, TValue> def = default)
     {
         if (m_count > 0)
         {
@@ -331,11 +423,15 @@ public ref struct MapRs<TKey, TValue>
             }
         }
 
-        return default;
+        return def;
     }
 
+    /// <summary>
+    /// Returns last or default key value pair in map.
+    /// </summary>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public KeyValuePair<TKey, TValue>? LastOrDefault()
+    public KeyValuePair<TKey, TValue>? LastOrDefault(KeyValuePair<TKey, TValue> def = default)
     {
         if (m_count > 0)
         {
@@ -351,11 +447,16 @@ public ref struct MapRs<TKey, TValue>
             }
         }
 
-        return default;
+        return def;
     }
     
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="where"></param>
+    /// <param name="onValue"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate(Func<TKey, TValue, bool> where, Action<TKey, TValue> select)
+    public void WhereForEach(Func<TKey, TValue, bool> where, Action<TKey, TValue> onValue)
     {
         var index = 0;
         while (index < m_count)
@@ -364,25 +465,31 @@ public ref struct MapRs<TKey, TValue>
             {
                 if (where(m_entries[index].Key.Key, m_entries[index].Value))
                 {
-                    select(m_entries[index].Key.Key, m_entries[index].Value);
+                    onValue(m_entries[index].Key.Key, m_entries[index].Value);
                 }
             }
 
             index++;
         }
     }
-    
+
+    /// <summary>
+    /// Calls given onValue action for each value that meets where condition in list. 
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="where"></param>
+    /// <param name="onKeyValue"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate<W>(W pass, Func<W, TKey, TValue, bool> where, Action<W, TKey, TValue> select)
+    public void WhereAggregate<W>(W target, Func<W, TKey, TValue, bool> where, Action<W, TKey, TValue> onKeyValue)
     {
         var index = 0;
         while (index < m_count)
         {
             if (m_entries[index].Key.HashCode >= 0)
             {
-                if (where(pass, m_entries[index].Key.Key, m_entries[index].Value))
+                if (where(target, m_entries[index].Key.Key, m_entries[index].Value))
                 {
-                    select(pass, m_entries[index].Key.Key, m_entries[index].Value);
+                    onKeyValue(target, m_entries[index].Key.Key, m_entries[index].Value);
                 }
             }
 
@@ -390,6 +497,13 @@ public ref struct MapRs<TKey, TValue>
         }
     }
  
+    /// <summary>
+    /// Gets or sets the value associated with the specified key.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <exception cref="KeyNotFoundException"></exception>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
     public TValue this[TKey key]
     {
         get
@@ -403,8 +517,20 @@ public ref struct MapRs<TKey, TValue>
                 
             throw new KeyNotFoundException($"Key '{key}' was not found.");
         }
+        set
+        {
+            var set = false;
+            Insert(ref key, ref value, ref set);
+        }
     }
 
+    /// <summary>
+    /// Returns value by its reference using key given.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="success"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ref TValue ValueByRef([NotNull] TKey key, out bool success)
     {
@@ -439,13 +565,8 @@ public ref struct MapRs<TKey, TValue>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool Insert([NotNull] ref TKey key, ref TValue value, ref bool add)
+    private void Insert([NotNull] ref TKey key, ref TValue value, ref bool add)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
         int freeList;
 
         int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
@@ -465,8 +586,6 @@ public ref struct MapRs<TKey, TValue>
                 }
 
                 kv.Value = value;
-
-                return true;
             }
 
             i = kv.Key.Next;
@@ -482,7 +601,7 @@ public ref struct MapRs<TKey, TValue>
         {
             if (m_count == m_entries.Length)
             {
-                return false;
+                throw new InsufficientMemoryException($"Cannot add a new item to the MapRs container. The {m_entries.Length} maximum reached.");
             }
 
             freeList = m_count;
@@ -497,10 +616,14 @@ public ref struct MapRs<TKey, TValue>
         kvf.Value = value;
 
         m_buckets[index] = freeList + 1;
-
-        return true;
     }
     
+    /// <summary>
+    /// Removes the value with the specified key from the Map&lt;TKey,TValue&gt;.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Remove(TKey key)
     {
@@ -545,6 +668,11 @@ public ref struct MapRs<TKey, TValue>
         return false;
     }
 
+    /// <summary>
+    /// Copies MapRs to Map container.
+    /// </summary>
+    /// <param name="allocatorSetup"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Map<TKey, TValue> ToMap(IMapAllocatorSetup<TKey, TValue> allocatorSetup = null)
     {
@@ -565,6 +693,12 @@ public ref struct MapRs<TKey, TValue>
         return map;
     }
 
+    /// <summary>
+    /// Checks whether given key value pair exists in map.
+    /// </summary>
+    /// <param name="keyValuePair"></param>
+    /// <param name="equalityComparer"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(KeyValuePair<TKey,TValue> keyValuePair, IEqualityComparer<TValue> equalityComparer = null)
     {
@@ -577,7 +711,10 @@ public ref struct MapRs<TKey, TValue>
 
        return false;
     }
-
+    
+    /// <summary>
+    /// Removes all contents.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {
@@ -589,18 +726,12 @@ public ref struct MapRs<TKey, TValue>
         m_freeCount = 0;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryAdd(TKey key, TValue val)
-    {
-        if (ContainsKey(key))
-        {
-            return false;
-        }
-        
-        var set = false;
-        return Insert(ref key, ref val, ref set);
-    }
-
+    /// <summary>
+    /// Gets the value for given key if exist or default value.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="defaultVal"></param>
+    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TValue GetOrDefault(TKey key, TValue defaultVal = default)
     {
@@ -610,5 +741,25 @@ public ref struct MapRs<TKey, TValue>
         }
 
         return defaultVal;
+    }
+    
+    /// <summary>
+    /// Attempts to add the specified key and value to the map.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="InsufficientMemoryException"></exception>
+    public bool TryAdd(TKey key, TValue value)
+    {
+        if (ContainsKey(key))
+        {
+            return false;
+        }
+
+        this[key] = value;
+
+        return true;
     }
 }

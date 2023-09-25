@@ -1,5 +1,9 @@
 ﻿namespace Konsarpoo.Collections.Stackalloc;
 
+/// <summary>
+/// Key entry for MapRs and SetRs.
+/// </summary>
+/// <typeparam name="TKey"></typeparam>
 public struct KeyEntryStruct<TKey>
 {
     public KeyEntryStruct(int hashCode, int next, TKey key)

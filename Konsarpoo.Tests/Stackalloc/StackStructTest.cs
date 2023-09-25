@@ -69,6 +69,8 @@ public class StackStructTest
         var stackRs = new StackRs<int>(ref initStore);
         
         Assert.False(stackRs.GetEnumerator().MoveNext());
+        Assert.False(stackRs.GetRsEnumerator().MoveNext());
+        Assert.AreEqual(0, stackRs.GetRsEnumerator().Count);
         
         stackRs.PushRange(list);
 
@@ -86,12 +88,16 @@ public class StackStructTest
         
         var le = list.GetEnumerator();
         var de = stackRs.GetEnumerator();
+        var dre = stackRs.GetRsEnumerator();
+        Assert.AreEqual(list.Count, dre.Count);
 
         while (le.MoveNext())
         {
             Assert.True(de.MoveNext());
+            Assert.True(dre.MoveNext());
             
             Assert.AreEqual(le.Current, de.Current);
+            Assert.AreEqual(le.Current, dre.Current);
         }
 
         stackRs.Pop();

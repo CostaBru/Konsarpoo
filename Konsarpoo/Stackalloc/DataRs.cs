@@ -36,11 +36,17 @@ public ref struct DataRs<T>
     /// </summary>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public RsEnumerator<T> GetEnumerator() => new RsEnumerator<T>(m_buffer, m_count);
+    public DataRsEnumerator GetEnumerator() => new (m_buffer, m_count);
+
+    /// <summary>
+    /// Allows to enumerate contents. 
+    /// </summary>
+    /// <returns></returns>
+    public RsEnumerator<T, T> GetRsEnumerator() => new (new DataRsEnumerator(m_buffer, m_count));
    
     /// <summary> DataRs Enumerator </summary>
     /// <typeparam name="T"></typeparam>
-    public ref struct RsEnumerator<T>
+    public ref struct DataRsEnumerator
     {
         private readonly Span<T> m_span;
         private readonly int m_count;
@@ -48,7 +54,7 @@ public ref struct DataRs<T>
 
      
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal RsEnumerator(Span<T> span, int count)
+        internal DataRsEnumerator(Span<T> span, int count)
         {
             m_span = span;
             m_count = count;
@@ -73,6 +79,8 @@ public ref struct DataRs<T>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref m_span[m_index];
         }
+
+        public int Count => m_count;
     }
     
     /// <summary>Gets  the element at the specified index.</summary>
@@ -773,14 +781,14 @@ public ref struct DataRs<T>
     /// </summary>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T FirstOrDefault() => m_count > 0 ? m_buffer[0] : default;
+    public T FirstOrDefault(T def = default) => m_count > 0 ? m_buffer[0] : def;
     
     /// <summary>
     /// Returns last or default item in list.
     /// </summary>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T LastOrDefault() => m_count > 0 ? m_buffer[m_count - 1] : default;
+    public T LastOrDefault(T def = default) => m_count > 0 ? m_buffer[m_count - 1] : def;
 
     /// <summary>
     /// Calls given onValue action for each value in list and pass the given target to it. 
@@ -838,21 +846,22 @@ public ref struct DataRs<T>
 
         return default;
     }
-    
+
     /// <summary>
     /// Calls given onValue action for each value that meets where condition in list. 
     /// </summary>
     /// <param name="target"></param>
+    /// <param name="where"></param>
     /// <param name="onValue"></param>
     /// <typeparam name="W"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereAggregate<W>(W target, Func<W, int, T, bool> where, Action<W, int, T> select)
+    public void WhereAggregate<W>(W target, Func<W, int, T, bool> where, Action<W, int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
             if (where(target, i, m_buffer[i]))
             {
-                select(target, i, m_buffer[i]);
+                onValue(target, i, m_buffer[i]);
             }
         }
     }
@@ -860,17 +869,17 @@ public ref struct DataRs<T>
     /// <summary>
     /// Calls given onValue action for each value that meets where condition in list. 
     /// </summary>
-    /// <param name="target"></param>
+    /// <param name="where"></param>
     /// <param name="onValue"></param>
-    /// <typeparam name="W"></typeparam>
+    /// <typeparam name="T"></typeparam>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WhereForEach(Func<int, T, bool> where, Action<int, T> select)
+    public void WhereForEach(Func<int, T, bool> where, Action<int, T> onValue)
     {
         for (int i = 0; i < m_count; i++)
         {
             if (where(i, m_buffer[i]))
             {
-                select(i, m_buffer[i]);
+                onValue(i, m_buffer[i]);
             }
         }
     }
@@ -1088,17 +1097,7 @@ public ref struct DataRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddRange(ref DataRs<T> list)
     {
-        if (m_count >= m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
-        }
-
-        var valueCount = list.Count;
-        
-        if (valueCount + m_count > m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
-        }
+        CheckCanAdd(list.Count);
 
         for (int i = 0; i < list.m_count; i++)
         {
@@ -1106,7 +1105,22 @@ public ref struct DataRs<T>
             m_count++;
         }
     }
-    
+
+    private void CheckCanAdd(int valueCount)
+    {
+        if (m_count >= m_buffer.Length)
+        {
+            throw new InsufficientMemoryException(
+                $"Cannot add the {valueCount} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
+        }
+
+        if (valueCount + m_count > m_buffer.Length)
+        {
+            throw new InsufficientMemoryException(
+                $"Cannot add the {valueCount} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
+        }
+    }
+
     /// <summary>
     /// Adds a bunch of new items to the DataRs.
     /// </summary>
@@ -1116,17 +1130,7 @@ public ref struct DataRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddRange(ref SetRs<T> list)
     {
-        if (m_count >= m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
-        }
-
-        var valueCount = list.m_count;
-        
-        if (valueCount + m_count > m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
-        }
+        CheckCanAdd(list.Count);
         
         var index = 0;
 
@@ -1151,19 +1155,7 @@ public ref struct DataRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddRange([NotNull] IReadOnlyList<T> list)
     {
-        if (list == null) throw new ArgumentNullException(nameof(list));
-        
-        if (m_count >= m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} maximum reached.");
-        }
-
-        var valueCount = list.Count;
-        
-        if (valueCount + m_count > m_buffer.Length)
-        {
-            throw new InsufficientMemoryException($"Cannot add the {list.Count} of new items to the DataRs list. The {m_buffer.Length} is a maximum.");
-        }
+        CheckCanAdd(list.Count);
 
         foreach (var v in list)
         {
