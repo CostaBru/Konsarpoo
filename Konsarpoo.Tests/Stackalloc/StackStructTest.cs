@@ -136,7 +136,7 @@ public class StackStructTest
         var stackRs = new StackRs<int>(ref initStore);
         
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         var data = Enumerable.Range(0, N).ToData();
@@ -200,5 +200,16 @@ public class StackStructTest
             
             Assert.AreEqual(p1, p2);
         }
+    }
+
+    [Test]
+    public void TestCopyCtr()
+    {
+        var data = Enumerable.Range(1, N).ToArray();
+        var stackRs = new StackRs<int>(data, N);
+        
+        Assert.AreEqual(N, stackRs.Count);
+        
+        Assert.AreEqual(N, stackRs.Pop());
     }
 }

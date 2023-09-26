@@ -2,24 +2,52 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// Stack data struct implementation based on stack allocation.
+/// Stack data struct implementation based on generic contiguous memory Span of T.
 /// </summary>
 /// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct StackRs<T>
 {
-    private Span<T> m_buffer;
+    private readonly Span<T> m_buffer;
+    
     private int m_count;
 
+    /// <summary>
+    /// Default constructor that expect the maximum storage capacity it can contain.
+    /// </summary>
+    /// <param name="span"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public StackRs(ref Span<T> span)
     {
         m_buffer = span;
         m_count = 0;
+    }
+    
+    /// <summary>
+    /// Constructor that fills out container with predefined data.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <param name="count"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public StackRs([NotNull] T[] array, int count)
+    {
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+
+        if (count > array.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+        
+        m_buffer = new Span<T>(array);
+        m_count = count;
     }
     
     /// <summary>

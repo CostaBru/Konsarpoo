@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections
 {
@@ -23,7 +24,7 @@ namespace Konsarpoo.Collections
         [NonSerialized]
         private readonly Data<int> m_buckets;
         [NonSerialized]
-        private readonly Data<Slot> m_slots;
+        private readonly Data<KeyEntry<T>> m_slots;
         
         private IEqualityComparer<T> m_comparer;
 
@@ -251,9 +252,20 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentNullException(nameof(item));
             }
-            
-            var hashCode = InternalGetHashCode(ref item);
-           
+
+            int hashCode = 0;
+            if (IsReferenceType)
+            {
+                if (item == null)
+                {
+                    hashCode = 0;
+                }
+            }
+            else
+            {
+                hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+            }
+
             return hashCode % m_buckets.m_count;
         }
         
@@ -265,51 +277,43 @@ namespace Konsarpoo.Collections
         {
             if (m_buckets.m_count == 0)
             {
-                Initialize(2);
+                Initialize(prime: 2);
             }
+            
+            var hashCode = m_comparer.GetHashCode(value) & int.MaxValue;
 
-            int hashCode = InternalGetHashCode(ref value);
             int storageIndex = hashCode % m_buckets.m_count;
-            int num = 0;
 
-            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
-            var slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
-
-            int start = 0;
-
-            if (bucketsArray != null)
-            {
-                start = bucketsArray[storageIndex];
-            }
-            else
-            {
-                start = m_buckets.ValueByRef(storageIndex);
-            }
+            var slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
 
             if (slotArr != null)
             {
-                for (int? i = start - 1; i >= 0; i = slotArr[i.Value].next)
+                var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+
+                var start = bucketsArray[storageIndex];
+
+                for (int? i = start - 1; i >= 0; i = slotArr[i.Value].Next)
                 {
                     ref var s = ref slotArr[i.Value];
 
-                    if (s.hashCode == hashCode && m_comparer.Equals(s.value, value))
+                    if (s.HashCode == hashCode && m_comparer.Equals(s.Key, value))
                     {
                         return false;
                     }
-                    ++num;
                 }
             }
             else
             {
-                for (int? i = start - 1; i >= 0; i = m_slots.ValueByRef(i.Value).next)
+                var start = m_buckets.ValueByRef(storageIndex);
+
+                for (int? i = start - 1; i >= 0; i = m_slots.ValueByRef(i.Value).Next)
                 {
                     ref var s = ref m_slots.ValueByRef(i.Value);
 
-                    if (s.hashCode == hashCode && m_comparer.Equals(s.value, value))
+                    if (s.HashCode == hashCode && m_comparer.Equals(s.Key, value))
                     {
                         return false;
                     }
-                    ++num;
                 }
             }
 
@@ -317,7 +321,7 @@ namespace Konsarpoo.Collections
             if (m_freeList >= 0)
             {
                 index = m_freeList;
-                m_freeList = m_slots.ValueByRef(index).next;
+                m_freeList = m_slots.ValueByRef(index).Next;
             }
             else
             {
@@ -330,44 +334,32 @@ namespace Konsarpoo.Collections
                 ++m_lastIndex;
             }
             
-            bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
-            slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
-
-            
-            int bucket;
-
-            if (bucketsArray != null)
-            {
-                bucket = bucketsArray[storageIndex];
-            }
-            else
-            {
-                bucket = m_buckets.ValueByRef(storageIndex);
-            }
+            slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
 
             if (slotArr != null)
             {
+                var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+                
+                var bucket = bucketsArray[storageIndex];
+
                 ref var slot = ref slotArr[index];
 
-                slot.hashCode = hashCode;
-                slot.value = value;
-                slot.next = bucket - 1;
-            }
-            else
-            {
-                ref var slot = ref m_slots.ValueByRef(index);
-
-                slot.hashCode = hashCode;
-                slot.value = value;
-                slot.next = bucket - 1;
-            }
-
-            if (bucketsArray != null)
-            {
+                slot.HashCode = hashCode;
+                slot.Key = value;
+                slot.Next = bucket - 1;
+                
                 bucketsArray[storageIndex] = index + 1;
             }
             else
             {
+                var bucket = m_buckets.ValueByRef(storageIndex);
+
+                ref var slot = ref m_slots.ValueByRef(index);
+
+                slot.HashCode = hashCode;
+                slot.Key = value;
+                slot.Next = bucket - 1;
+                
                 m_buckets.ValueByRef(storageIndex) = index + 1;
             }
 
@@ -421,14 +413,22 @@ namespace Konsarpoo.Collections
                 return false;
             }
             
-            int hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
+            var slotArray = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
 
+            if (slotArray != null)
+            {
+                return new SetRs<T>(m_buckets.m_root.Storage, slotArray, m_buckets.m_count, m_count, m_comparer)
+                    .Contains(item);
+            }
+            
+            int hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
+            
+            var storageIndex = hashCode % m_buckets.m_count;
+            
             int start;
             
             var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
 
-            var storageIndex = hashCode % m_buckets.m_count;
-            
             if (bucketsArray != null)
             {
                 start = bucketsArray[storageIndex];
@@ -438,30 +438,13 @@ namespace Konsarpoo.Collections
                 start = m_buckets.ValueByRef(storageIndex);
             }
 
-            var slotArray = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
-
-            if (slotArray != null)
+            for (int? index = start - 1; index >= 0; index = m_slots.ValueByRef(index.Value).Next)
             {
-                for (int? index = start - 1; index >= 0; index = slotArray[index.Value].next)
-                {
-                    ref var slot = ref slotArray[index.Value];
+                ref var slot = ref m_slots.ValueByRef(index.Value);
 
-                    if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
-                    {
-                        return true;
-                    }
-                }
-            }
-            else
-            {
-                for (int? index = start - 1; index >= 0; index = m_slots.ValueByRef(index.Value).next)
+                if (slot.HashCode == hashCode && m_comparer.Equals(slot.Key, item))
                 {
-                    ref var slot = ref m_slots.ValueByRef(index.Value);
-
-                    if (slot.hashCode == hashCode && m_comparer.Equals(slot.value, item))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -509,30 +492,42 @@ namespace Konsarpoo.Collections
         {
             if (m_buckets.Count > 0)
             {
-                int hashCode = InternalGetHashCode(ref item);
+                int hashCode = 0;
+                if (IsReferenceType)
+                {
+                    if (item == null)
+                    {
+                        hashCode = 0;
+                    }
+                }
+                else
+                {
+                    hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+                }
+
                 int index1 = hashCode % m_buckets.Count;
                 int last = -1;
 
                 var start = m_buckets.ValueByRef(index1);
 
-                for (int index = start - 1; index >= 0; index = m_slots.ValueByRef(index).next)
+                for (int index = start - 1; index >= 0; index = m_slots.ValueByRef(index).Next)
                 {
                     ref var currentEntry = ref m_slots.ValueByRef(index);
 
-                    if (currentEntry.hashCode == hashCode && m_comparer.Equals(currentEntry.value, item))
+                    if (currentEntry.HashCode == hashCode && m_comparer.Equals(currentEntry.Key, item))
                     {
                         if (last < 0)
                         {
-                            m_buckets.ValueByRef(index1) = currentEntry.next  + 1;
+                            m_buckets.ValueByRef(index1) = currentEntry.Next  + 1;
                         }
                         else
                         {
-                            m_slots.ValueByRef(last).next = currentEntry.next;
+                            m_slots.ValueByRef(last).Next = currentEntry.Next;
                         }
 
-                        currentEntry.hashCode = -1;
-                        currentEntry.value = default(T);
-                        currentEntry.next = m_freeList;
+                        currentEntry.HashCode = -1;
+                        currentEntry.Key = default(T);
+                        currentEntry.Next = m_freeList;
 
                         --m_count;
 
@@ -570,20 +565,20 @@ namespace Konsarpoo.Collections
         {
             var version = m_version;
             
-            var slotArr = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
+            var slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
             
             if (slotArr != null)
             {
                 for (int i = 0; i < m_lastIndex && i < slotArr.Length; ++i)
                 {
-                    if (slotArr[i].hashCode >= 0)
+                    if (slotArr[i].HashCode >= 0)
                     {
                         if (version != m_version)
                         {
                             throw new InvalidOperationException($"Set collection was modified during enumeration.");
                         }
                         
-                        yield return slotArr[i].value;
+                        yield return slotArr[i].Key;
                     }
                 }
             }
@@ -591,14 +586,14 @@ namespace Konsarpoo.Collections
             {
                 for (int i = 0; i < m_lastIndex; ++i)
                 {
-                    if (m_slots.ValueByRef(i).hashCode >= 0)
+                    if (m_slots.ValueByRef(i).HashCode >= 0)
                     {
                         if (version != m_version)
                         {
                             throw new InvalidOperationException($"Set collection was modified during enumeration.");
                         }
                         
-                        yield return m_slots.ValueByRef(i).value;
+                        yield return m_slots.ValueByRef(i).Key;
                     }
                 }
             }
@@ -768,9 +763,9 @@ namespace Konsarpoo.Collections
             for (int index = 0; index < m_lastIndex && num < count; ++index)
             {
                 ref var valueByRef = ref m_slots.ValueByRef(index);
-                if (valueByRef.hashCode >= 0)
+                if (valueByRef.HashCode >= 0)
                 {
-                    array[arrayIndex + num] = valueByRef.value;
+                    array[arrayIndex + num] = valueByRef.Key;
                     ++num;
                 }
             }
@@ -792,9 +787,9 @@ namespace Konsarpoo.Collections
             for (int index = 0; index < m_lastIndex; ++index)
             {
                 ref var byRef = ref m_slots.ValueByRef(index);
-                if (byRef.hashCode >= 0)
+                if (byRef.HashCode >= 0)
                 {
-                    ref T obj = ref byRef.value;
+                    ref T obj = ref byRef.Key;
 
                     if (match(obj) && Remove(obj))
                     {
@@ -828,7 +823,7 @@ namespace Konsarpoo.Collections
             m_slots.Ensure(newSize);
 
             var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
-            var slotsArray = (m_slots.m_root as Data<Slot>.StoreNode)?.Storage;
+            var slotsArray = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
             
             if (bucketsArray != null && slotsArray != null)
             {
@@ -839,9 +834,9 @@ namespace Konsarpoo.Collections
                 {
                     ref var slot = ref slotsArr[slotIndex];
                 
-                    int bucketIndex = slot.hashCode % newSize;
+                    int bucketIndex = slot.HashCode % newSize;
 
-                    slot.next = m_buckets.ValueByRef(bucketIndex) - 1;
+                    slot.Next = m_buckets.ValueByRef(bucketIndex) - 1;
 
                     bucketsArr[bucketIndex] = slotIndex + 1;
                 }
@@ -852,9 +847,9 @@ namespace Konsarpoo.Collections
                 {
                     ref var slot = ref m_slots.ValueByRef(slotIndex);
                 
-                    int bucketIndex = slot.hashCode % newSize;
+                    int bucketIndex = slot.HashCode % newSize;
 
-                    slot.next = m_buckets.ValueByRef(bucketIndex) - 1;
+                    slot.Next = m_buckets.ValueByRef(bucketIndex) - 1;
 
                     m_buckets.ValueByRef(bucketIndex) = slotIndex + 1;
                 }
@@ -915,18 +910,6 @@ namespace Konsarpoo.Collections
             return set1.Comparer.Equals((object)set2.Comparer);
         }
 
-        private int InternalGetHashCode(ref T item)
-        {
-            if (IsReferenceType)
-            {
-                if (item == null)
-                {
-                    return 0;
-                }
-            }
-            return m_comparer.GetHashCode(item) & int.MaxValue;
-        }
-        
         private static int ExpandPrime(int oldSize)
         {
             int min = 2 * oldSize;
@@ -935,19 +918,6 @@ namespace Konsarpoo.Collections
                 return 2146435069;
             }
             return Prime.GetPrime(min);
-        }
-
-        [Serializable]
-        public struct Slot
-        {
-            internal int hashCode;
-            internal int next;
-            internal T value;
-
-            public override string ToString()
-            {
-                return $"{nameof(hashCode)}: {hashCode}, {nameof(next)}: {next}, {nameof(value)}: {value}";
-            }
         }
     }
 }

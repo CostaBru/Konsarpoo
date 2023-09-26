@@ -1,26 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections
 {
     public partial class  Map<TKey, TValue>
     {
-        [Serializable]
-        public struct KeyEntry
-        {
-            public KeyEntry(int hashCode, int next, TKey key)
-            {
-                HashCode = hashCode;
-                Next = next;
-                Key = key;
-            }
-
-            internal int HashCode;
-            internal int Next;
-            internal TKey Key;
-        }
-
         /// <inheritdoc />
         [Serializable]
         public class Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>
@@ -109,14 +95,14 @@ namespace Konsarpoo.Collections
         public class ArrayEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
         {
             private readonly Map<TKey, TValue> m_dictionary;
-            private readonly Entry[] m_entries;
+            private readonly Entry<TKey,TValue>[] m_entries;
             private readonly ushort m_version;
             private int m_index;
             private KeyValuePair<TKey, TValue> m_current;
 
             internal ArrayEnumerator(Map<TKey, TValue> dictionary)
             {
-                m_entries = ((Data<Entry>.StoreNode) dictionary.m_entries.m_root).m_items;
+                m_entries = ((Data<Entry<TKey,TValue>>.StoreNode) dictionary.m_entries.m_root).m_items;
                 m_dictionary = dictionary;
                 m_version = dictionary.m_version;
                 m_index = 0;
@@ -265,7 +251,7 @@ namespace Konsarpoo.Collections
 
             public IEnumerator<TKey> GetEnumerator()
             {
-                if (m_dictionary.m_entries?.m_root is Data<Entry>.StoreNode)
+                if (m_dictionary.m_entries?.m_root is Data<Entry<TKey,TValue>>.StoreNode)
                 {
                     return new ArrayEnumerator(m_dictionary);
                 }
@@ -371,7 +357,7 @@ namespace Konsarpoo.Collections
             public struct ArrayEnumerator : IEnumerator<TKey>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
-                private readonly Entry[] m_entries;
+                private readonly Entry<TKey,TValue>[] m_entries;
                 private readonly ushort m_version;
                 private int m_index;
                 private TKey m_currentKey;
@@ -392,7 +378,7 @@ namespace Konsarpoo.Collections
 
                 internal ArrayEnumerator(Map<TKey, TValue> dictionary)
                 {
-                    m_entries = ((Data<Entry>.StoreNode)dictionary.m_entries.m_root).m_items;
+                    m_entries = ((Data<Entry<TKey,TValue>>.StoreNode)dictionary.m_entries.m_root).m_items;
                     m_dictionary = dictionary;
                     m_version = dictionary.m_version;
                     m_index = 0;
@@ -483,7 +469,7 @@ namespace Konsarpoo.Collections
                     throw new ArgumentException();
                 }
                 int count = m_dictionary.m_count;
-                IList<Entry> entries = m_dictionary.m_entries;
+                var entries = m_dictionary.m_entries;
                 for (int i = 0; i < count; i++)
                 {
                     var entry = entries[i];
@@ -628,7 +614,7 @@ namespace Konsarpoo.Collections
             public struct ArrayEnumerator : IEnumerator<TValue>
             {
                 private readonly Map<TKey, TValue> m_dictionary;
-                private readonly Entry[] m_entries;
+                private readonly Entry<TKey,TValue>[] m_entries;
                 private readonly ushort m_version;
                 private int m_index;
                 private TValue m_currentValue;
@@ -648,7 +634,7 @@ namespace Konsarpoo.Collections
 
                 internal ArrayEnumerator(Map<TKey, TValue> dictionary)
                 {
-                    m_entries = ((Data<Entry>.StoreNode)dictionary.m_entries.m_root).m_items;
+                    m_entries = ((Data<Entry<TKey,TValue>>.StoreNode)dictionary.m_entries.m_root).m_items;
                     m_dictionary = dictionary;
                     m_version = dictionary.m_version;
                     m_index = 0;

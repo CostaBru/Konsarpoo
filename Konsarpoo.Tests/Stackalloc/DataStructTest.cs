@@ -77,7 +77,7 @@ public class DataStructTest
     public void TestAddRange()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash);
 
         set.Add(1);

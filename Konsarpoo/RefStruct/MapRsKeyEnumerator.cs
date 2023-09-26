@@ -10,12 +10,12 @@ namespace Konsarpoo.Collections.Stackalloc;
 /// <typeparam name="TValue"></typeparam>
 public ref struct MapRsKeyEnumerator<TKey, TValue>
 {
-    private readonly Span<MapRs<TKey, TValue>.Entry> m_entries;
+    private readonly Span<Entry<TKey, TValue>> m_entries;
         
     private readonly int m_count;
     private int m_index = -1;
 
-    public MapRsKeyEnumerator(Span<MapRs<TKey,TValue>.Entry> entries, int count)
+    public MapRsKeyEnumerator(Span<Entry<TKey, TValue>> entries, int count)
     {
         m_entries = entries;
         m_count = count;

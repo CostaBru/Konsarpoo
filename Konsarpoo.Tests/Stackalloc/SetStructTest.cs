@@ -22,7 +22,7 @@ public class SetStructTest
     public void TestAggregate()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash);
 
         set.Add(1);
@@ -75,7 +75,7 @@ public class SetStructTest
     public void TestRemoveIfEmpty()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
 
@@ -86,7 +86,7 @@ public class SetStructTest
     public void TestSmall()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
         var dict = new HashSet<int>();
 
@@ -132,7 +132,7 @@ public class SetStructTest
     public void TestAddRange()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         var array = Enumerable.Range(1, N).ToArray();
@@ -166,7 +166,7 @@ public class SetStructTest
         }
         
         Span<int> buckets1 = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash1 = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash1 = stackalloc KeyEntry<int>[N];
         var set1 = new SetRs<int>(ref buckets1, ref entriesHash1, EqualityComparer<int>.Default);
 
         set1.AddRange(array);
@@ -186,7 +186,7 @@ public class SetStructTest
     public void TestEnumeration()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
         
         Assert.False(set.GetEnumerator().MoveNext());
@@ -217,7 +217,7 @@ public class SetStructTest
     public void TestEx()
     {
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         var data = Enumerable.Range(0, N).ToData();

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using JetBrains.Annotations;
 using Konsarpoo.Collections.Allocators;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections
 {
@@ -234,14 +235,8 @@ namespace Konsarpoo.Collections
 
         public int FindIndex(Predicate<T> match, int start)
         {
-            for (int index = start; index < m_items.Length && index < m_size; ++index)
-            {
-                if (match(m_items[index]))
-                {
-                    return index;
-                }
-            }
-            return -1;
+            return new DataRs<T>(m_items, m_size)
+                .FindIndexPredicate(match, start);
         }
 
         public IEnumerator<T> GetEnumerator()

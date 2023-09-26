@@ -1,4 +1,6 @@
-﻿namespace Konsarpoo.Collections.Allocators;
+﻿using Konsarpoo.Collections.Stackalloc;
+
+namespace Konsarpoo.Collections.Allocators;
 
 public static class GcAllocatorSetup
 {
@@ -13,13 +15,13 @@ public static class GcAllocatorSetup
     {
         maxDataArrayLength ??= GcAllocator<T>.SmallHeapSuitableLength;
         
-        return new MapAllocatorSetup<T, V>(GcAllocatorSetup.GetDataPoolSetup<int>(maxDataArrayLength), GcAllocatorSetup.GetDataPoolSetup<Map<T, V>.Entry>(maxDataArrayLength));
+        return new MapAllocatorSetup<T, V>(GcAllocatorSetup.GetDataPoolSetup<int>(maxDataArrayLength), GcAllocatorSetup.GetDataPoolSetup<Entry<T,V>>(maxDataArrayLength));
     }
             
     public static ISetAllocatorSetup<T> GetSetPoolSetup<T>(int? maxDataArrayLength = null) 
     {
         maxDataArrayLength ??= GcAllocator<T>.SmallHeapSuitableLength;
         
-        return new SetAllocatorSetup<T>(GcAllocatorSetup.GetDataPoolSetup<int>(maxDataArrayLength), GcAllocatorSetup.GetDataPoolSetup<Set<T>.Slot>(maxDataArrayLength));
+        return new SetAllocatorSetup<T>(GcAllocatorSetup.GetDataPoolSetup<int>(maxDataArrayLength), GcAllocatorSetup.GetDataPoolSetup<KeyEntry<T>>(maxDataArrayLength));
     }
 }

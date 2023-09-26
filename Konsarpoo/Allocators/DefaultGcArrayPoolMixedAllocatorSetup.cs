@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections.Allocators;
 
@@ -33,7 +34,7 @@ public class DefaultGcArrayPoolMixedAllocatorSetup : IDefaultAllocatorSetup
     /// Allows to set up array pools per type.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public void RegisterMapPools<T, V>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Map<T,V>.Entry> entryBucketPool = null, ArrayPool<Data<Map<T,V>.Entry>.INode> entryNodesPool = null)
+    public void RegisterMapPools<T, V>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Entry<T,V>> entryBucketPool = null, ArrayPool<Data<Entry<T,V>>.INode> entryNodesPool = null)
     {
         m_mapPoolDefaults[(typeof(T), typeof(V))] = (bucketPool, bucketNodePool, entryBucketPool, entryNodesPool);
     }
@@ -42,7 +43,7 @@ public class DefaultGcArrayPoolMixedAllocatorSetup : IDefaultAllocatorSetup
     /// Allows to set up array pools per type.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public void RegisterSetPools<T>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Set<T>.Slot> entryBucketPool = null, ArrayPool<Data<Set<T>.Slot>.INode> entryNodesPool = null)
+    public void RegisterSetPools<T>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<KeyEntry<T>> entryBucketPool = null, ArrayPool<Data<KeyEntry<T>>.INode> entryNodesPool = null)
     {
         m_setPoolDefaults[typeof(T)] = (bucketPool, bucketNodePool, entryBucketPool, entryNodesPool);
     }
@@ -66,8 +67,8 @@ public class DefaultGcArrayPoolMixedAllocatorSetup : IDefaultAllocatorSetup
             return GcArrayPoolMixedAllocatorSetup.GetMapAllocatorSetup<T, V>(m_gcCount,
                 (ArrayPool<int>)poolSetup.bucketPool, 
                 (ArrayPool<Data<int>.INode>)poolSetup.bucketNodePool,
-                (ArrayPool<Map<T, V>.Entry>)poolSetup.entryBucketPool,
-                (ArrayPool<Data<Map<T, V>.Entry>.INode>)poolSetup.entryNodesPool, m_maxDataArrayLen);
+                (ArrayPool<Entry<T,V>>)poolSetup.entryBucketPool,
+                (ArrayPool<Data<Entry<T,V>>.INode>)poolSetup.entryNodesPool, m_maxDataArrayLen);
         }
         
         return GcArrayPoolMixedAllocatorSetup.GetMapAllocatorSetup<T, V>(m_gcCount, maxSizeOfNodeArray: m_maxDataArrayLen);
@@ -82,8 +83,8 @@ public class DefaultGcArrayPoolMixedAllocatorSetup : IDefaultAllocatorSetup
                 m_gcCount,
                 (ArrayPool<int>)poolSetup.bucketPool, 
                 (ArrayPool<Data<int>.INode>)poolSetup.bucketNodePool,
-                (ArrayPool<Set<T>.Slot>)poolSetup.entryBucketPool,
-                (ArrayPool<Data<Set<T>.Slot>.INode>) poolSetup.entryNodesPool,
+                (ArrayPool<KeyEntry<T>>)poolSetup.entryBucketPool,
+                (ArrayPool<Data<KeyEntry<T>>.INode>) poolSetup.entryNodesPool,
                 m_maxDataArrayLen);
         }
         

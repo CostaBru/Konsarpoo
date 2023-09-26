@@ -1,5 +1,6 @@
 ﻿using JetBrains.Annotations;
 using Konsarpoo.Collections.Allocators;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections;
 
@@ -16,5 +17,5 @@ public interface ISetAllocatorSetup<T>
     /// <summary> Gets storage allocator setup. </summary>
     /// <returns></returns>
     [CanBeNull]
-    public  IDataAllocatorSetup<Set<T>.Slot> GeStorageAllocatorSetup();
+    public  IDataAllocatorSetup<KeyEntry<T>> GeStorageAllocatorSetup();
 }

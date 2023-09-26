@@ -9,7 +9,7 @@ using Konsarpoo.Collections.Allocators;
 namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// The universal random access data container build on top of stack allocator.
+/// The universal random access data container build on generic contiguous memory Span of T.
 /// It cannot contain more than predefined number of elements
 /// and will throw InsufficientMemoryException exception after reaching the maximum capacity. 
 /// </summary>
@@ -30,7 +30,29 @@ public ref struct DataRs<T>
         m_buffer = span;
         m_count = 0;
     }
-    
+
+    /// <summary>
+    /// Constructor that fills out container with predefined data.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <param name="count"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public DataRs([NotNull] T[] array, int count)
+    {
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+
+        if (count > array.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+
+        m_buffer = new Span<T>(array);
+        m_count = count;
+    }
+
     /// <summary>
     /// Allows to enumerate contents. 
     /// </summary>
@@ -156,6 +178,18 @@ public ref struct DataRs<T>
     {
         return IndexOf(func, start);
     }
+    
+    /// <summary>
+    /// Searches for an element that matches the conditions defined by a specified predicate, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="match"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int FindIndexPredicate(Predicate<T> match, int start = 0)
+    {
+        return IndexOfPredicate(match, start);
+    }
 
     /// <summary>
     /// Searches for an element that matches the conditions defined by a specified predicate, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
@@ -164,11 +198,31 @@ public ref struct DataRs<T>
     /// <param name="start"></param>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int IndexOf(Func<T, bool> func, int start = 0)
+    public int IndexOf(Func<T, bool> match, int start = 0)
     {
         for (int i = start; i < m_count; i++)
         {
-            if (func(m_buffer[i]))
+            if (match(m_buffer[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+    
+    /// <summary>
+    /// Searches for an element that matches the conditions defined by a specified predicate, and returns the zero-based index of the first occurrence within the DataRs&lt;T&gt; or a portion of it. This method returns -1 if an item that matches the conditions is not found.
+    /// </summary>
+    /// <param name="match"></param>
+    /// <param name="start"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int IndexOfPredicate(Predicate<T> match, int start = 0)
+    {
+        for (int i = start; i < m_count; i++)
+        {
+            if (match(m_buffer[i]))
             {
                 return i;
             }
@@ -1179,7 +1233,7 @@ public ref struct DataRs<T>
             return true;
         }
         
-        if (size >= m_buffer.Length)
+        if (size > m_buffer.Length)
         {
             throw new InsufficientMemoryException($"Cannot extend the DataRs list to fit the {size} items. The {m_buffer.Length} is a maximum.");
         }

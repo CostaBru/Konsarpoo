@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -9,15 +10,17 @@ using Konsarpoo.Collections.Allocators;
 namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// Represents a distinct set of values. 
+/// Represents a distinct set of values built on generic contiguous memory Span of T. 
 /// </summary>
 /// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct SetRs<T>
 {
     internal readonly Span<int> m_buckets;
-    internal readonly Span<KeyEntryStruct<T>> m_entries;
+    internal readonly Span<KeyEntry<T>> m_entries;
 
+    private readonly int m_hashCount;
+    
     internal int m_count;
     private int m_freeCount;
     private int m_freeList;
@@ -30,11 +33,12 @@ public ref struct SetRs<T>
     /// <param name="buckets"></param>
     /// <param name="entries"></param>
     /// <param name="comparer"></param>
-    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<T>> entries, IEqualityComparer<T> comparer)
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntry<T>> entries, IEqualityComparer<T> comparer)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = comparer;
+        m_hashCount = buckets.Length;
     }
 
     /// <summary>
@@ -42,11 +46,28 @@ public ref struct SetRs<T>
     /// </summary>
     /// <param name="buckets"></param>
     /// <param name="entries"></param>
-    public SetRs(ref Span<int> buckets, ref Span<KeyEntryStruct<T>> entries)
+    public SetRs(ref Span<int> buckets, ref Span<KeyEntry<T>> entries)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = EqualityComparer<T>.Default;
+        m_hashCount = buckets.Length;
+    }
+
+    /// <summary>
+    /// Constructor that fills out container with predefined data.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    /// <param name="hashCount"></param>
+    /// <param name="count"></param>
+    public SetRs(int[] buckets, KeyEntry<T>[] entries, int hashCount, int count, IEqualityComparer<T> comparer)
+    {
+        m_buckets = new Span<int>(buckets);
+        m_entries = new Span<KeyEntry<T>>(entries);
+        m_comparer = comparer ?? EqualityComparer<T>.Default;
+        m_hashCount = hashCount;
+        m_count = count;
     }
     
     /// <summary>
@@ -65,11 +86,11 @@ public ref struct SetRs<T>
     public ref struct SetRsEnumerator
     {
         internal readonly Span<int> m_buckets;
-        internal readonly Span<KeyEntryStruct<T>> m_entries;
+        internal readonly Span<KeyEntry<T>> m_entries;
         private readonly int m_count;
         private int m_index = -1;
 
-        public SetRsEnumerator(Span<int> buckets, Span<KeyEntryStruct<T>> entries, int count)
+        public SetRsEnumerator(Span<int> buckets, Span<KeyEntry<T>> entries, int count)
         {
             m_buckets = buckets;
             m_entries = entries;
@@ -474,15 +495,10 @@ public ref struct SetRs<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains([NotNull] T item)
     {
-        if (item == null)
-        {
-            throw new ArgumentNullException(nameof(item));
-        }
-
         if (m_count > 0)
         {
-            var hashCode = m_comparer.GetHashCode(item) & 0x7fffffff;
-            for (var i = m_buckets[hashCode % m_buckets.Length] - 1; i >= 0;)
+            var hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+            for (var i = m_buckets[hashCode % m_hashCount] - 1; i >= 0;)
             {
                 ref var kv = ref m_entries[i];
                 
@@ -503,9 +519,9 @@ public ref struct SetRs<T>
     {
         int freeList;
 
-        int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+        int hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
 
-        int index = hashCode % m_buckets.Length;
+        int index = hashCode % m_hashCount;
 
         var bucket = m_buckets[index] - 1;
 
@@ -558,9 +574,9 @@ public ref struct SetRs<T>
     {
         if (m_count > 0)
         {
-            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+            int hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
 
-            int index = hashCode % m_count;
+            int index = hashCode % m_hashCount;
             int last = -1;
 
             var entries = m_entries;
@@ -581,7 +597,7 @@ public ref struct SetRs<T>
                         entries[last].Next = keyEntry.Next;
                     }
 
-                    entries[i] = new KeyEntryStruct<T>(-1, m_freeList, default);
+                    entries[i] = new KeyEntry<T>(-1, m_freeList, default);
                     m_freeList = i;
                     m_freeCount++;
 

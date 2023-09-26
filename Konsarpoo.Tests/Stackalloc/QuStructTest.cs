@@ -148,7 +148,7 @@ public class QuStructTest
         var queueRs = new QueueRs<int>(ref initStore);
         
         Span<int> buckets = stackalloc int[N];
-        Span<KeyEntryStruct<int>> entriesHash = stackalloc KeyEntryStruct<int>[N];
+        Span<KeyEntry<int>> entriesHash = stackalloc KeyEntry<int>[N];
         var set = new SetRs<int>(ref buckets, ref entriesHash, EqualityComparer<int>.Default);
 
         var readOnlyList = Enumerable.Range(0, N / 2).ToData();
@@ -192,5 +192,16 @@ public class QuStructTest
             
             Assert.AreEqual(dq1, dq2);
         }
+    }
+    
+    [Test]
+    public void TestCopyCtr()
+    {
+        var data = Enumerable.Range(1, N).ToArray();
+        var qu = new QueueRs<int>(data, 0, 1);
+        
+        Assert.AreEqual(1, qu.Count);
+        
+        Assert.AreEqual(1, qu.Dequeue());
     }
 }

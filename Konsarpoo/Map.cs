@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections
 {
@@ -27,21 +28,16 @@ namespace Konsarpoo.Collections
                                              IDeserializationCallback,
                                              IDisposable
     {
-        
+        internal const int HashCoef = 0x7fffffff;
+
         [NonSerialized]
         private IEqualityComparer<TKey> m_comparer;
         
         [NonSerialized]
         internal readonly Data<int> m_buckets;
         [NonSerialized]
-        private readonly Data<Entry> m_entries;
-        
-        [Serializable]
-        public struct Entry
-        {
-            public KeyEntry Key;
-            public TValue Value;
-        }
+        private readonly Data<Entry<TKey, TValue>> m_entries;
+       
         
         [NonSerialized]
         private int m_count;
@@ -120,7 +116,7 @@ namespace Konsarpoo.Collections
             var mapAllocatorSetup = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetMapAllocator<TKey, TValue>();
             
             m_buckets = new(dictionary.m_buckets, mapAllocatorSetup.GetBucketAllocatorSetup());
-            m_entries = new(dictionary.m_entries, mapAllocatorSetup.GetStorageAllocatorSetup());
+            m_entries = new Data<Entry<TKey, TValue>>(dictionary.m_entries, mapAllocatorSetup.GetStorageAllocatorSetup());
 
             m_count = dictionary.m_count;
             m_freeCount = dictionary.m_freeCount;
@@ -135,7 +131,7 @@ namespace Konsarpoo.Collections
         /// <param name="comparer"></param>
         /// <param name="buckets"></param>
         /// <param name="entries"></param>
-        public Map([NotNull] Data<int> buckets, [NotNull] Data<Entry> entries, [CanBeNull] IEqualityComparer<TKey> comparer = null)
+        public Map([NotNull] Data<int> buckets, [NotNull] Data<Entry<TKey, TValue>> entries, [CanBeNull] IEqualityComparer<TKey> comparer = null)
         {
             m_buckets = buckets ?? throw new ArgumentNullException(nameof(buckets));
             m_entries = entries ?? throw new ArgumentNullException(nameof(entries));
@@ -474,38 +470,27 @@ namespace Konsarpoo.Collections
             
             if (m_buckets.m_count > 0)
             {
-                var keys = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+                Entry<TKey, TValue>[] keys = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
                 
                 if (keys != null)
                 {
-                    var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
-
-                    for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0 && i < keys.Length; i = keys[i].Key.Next)
-                    {
-                        ref var storeNodeItem = ref keys[i];
-                        if (storeNodeItem.Key.HashCode == hashCode && m_comparer.Equals(storeNodeItem.Key.Key, key))
-                        {
-                            success = true;
-
-                            return ref storeNodeItem.Value;
-                        }
-                    }
+                    return ref new MapRs<TKey, TValue>(m_buckets.m_root.Storage, keys, m_buckets.m_count, m_count, m_comparer)
+                        .ValueByRef(key, out success);
                 }
-                else
-                {
-                    var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
-                    for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0; )
-                    {
-                        ref var currentEntry = ref m_entries.ValueByRef(i);
-                        if ((currentEntry.Key.HashCode == hashCode) && m_comparer.Equals(currentEntry.Key.Key, key))
-                        {
-                            success = true;
-                            
-                            return ref currentEntry.Value;
-                        }
+                
+                var hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
-                        i = currentEntry.Key.Next;
+                for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0; )
+                {
+                    ref var currentEntry = ref m_entries.ValueByRef(i);
+                    if ((currentEntry.Key.HashCode == hashCode) && m_comparer.Equals(currentEntry.Key.Key, key))
+                    {
+                        success = true;
+                            
+                        return ref currentEntry.Value;
                     }
+
+                    i = currentEntry.Key.Next;
                 }
             }
 
@@ -553,7 +538,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(key));
             }
             
-            var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+            var hashCode = m_comparer.GetHashCode(key) & HashCoef;
            
             return hashCode % m_buckets.m_count;
         }
@@ -572,11 +557,11 @@ namespace Konsarpoo.Collections
 
             int freeList;
             
-            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+            int hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
             int index = hashCode % m_buckets.m_count;
             
-            var keys = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+            var keys = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
 
             var bucket = m_buckets[index] - 1;
 
@@ -642,7 +627,7 @@ namespace Konsarpoo.Collections
                 m_count++;
             }
 
-            var entriesArray = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+            var entriesArray = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
 
             if (entriesArray != null)
             {
@@ -692,7 +677,7 @@ namespace Konsarpoo.Collections
             
             if (m_buckets.Count > 0)
             {
-                int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+                int hashCode = m_comparer.GetHashCode(key) & HashCoef;
                 
                 int index = hashCode % m_buckets.m_count;
                 int last = -1;
@@ -717,7 +702,7 @@ namespace Konsarpoo.Collections
                                 entries[last].Key.Next = keyEntry.Key.Next;
                             }
 
-                            entries[i] = new Entry() { Key = new KeyEntry(-1, m_freeList, default) };
+                            entries[i] = new Entry<TKey, TValue>() { Key = new KeyEntry<TKey>(-1, m_freeList, default) };
                             m_freeList = i;
                             m_freeCount++;
                             unchecked { ++m_version; }
@@ -744,7 +729,7 @@ namespace Konsarpoo.Collections
                                 m_entries.ValueByRef(last).Key.Next = keyEntry.Key.Next;
                             }
 
-                            m_entries[i] = new Entry() { Key = new KeyEntry(-1, m_freeList, default) };
+                            m_entries[i] = new Entry<TKey, TValue>() { Key = new KeyEntry<TKey>(-1, m_freeList, default) };
                             m_freeList = i;
                             m_freeCount++;
                             unchecked { ++m_version; }
@@ -778,7 +763,7 @@ namespace Konsarpoo.Collections
             
             m_buckets.Ensure(prime);
 
-            var entries = (m_entries.m_root as Data<Entry>.StoreNode)?.Storage;
+            var entries = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
             var bucketsValues = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
 
             if (entries != null && bucketsValues != null)

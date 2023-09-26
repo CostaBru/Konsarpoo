@@ -21,13 +21,13 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
             }
         }
         
-        [Params(1, 10, 1000, 10_000)]
+        [Params( 10, 1000, 10_000)]
         public int N;
 
         [Benchmark]
         public int Map_Add()
         {
-            var testData = new Map<int, int>();
+            var testData = new Map<int, int>(N);
             
             for (int i = 0; i < N; i++)
             {
@@ -43,7 +43,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         public int MapStruct_Add()
         {
             Span<int> buckets = stackalloc int[N];
-            Span<MapRs<int, int>.Entry> entriesHash = stackalloc MapRs<int, int>.Entry[N];
+            Span<Entry<int, int>> entriesHash = stackalloc Entry<int, int>[N];
 
             var testData = new MapRs<int, int>(ref buckets, ref entriesHash);
             
@@ -58,7 +58,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Benchmark(Baseline = true)]
         public int Dict_Add()
         {
-            var data = new Dictionary<int, int>();
+            var data = new Dictionary<int, int>(N);
 
             for (int i = 0; i < N; i++)
             {

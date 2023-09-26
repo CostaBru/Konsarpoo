@@ -1510,6 +1510,19 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual(ab, rb);
         }
         
+        [Test]
+        public void TestBinarySearchString()
+        {
+            var array = Enumerable.Range(0, 999).Select(i => i.ToString()).ToArray();
+
+            var dataList = array.ToData();
+
+            var ab = Array.BinarySearch(array, 0, array.Length, "999", StringComparer.Ordinal);
+            var hb = dataList.BinarySearch("999", 0, dataList.Count, (x, y) => String.Compare(x, y, StringComparison.Ordinal));
+
+            Assert.AreEqual(ab, hb);
+        }
+        
         private class IdVal
         {
             public int Id { get; set; }

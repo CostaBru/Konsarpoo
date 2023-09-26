@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections
 {
@@ -32,60 +33,34 @@ namespace Konsarpoo.Collections
             //common case
             if (m_root?.Storage != null)
             {
-                var items = m_root.Storage;
-
-                int lo = startIndex;
-                int hi = count - 1;
-
-                while (lo <= hi)
-                {
-                    int index = lo + ((hi - lo) >> 1);
-
-                    int order = comparer(value, items[index]);
-
-                    if (order == 0)
-                    {
-                        return index;
-                    }
-
-                    if (order > 0)
-                    {
-                        lo = index + 1;
-                    }
-                    else
-                    {
-                        hi = index - 1;
-                    }
-                }
-                return ~lo;
+                return new DataRs<T>(m_root.Storage, m_count)
+                    .BinarySearch(value, startIndex, count, comparer);
             }
-            else
+
+            int lo = startIndex;
+            int hi = count - 1;
+
+            while (lo <= hi)
             {
-                int lo = startIndex;
-                int hi = count - 1;
+                int index = lo + ((hi - lo) >> 1);
 
-                while (lo <= hi)
+                int order = comparer(value, ValueByRef(index));
+
+                if (order == 0)
                 {
-                    int index = lo + ((hi - lo) >> 1);
-
-                    int order = comparer(value, ValueByRef(index));
-
-                    if (order == 0)
-                    {
-                        return index;
-                    }
-
-                    if (order > 0)
-                    {
-                        lo = index + 1;
-                    }
-                    else
-                    {
-                        hi = index - 1;
-                    }
+                    return index;
                 }
-                return ~lo;
+
+                if (order > 0)
+                {
+                    lo = index + 1;
+                }
+                else
+                {
+                    hi = index - 1;
+                }
             }
+            return ~lo;
         }
 
         

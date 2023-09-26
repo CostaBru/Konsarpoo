@@ -1,12 +1,15 @@
-﻿namespace Konsarpoo.Collections.Stackalloc;
+﻿using System;
+
+namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// Key entry for MapRs and SetRs.
+/// Key entry
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
-public struct KeyEntryStruct<TKey>
+[Serializable]
+public struct KeyEntry<TKey>
 {
-    public KeyEntryStruct(int hashCode, int next, TKey key)
+    public KeyEntry(int hashCode, int next, TKey key)
     {
         HashCode = hashCode;
         Next = next;

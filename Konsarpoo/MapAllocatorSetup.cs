@@ -1,5 +1,6 @@
 ﻿using JetBrains.Annotations;
 using Konsarpoo.Collections.Allocators;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections;
 
@@ -7,12 +8,12 @@ namespace Konsarpoo.Collections;
 public class MapAllocatorSetup<TKey, TValue> : IMapAllocatorSetup<TKey, TValue>
 {
     private readonly IDataAllocatorSetup<int> m_dataAllocatorSetup;
-    private readonly IDataAllocatorSetup<Map<TKey, TValue>.Entry> m_bucketsAllocatorSetup;
+    private readonly IDataAllocatorSetup<Entry<TKey,TValue>> m_bucketsAllocatorSetup;
 
     /// <summary>
     /// Default container constructor.
     /// </summary>
-    public MapAllocatorSetup([CanBeNull] IDataAllocatorSetup<int> dataAllocatorSetup, [CanBeNull] IDataAllocatorSetup<Map<TKey, TValue>.Entry> bucketsAllocatorSetup)
+    public MapAllocatorSetup([CanBeNull] IDataAllocatorSetup<int> dataAllocatorSetup, [CanBeNull] IDataAllocatorSetup<Entry<TKey,TValue>> bucketsAllocatorSetup)
     {
         m_dataAllocatorSetup = dataAllocatorSetup;
         m_bucketsAllocatorSetup = bucketsAllocatorSetup;
@@ -22,5 +23,5 @@ public class MapAllocatorSetup<TKey, TValue> : IMapAllocatorSetup<TKey, TValue>
     public IDataAllocatorSetup<int> GetBucketAllocatorSetup() => m_dataAllocatorSetup;
 
     /// <inheritdoc />
-    public IDataAllocatorSetup<Map<TKey, TValue>.Entry> GetStorageAllocatorSetup() => m_bucketsAllocatorSetup;
+    public IDataAllocatorSetup<Entry<TKey,TValue>> GetStorageAllocatorSetup() => m_bucketsAllocatorSetup;
 }

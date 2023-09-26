@@ -25,13 +25,10 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Params(10, 1000, 100_000)]
         public int N;
         
-        [Params(16, 1024 * 1024)]
-        public int NodeSize;
-
+       
         [IterationSetup]
         public void IterationSetup()
         {
-            KonsarpooAllocatorGlobalSetup.SetGcArrayPoolMixedAllocatorSetup(maxDataArrayLen: NodeSize);
             Data<int>.SetClearArrayOnReturn(false);
             GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
         }
@@ -39,24 +36,8 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [IterationCleanup]
         public void IterationCleanup()
         {
-            KonsarpooAllocatorGlobalSetup.SetGcArrayPoolMixedAllocatorSetup(maxDataArrayLen: null);
             Data<int>.SetClearArrayOnReturn(true);
             GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = true;
-        }
-
-        [Benchmark]
-        public int Data_Add()
-        {
-            var data = new Data<int>();
-
-            for (int i = 0; i < N; i++)
-            {
-                data.Add(i);
-            }
-
-            data.Dispose();
-
-            return data.Count;
         }
 
         [Benchmark]
@@ -136,7 +117,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Benchmark(Baseline = true)]
         public int List_Add()
         {
-            var data = new List<int>();
+            var data = new List<int>(N);
 
             for (int i = 0; i < N; i++)
             {

@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using Konsarpoo.Collections.Stackalloc;
 
 namespace Konsarpoo.Collections.Allocators;
 
@@ -9,13 +10,13 @@ public static class ArrayPoolAllocatorSetup
         return new DataAllocatorSetup<T>(new ArrayAllocatorAllocator<T>(pool ?? ArrayPool<T>.Shared), new ArrayAllocatorAllocator<Data<T>.INode>(nodePool ?? ArrayPool<Data<T>.INode>.Shared), maxDataNodeArrayLength);
     }
             
-    public static IMapAllocatorSetup<T, V> GetMapAllocatorSetup<T,V>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Map<T,V>.Entry> entryBucketPool = null, ArrayPool<Data<Map<T,V>.Entry>.INode> entryNodesPool = null, int? maxDataNodeArrayLength = null) 
+    public static IMapAllocatorSetup<T, V> GetMapAllocatorSetup<T,V>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Entry<T,V>> entryBucketPool = null, ArrayPool<Data<Entry<T,V>>.INode> entryNodesPool = null, int? maxDataNodeArrayLength = null) 
     {
-        return new MapAllocatorSetup<T, V>(ArrayPoolAllocatorSetup.GetDataAllocatorSetup<int>(bucketPool, bucketNodePool, maxDataNodeArrayLength), ArrayPoolAllocatorSetup.GetDataAllocatorSetup<Map<T, V>.Entry>(entryBucketPool, entryNodesPool, maxDataNodeArrayLength));
+        return new MapAllocatorSetup<T, V>(ArrayPoolAllocatorSetup.GetDataAllocatorSetup<int>(bucketPool, bucketNodePool, maxDataNodeArrayLength), ArrayPoolAllocatorSetup.GetDataAllocatorSetup<Entry<T,V>>(entryBucketPool, entryNodesPool, maxDataNodeArrayLength));
     }
             
-    public static ISetAllocatorSetup<T> GetSetAllocatorSetup<T>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<Set<T>.Slot> entryBucketPool = null, ArrayPool<Data<Set<T>.Slot>.INode> entryNodesPool = null, int? maxDataNodeArrayLength = null) 
+    public static ISetAllocatorSetup<T> GetSetAllocatorSetup<T>(ArrayPool<int> bucketPool = null, ArrayPool<Data<int>.INode> bucketNodePool = null, ArrayPool<KeyEntry<T>> entryBucketPool = null, ArrayPool<Data<KeyEntry<T>>.INode> entryNodesPool = null, int? maxDataNodeArrayLength = null) 
     {
-        return new SetAllocatorSetup<T>(ArrayPoolAllocatorSetup.GetDataAllocatorSetup<int>(bucketPool, bucketNodePool, maxDataNodeArrayLength), ArrayPoolAllocatorSetup.GetDataAllocatorSetup<Set<T>.Slot>(entryBucketPool, entryNodesPool, maxDataNodeArrayLength));
+        return new SetAllocatorSetup<T>(ArrayPoolAllocatorSetup.GetDataAllocatorSetup<int>(bucketPool, bucketNodePool, maxDataNodeArrayLength), ArrayPoolAllocatorSetup.GetDataAllocatorSetup<KeyEntry<T>>(entryBucketPool, entryNodesPool, maxDataNodeArrayLength));
     }
 }

@@ -3,6 +3,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Order;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections.Tests.Benchmarks
 {
@@ -18,6 +19,21 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
                 AddJob(Job.MediumRun.WithGcServer(false).WithGcForce(true).WithId("Workstation").WithIterationCount(100));
             }
         }
+        
+        [IterationSetup]
+        public void IterationSetup()
+        {
+            Data<int>.SetClearArrayOnReturn(false);
+            GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
+        }
+        
+        [IterationCleanup]
+        public void IterationCleanup()
+        {
+            Data<int>.SetClearArrayOnReturn(true);
+            GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = true;
+        }
+
         
         [Params(2, 1000, 1000_000)]
         public int N;

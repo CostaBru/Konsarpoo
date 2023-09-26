@@ -11,15 +11,17 @@ namespace Konsarpoo.Collections.Stackalloc;
 /// <summary>
 /// The MapRs&lt;TKey,TValue&gt; generic class provides a mapping from a set of keys to a set of values.
 /// Each addition to the Map consists of a value and its associated key.
-/// Retrieving a value by using its key is very fast, close to O(1), because the MapRs&lt;TKey,TValue&gt; class is implemented as a hash table with allocation on stack.
+/// Retrieving a value by using its key is very fast, close to O(1), because the MapRs&lt;TKey,TValue&gt; class is implemented as a hash table on generic contiguous memory Span of T.
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
 /// <typeparam name="TValue"></typeparam>
 [StructLayout(LayoutKind.Auto)]
 public ref struct MapRs<TKey, TValue>
 {
+    private const int HashCoef = Map<TKey, TValue>.HashCoef;
     private readonly Span<int> m_buckets;
-    private readonly Span<Entry> m_entries;
+    private readonly Span<Entry<TKey, TValue>> m_entries;
+    private readonly int m_hashCount;
 
     private int m_count;
     private int m_freeCount;
@@ -28,12 +30,6 @@ public ref struct MapRs<TKey, TValue>
     private IEqualityComparer<TKey> m_comparer;
     
     private static TValue s_nullRef;
-    
-    public struct Entry
-    {
-        public KeyEntryStruct<TKey> Key;
-        public TValue Value;
-    }
 
     /// <summary>
     /// Constructor that takes stack allocated storage and equality comparer.
@@ -41,11 +37,29 @@ public ref struct MapRs<TKey, TValue>
     /// <param name="buckets"></param>
     /// <param name="entries"></param>
     /// <param name="comparer"></param>
-    public MapRs(ref Span<int> buckets, ref Span<Entry> entries, IEqualityComparer<TKey> comparer)
+    public MapRs(ref Span<int> buckets, ref Span<Entry<TKey, TValue>> entries, IEqualityComparer<TKey> comparer = null)
     {
         m_buckets = buckets;
         m_entries = entries;
-        m_comparer = comparer;
+        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+        m_hashCount = m_buckets.Length;
+    }
+
+    /// <summary>
+    /// Constructor that fills out container with predefined data.
+    /// </summary>
+    /// <param name="buckets"></param>
+    /// <param name="entries"></param>
+    /// <param name="count"></param>
+    /// <param name="hashCount"></param>
+    /// <param name="comparer"></param>
+    public MapRs(int[] buckets, Entry<TKey, TValue>[] entries, int hashCount, int count, IEqualityComparer<TKey> comparer)
+    {
+        m_buckets = new Span<int>(buckets);
+        m_entries = new Span<Entry<TKey, TValue>>(entries);
+        m_comparer = comparer ?? EqualityComparer<TKey>.Default;
+        m_count = count;
+        m_hashCount = hashCount;
     }
 
     /// <summary>
@@ -54,11 +68,12 @@ public ref struct MapRs<TKey, TValue>
     /// <param name="buckets"></param>
     /// <param name="entries"></param>
     /// <param name="comparer"></param>
-    public MapRs(ref Span<int> buckets, ref Span<Entry> entries)
+    MapRs(ref Span<int> buckets, ref Span<Entry<TKey, TValue>> entries)
     {
         m_buckets = buckets;
         m_entries = entries;
         m_comparer = EqualityComparer<TKey>.Default;
+        m_hashCount = m_buckets.Length;
     }
     
     /// <summary>
@@ -77,12 +92,12 @@ public ref struct MapRs<TKey, TValue>
     public ref struct MapRsKeyValueEnumerator
     {
         private readonly Span<int> m_buckets;
-        private readonly Span<Entry> m_entries;
+        private readonly Span<Entry<TKey, TValue>> m_entries;
         
         private readonly int m_count;
         private int m_index = -1;
 
-        public MapRsKeyValueEnumerator(Span<int> buckets, Span<Entry> entries, int count)
+        public MapRsKeyValueEnumerator(Span<int> buckets, Span<Entry<TKey, TValue>> entries, int count)
         {
             m_buckets = buckets;
             m_entries = entries;
@@ -543,8 +558,9 @@ public ref struct MapRs<TKey, TValue>
 
         if (m_count > 0)
         {
-            var hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
-            for (var i = m_buckets[hashCode % m_buckets.Length] - 1; i >= 0;)
+            var hashCode = m_comparer.GetHashCode(key) & HashCoef;
+            var index = hashCode % m_hashCount;
+            for (var i = m_buckets[index] - 1; i >= 0;)
             {
                 ref var kv = ref m_entries[i];
                 
@@ -569,9 +585,9 @@ public ref struct MapRs<TKey, TValue>
     {
         int freeList;
 
-        int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+        int hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
-        int index = hashCode % m_buckets.Length;
+        int index = hashCode % m_hashCount;
 
         var bucket = m_buckets[index] - 1;
 
@@ -629,9 +645,9 @@ public ref struct MapRs<TKey, TValue>
     {
         if (m_count > 0)
         {
-            int hashCode = m_comparer.GetHashCode(key) & 0x7fffffff;
+            int hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
-            int index = hashCode % m_count;
+            int index = hashCode % m_hashCount;
             int last = -1;
 
             var entries = m_entries;
@@ -652,7 +668,7 @@ public ref struct MapRs<TKey, TValue>
                         entries[last].Key.Next = keyEntry.Key.Next;
                     }
 
-                    entries[i] = new Entry() { Key = new KeyEntryStruct<TKey>(-1, m_freeList, default) };
+                    entries[i] = new Entry<TKey, TValue>() { Key = new KeyEntry<TKey>(-1, m_freeList, default) };
                     m_freeList = i;
                     m_freeCount++;
 
