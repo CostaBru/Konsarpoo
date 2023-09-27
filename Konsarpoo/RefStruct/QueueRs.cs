@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// Default Queue implementation based on stack allocation. 
+/// Default Queue implementation based on generic contiguous memory Span of T. 
 /// </summary>
 /// <typeparam name="T"></typeparam>
 [StructLayout(LayoutKind.Auto)]
@@ -17,11 +17,44 @@ public ref struct QueueRs<T>
     private Span<T> m_buffer;
     private int m_count;
 
+    /// <summary>
+    /// Default constructor that expect the maximum storage capacity it can contain.
+    /// </summary>
+    /// <param name="span"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public QueueRs(ref Span<T> span)
     {
         m_buffer = span;
         m_count = 0;
+    }
+
+    /// <summary>
+    /// Constructor that fills out container with predefined data.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <param name="startOffset"></param>
+    /// <param name="count"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public QueueRs(T[] array, int startOffset, int count)
+    {
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+
+        if (startOffset > count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startOffset));
+        }
+        
+        if (count > array.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+        
+        m_buffer = new Span<T>(array);
+        m_startOffset = startOffset;
+        m_count = count;
     }
     
     /// <summary>
