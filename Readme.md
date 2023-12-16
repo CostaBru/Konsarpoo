@@ -76,7 +76,7 @@ https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-al
 
 # Stackalloc and ref struct 
 
-There are a basic collections implemented:
+There are basic collections implemented:
 
 - ``DataRs``
 - ``MapRs``
