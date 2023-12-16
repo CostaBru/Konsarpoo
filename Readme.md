@@ -70,7 +70,11 @@ It is a compact array of bit values, which are represented as Booleans. It uses 
 
 ### LFU CACHE
 
-A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. In addition to that it can keep track of cached data obsolescence by last accessed timestamp and remove those obsolete items on demand. 
+A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. 
+
+In addition to that it can keep track both:
+-  of cached data obsolescence by last accessed timestamp and remove those obsolete items on demand.
+-  of total memory used by cache and remove obsolete and least accessed keys to insert a new item.
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
 
