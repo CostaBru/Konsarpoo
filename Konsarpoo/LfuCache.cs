@@ -9,13 +9,13 @@ using JetBrains.Annotations;
   
 namespace Konsarpoo.Collections;
 /// <summary>
-/// An O(1) LFU cache eviction data structure plus simple key obsolescence tracking/cleaning. 
+/// An O(1) LFU cache eviction data structure with extra tracking of memory and/or key obsolescence features. 
 /// <see ref="https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf"/>
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
 /// <typeparam name="TValue"></typeparam>
 [DebuggerTypeProxy(typeof(DictionaryDebugView<,>))]
-[DebuggerDisplay("Count = {Count}")]
+[DebuggerDisplay("Count = {Count}, MemLimit = {MemoryLimitTracking}, TotalMem = {TotalMemoryTracked}, Timeout = {m_obsolescenceTimeout}, ObsoleteCount = {ObsoleteKeysCount}")]
 [Serializable]
 public partial class LfuCache<TKey, TValue> : 
     ICollection<KeyValuePair<TKey, TValue>>,
@@ -26,7 +26,7 @@ public partial class LfuCache<TKey, TValue> :
     IDisposable
 {
     [NonSerialized]
-    private TimeSpan m_obsolescenceData;
+    private TimeSpan m_obsolescenceTimeout;
     public class DataVal
     {
         public TValue Value;
@@ -68,6 +68,39 @@ public partial class LfuCache<TKey, TValue> :
     private Set<TKey> m_obsoleteKeys;
     [NonSerialized]
     private readonly Func<TValue, TValue> m_copyStrategy;
+    
+    [NonSerialized]
+    private long m_memoryLimit;
+    [NonSerialized]
+    private long m_totalMemory;
+    [NonSerialized]
+    private Func<TKey, TValue, long> m_getMemoryEstimate;
+
+    /// <summary>
+    /// Gets currently tracking memory limit.
+    /// </summary>
+    public long MemoryLimitTracking => m_memoryLimit;
+    
+    /// <summary>
+    /// Gets currently tracking total memory.
+    /// </summary>
+    public long TotalMemoryTracked => m_totalMemory;
+
+    /// <summary>
+    /// Gets a flag indicating weather cache is tracking memory.
+    /// </summary>
+    public bool IsTrackingMemory => m_memoryLimit > 0;
+    
+    /// <summary>
+    /// Gets a flag indicating weather cache is tracking key obsolescence.
+    /// </summary>
+    public bool IsTrackingObsolescence => m_stopwatch != null;
+    
+    /// <summary>
+    /// Gets number of obsolete keys.
+    /// </summary>
+    public int ObsoleteKeysCount => m_obsoleteKeys?.Count ?? 0;
+    
     /// <summary>
     /// Default class constructor.
     /// </summary>
@@ -135,35 +168,101 @@ public partial class LfuCache<TKey, TValue> :
         m_root = new(m_setTemplate);
         m_mostFreqNode = m_root;
     }
+    
     /// <summary>
     /// Starts tracking obsolescence of data on access.
     /// </summary>
-    public void StartTrackingObsolescence(IStopwatch stopwatch, TimeSpan obsolescenceTime)
+    public void StartTrackingObsolescence([NotNull] IStopwatch stopwatch, TimeSpan obsolescenceTime)
     {
-        m_obsolescenceData = obsolescenceTime;
+        if (obsolescenceTime <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(obsolescenceTime));
+        }
         
-        m_stopwatch = stopwatch;
+        m_obsolescenceTimeout = obsolescenceTime;
+        
+        m_stopwatch = stopwatch ?? throw new ArgumentNullException(nameof(stopwatch));
         if (m_obsoleteKeys == null)
         {
             m_obsoleteKeys = new Set<TKey>(m_setTemplate);
         }
         m_stopwatch.Start();
     }
+    
     /// <summary>
     /// Stops tracking obsolescence of data on access.
     /// </summary>
     public void StopTrackingObsolescence()
     {
-        m_obsolescenceData = TimeSpan.FromTicks(-1);
+        m_obsolescenceTimeout = TimeSpan.FromTicks(-1);
         
         m_stopwatch?.Stop();
         m_stopwatch = null;
     }
+
+    /// <summary>
+    /// Gets a total memory used by cache with a given memory estimation function.
+    /// </summary>
+    /// <param name="getMemoryEstimate"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    public long EstimateMemoryUsage([NotNull] Func<TKey, TValue, long> getMemoryEstimate)
+    {
+        if (getMemoryEstimate == null)
+        {
+            throw new ArgumentNullException(nameof(getMemoryEstimate));
+        }
+        
+        long mem = 0;
+        foreach (var kv in m_map)
+        {
+            mem += getMemoryEstimate(kv.Key, kv.Value.Value);
+        }
+
+        return mem;
+    }
+
+    /// <summary>
+    /// Starts memory tracking of cached data on add/update. If limit is reached it tries to remote least used items from the cache or throws InsufficientMemoryException.
+    /// </summary>
+    /// <param name="memoryLimit"></param>
+    /// <param name="getMemoryEstimate"></param>
+    /// <exception cref="InsufficientMemoryException">If existing total memory is</exception>
+    public void StartTrackingMemory(long memoryLimit, [NotNull] Func<TKey, TValue, long> getMemoryEstimate)
+    {
+        if (memoryLimit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(memoryLimit));
+        }
+        
+        long mem = EstimateMemoryUsage(getMemoryEstimate);
+    
+        if (mem > memoryLimit)
+        {
+            throw new InsufficientMemoryException();
+        }
+        
+        m_memoryLimit = memoryLimit;
+        m_getMemoryEstimate = getMemoryEstimate ?? throw new ArgumentNullException(nameof(getMemoryEstimate));
+        m_totalMemory = mem;
+    }
+
+    /// <summary>
+    /// Stops memory tracking.
+    /// </summary>
+    public void StopTrackingMemory()
+    {
+        m_memoryLimit = 0;
+        m_totalMemory = 0;
+        m_getMemoryEstimate = null;
+    }
+    
     /// <inheritdoc />
     public bool ContainsKey(TKey key)
     {
         return m_map.ContainsKey(key);
     }
+    
     /// <summary>
     /// Attempts to get the value associated with the specified key in a cache.
     /// </summary>
@@ -264,6 +363,19 @@ public partial class LfuCache<TKey, TValue> :
            return data.FreqNode.FreqValue;
         }
         return 0;
+    }
+    /// <summary>
+    /// Returns key access time.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    public TimeSpan GetLastAccessTime([NotNull] TKey key)
+    {
+        if (m_map.TryGetValue(key, out var data))
+        {
+            return TimeSpan.FromTicks(data.AccessTickCount);
+        }
+        return TimeSpan.Zero;
     }
     /// <summary>
     /// Returns value by its reference using key given.
@@ -405,11 +517,49 @@ public partial class LfuCache<TKey, TValue> :
     {
         if (m_map.TryGetValue(key, out var data))
         {
+            if (m_memoryLimit > 0)
+            {
+                var oldSize = m_getMemoryEstimate(key, data.Value);
+                var newSize = m_getMemoryEstimate(key, value);
+
+                if (newSize > m_memoryLimit)
+                {
+                    throw new InsufficientMemoryException();
+                }
+
+                AccessItem(key, data, value, true);
+
+                if(m_totalMemory - oldSize + newSize > m_memoryLimit)
+                {
+                    m_totalMemory -= oldSize;
+
+                    TryRemoveKeysToAddNewItem(newSize);
+
+                    m_totalMemory += newSize;
+                }
+                
+                return false;
+            }
+
             AccessItem(key, data, value, true);
             return false;
         }
         else
         {
+            if (m_memoryLimit > 0)
+            {
+                var memoryEstimate = m_getMemoryEstimate(key, value);
+
+                if (memoryEstimate > m_memoryLimit)
+                {
+                    throw new InsufficientMemoryException();
+                }
+
+                TryRemoveKeysToAddNewItem(memoryEstimate);
+
+                m_totalMemory += memoryEstimate;
+            }
+            
             FreqNode firstNode = m_root.NextNode;
             
             if (m_root.NextNode.FreqValue != 1)
@@ -435,6 +585,28 @@ public partial class LfuCache<TKey, TValue> :
             return true;
         }
     }
+
+    private void TryRemoveKeysToAddNewItem(long memoryEstimate)
+    {
+        if (m_totalMemory + memoryEstimate > m_memoryLimit)
+        {
+            if (IsTrackingObsolescence)
+            {
+                RemoveObsoleteItem();
+
+                if (m_totalMemory + memoryEstimate > m_memoryLimit)
+                {
+                    RemoveObsoleteItems();
+                }
+            }
+        }
+
+        while (m_totalMemory + memoryEstimate > m_memoryLimit)
+        {
+            RemoveLeastUsedItems(1);
+        }
+    }
+
     /// <summary>
     /// Removes cache item. Value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
@@ -444,6 +616,13 @@ public partial class LfuCache<TKey, TValue> :
     {
         if (m_map.TryGetValue(key, out var data))
         {
+            if (m_memoryLimit > 0)
+            {
+                var memoryEstimate = m_getMemoryEstimate(key, data.Value);
+
+                m_totalMemory -= memoryEstimate;
+            }
+            
             data.FreqNode.Keys.Remove(key);
             
             if (data.FreqNode.Keys.Count == 0)
@@ -516,11 +695,14 @@ public partial class LfuCache<TKey, TValue> :
     {
         m_map.Keys.CopyTo(array, arrayIndex);
     }
+    
     /// <summary>
     /// Returns count of cached items.
     /// </summary>
     public int Count => m_map.Count;
+    
     bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
+    
     /// <summary>
     /// Scans accessed items for obsolescence.
     /// </summary>
@@ -528,10 +710,6 @@ public partial class LfuCache<TKey, TValue> :
     {
         return ScanFrequentForObsolescence(Count);
     }
-    /// <summary>
-    /// Gets number of obsolete keys.
-    /// </summary>
-    public int ObsoleteKeysCount => m_obsoleteKeys?.Count ?? 0;
     
     /// <summary>
     /// Scans top N most freq accessed items for obsolescence.
@@ -554,7 +732,7 @@ public partial class LfuCache<TKey, TValue> :
             {
                 var accessTickCount = m_map[nodeKey].AccessTickCount;
                 
-                if (stopwatchElapsedTicks - m_obsolescenceData.Ticks > accessTickCount)
+                if (stopwatchElapsedTicks - m_obsolescenceTimeout.Ticks > accessTickCount)
                 {
                     m_obsoleteKeys.Add(nodeKey);
                 }
@@ -575,6 +753,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         return m_obsoleteKeys.Count - obsoleteKeysCount;
     }
+    
     /// <summary>
     /// Resets keys obsolescence.
     /// </summary>
@@ -616,6 +795,32 @@ public partial class LfuCache<TKey, TValue> :
         m_obsoleteKeys.Clear();
         return removedCount;
     }
+
+    /// <summary>
+    /// Removes single obsolete item from cache. The value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
+    /// </summary>
+    /// <returns></returns>
+    public bool RemoveObsoleteItem()
+    {
+        if (m_map.Count == 0)
+        {
+            return false;
+        }
+
+        if (m_obsoleteKeys.Count == 0)
+        {
+            return false;
+        }
+
+        var key = m_obsoleteKeys.First();
+
+        var removeKey = RemoveKey(key);
+
+        m_obsoleteKeys.Remove(key);
+        
+        return removeKey;
+    }
+
     /// <summary>
     /// Removes all least frequently used items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>

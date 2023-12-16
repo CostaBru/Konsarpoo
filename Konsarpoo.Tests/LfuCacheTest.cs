@@ -240,11 +240,18 @@ public class LfuCacheTest : BaseTest
     public void TestObsolescence()
     {
         var lfuCache = new LfuCache<int, int>();
+        
+        Assert.False(lfuCache.IsTrackingObsolescence);
 
         var mockStopwatch = new MockStopwatch();
+        
+        Assert.Throws<ArgumentOutOfRangeException>( () => lfuCache.StartTrackingObsolescence(mockStopwatch, -TimeSpan.FromMilliseconds(5)));
+        Assert.Throws<ArgumentNullException>( () => lfuCache.StartTrackingObsolescence(null, TimeSpan.FromMilliseconds(5)));
 
         lfuCache.StartTrackingObsolescence(mockStopwatch, TimeSpan.FromMilliseconds(5));
 
+        Assert.True(lfuCache.IsTrackingObsolescence);
+        
         mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(1);
         
         lfuCache[1] = 1;
@@ -285,6 +292,8 @@ public class LfuCacheTest : BaseTest
         
         lfuCache.StopTrackingObsolescence();
         
+        Assert.False(lfuCache.IsTrackingObsolescence);
+        
         mockStopwatch.Elapsed += TimeSpan.FromMilliseconds(100);
         
         Assert.AreEqual(0, lfuCache.ScanForObsolescence());
@@ -323,6 +332,169 @@ public class LfuCacheTest : BaseTest
         
         Assert.True(lfuCache.ContainsKey(6));
         Assert.True(lfuCache.ContainsKey(7));
+    }
+    
+    [Test]
+    public void TestMemoryTracking()
+    {
+        var lfuCache = new LfuCache<int, int>();
+
+        lfuCache.StartTrackingMemory(10, (k, i) => i);
+
+        int cnt = 0;
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            lfuCache[i] = 1;
+
+            cnt++;
+            
+            Assert.AreEqual(cnt, lfuCache.TotalMemoryTracked);
+        }
+        
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            Assert.True(lfuCache.ContainsKey(i));
+        }
+        
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            lfuCache[i] = 1;
+        }
+        
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            Assert.True(lfuCache.ContainsKey(i));
+        }
+
+        lfuCache[100] = 1;
+        
+        Assert.True(lfuCache.ContainsKey(100));
+
+        Assert.Throws<InsufficientMemoryException>(() => lfuCache[0] = 100);
+        Assert.Throws<InsufficientMemoryException>(() => lfuCache[100] = 100);
+        Assert.Throws<InsufficientMemoryException>(() => lfuCache.AddOrUpdate(100, 100));
+        
+        lfuCache.StopTrackingMemory();
+        
+        Assert.False(lfuCache.IsTrackingMemory);
+        
+        Assert.AreEqual(0, lfuCache.TotalMemoryTracked);
+        Assert.AreEqual(0, lfuCache.MemoryLimitTracking);
+        
+        lfuCache.Clear();
+        
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            lfuCache[i] = 1000;
+        }
+
+        var estimateMemoryUsage = lfuCache.EstimateMemoryUsage((k, i) => i);
+        
+        Assert.AreEqual(1000 * lfuCache.Count, estimateMemoryUsage);
+
+        Assert.Throws<InsufficientMemoryException>(() => lfuCache.StartTrackingMemory(10, (k, i) => i));
+        
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            Assert.True(lfuCache.ContainsKey(i));
+        }
+
+        lfuCache.StartTrackingMemory(10, (k, i) => 0);
+        
+        lfuCache[int.MaxValue] = int.MaxValue;
+        
+        Assert.True(lfuCache.ContainsKey(int.MaxValue));
+    }
+
+    [Test]
+    public void TestMemoryTrackingItemReplacing()
+    {
+        var lfuCache = new LfuCache<int, int>();
+        
+        Assert.AreEqual(0, lfuCache.TotalMemoryTracked);
+        Assert.AreEqual(0, lfuCache.MemoryLimitTracking);
+        
+        Assert.False(lfuCache.IsTrackingMemory);
+
+        lfuCache.StartTrackingMemory(10, (k, i) => i);
+        
+        Assert.True(lfuCache.IsTrackingMemory);
+        
+        Assert.AreEqual(0, lfuCache.TotalMemoryTracked);
+        Assert.AreEqual(10, lfuCache.MemoryLimitTracking);
+
+        foreach (var i in Enumerable.Range(1, 100))
+        {
+            lfuCache[i] = 1;
+        }
+
+        Assert.AreEqual(10, lfuCache.Count);
+    }
+    
+    [Test]
+    public void TestMemoryTrackingItemReplacingByUpdate()
+    {
+        var lfuCache = new LfuCache<int, int>();
+        
+        lfuCache.StartTrackingMemory(10, (k, i) => i);
+
+        foreach (var i in Enumerable.Range(1, 10))
+        {
+            lfuCache[i] = 1;
+        }
+
+        lfuCache[1] = 10;
+
+        Assert.AreEqual(1, lfuCache.Count);
+        Assert.True(lfuCache.ContainsKey(1));
+    }
+
+    [Test]
+    public void TestMemoryTrackingItemReplacingByObsolesense()
+    {
+        var mockStopwatch = new MockStopwatch();
+
+        var lfuCache = new LfuCache<int, int>();
+        
+        lfuCache.StartTrackingMemory(10, (k, i) => i);
+        lfuCache.StartTrackingObsolescence(mockStopwatch, TimeSpan.FromMilliseconds(2));
+
+        var items = Enumerable.Range(1, 20).ToData();
+        
+        Assert.AreEqual(TimeSpan.Zero, lfuCache.GetLastAccessTime(-1));
+
+        mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(1);
+        
+        for (var index = 0; index < 10; index++)
+        {
+            var i = items[index];
+
+            lfuCache[i] = 1;
+            
+            Assert.AreEqual(mockStopwatch.Elapsed, lfuCache.GetLastAccessTime(i));
+        }
+        
+        mockStopwatch.Elapsed = TimeSpan.FromMilliseconds(4);
+
+        lfuCache.ScanForObsolescence();
+        
+        for (var index = 10; index < 20; index++)
+        {
+            var i = items[index];
+
+            lfuCache[i] = 1;
+            
+            Assert.AreEqual(mockStopwatch.Elapsed, lfuCache.GetLastAccessTime(i));
+        }
+
+        Assert.AreEqual(10, lfuCache.Count);
+        
+        for (var index = 10; index < 20; index++)
+        {
+            var i = items[index];
+
+            Assert.True(lfuCache.ContainsKey(i));
+        }
     }
 
     private class SomeCacheVal : IDisposable
