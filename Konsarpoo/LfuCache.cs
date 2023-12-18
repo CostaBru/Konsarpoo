@@ -88,12 +88,12 @@ public partial class LfuCache<TKey, TValue> :
     public long TotalMemoryTracked => m_totalMemory;
 
     /// <summary>
-    /// Gets a flag indicating weather cache is tracking memory.
+    /// Gets the flag that indicates whether cache is tracking memory.
     /// </summary>
     public bool IsTrackingMemory => m_memoryLimit > 0;
     
     /// <summary>
-    /// Gets a flag indicating weather cache is tracking key obsolescence.
+    /// Gets the flag that indicates whether cache is tracking key obsolescence.
     /// </summary>
     public bool IsTrackingObsolescence => m_stopwatch != null;
     
@@ -108,6 +108,7 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache() : this(0, 0, null)
     {
     }
+    
     /// <summary>
     /// LfuCache class constructor with keys comparer parameter.
     /// </summary>
@@ -117,6 +118,7 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer) : this(capacity, maxSizeStorageNodeArray, comparer, null)
     {
     }
+    
     /// <summary>
     /// LfuCache class constructor with value copy strategy.
     /// </summary>
