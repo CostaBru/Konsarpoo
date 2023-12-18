@@ -8,6 +8,7 @@ using System.Runtime.Serialization;
 using JetBrains.Annotations;
   
 namespace Konsarpoo.Collections;
+
 /// <summary>
 /// An O(1) LFU cache eviction data structure with extra tracking of memory and/or key obsolescence features. 
 /// <see ref="https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf"/>
@@ -168,10 +169,12 @@ public partial class LfuCache<TKey, TValue> :
         m_root = new(m_setTemplate);
         m_mostFreqNode = m_root;
     }
-    
+
     /// <summary>
     /// Starts tracking obsolescence of data on access.
     /// </summary>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     public void StartTrackingObsolescence([NotNull] IStopwatch stopwatch, TimeSpan obsolescenceTime)
     {
         if (obsolescenceTime <= TimeSpan.Zero)
@@ -223,11 +226,11 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <summary>
-    /// Starts memory tracking of cached data on add/update. If limit is reached it tries to remote least used items from the cache or throws InsufficientMemoryException.
+    /// Starts memory tracking of cached data on add/update. If limit has reached then it tries to remote obsolete and least used items from the cache. Add\Update can throw InsufficientMemoryException if new item is greater than memory limit.
     /// </summary>
     /// <param name="memoryLimit"></param>
     /// <param name="getMemoryEstimate"></param>
-    /// <exception cref="InsufficientMemoryException">If existing total memory is</exception>
+    /// <exception cref="InsufficientMemoryException">If total memory occupied by existing items is less than given memory limit.</exception>
     public void StartTrackingMemory(long memoryLimit, [NotNull] Func<TKey, TValue, long> getMemoryEstimate)
     {
         if (memoryLimit <= 0)
@@ -239,7 +242,7 @@ public partial class LfuCache<TKey, TValue> :
     
         if (mem > memoryLimit)
         {
-            throw new InsufficientMemoryException();
+            throw new InsufficientMemoryException($"Total memory {mem} occupied by existing items is less than given memory limit {memoryLimit}.");
         }
         
         m_memoryLimit = memoryLimit;
@@ -330,11 +333,6 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public bool TryGetValue([NotNull] TKey key, out TValue value)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-        
         value = default;
         if (m_map.TryGetValue(key, out var data))
         {
@@ -351,6 +349,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         return false;
     }
+    
     /// <summary>
     /// Returns key access frequency.
     /// </summary>
@@ -386,10 +385,6 @@ public partial class LfuCache<TKey, TValue> :
     /// <exception cref="ArgumentNullException"></exception>
     public ref TValue ValueByRef([NotNull] TKey key, out bool success)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
         success = false;
         if (m_map.TryGetValue(key, out var data))
         {
@@ -496,6 +491,7 @@ public partial class LfuCache<TKey, TValue> :
         prevNode.NextNode = freqNode.NextNode;
         freqNode.NextNode.PrevNode = prevNode;
     }
+    
     /// <summary>
     /// Adds or updates cache item.
     /// </summary>
@@ -524,7 +520,7 @@ public partial class LfuCache<TKey, TValue> :
 
                 if (newSize > m_memoryLimit)
                 {
-                    throw new InsufficientMemoryException();
+                    throw new InsufficientMemoryException($"Updated key '{key}' estimated memory '{newSize}' is greater than tracking memory limit '{m_memoryLimit}'.");
                 }
 
                 AccessItem(key, data, value, true);
@@ -548,16 +544,16 @@ public partial class LfuCache<TKey, TValue> :
         {
             if (m_memoryLimit > 0)
             {
-                var memoryEstimate = m_getMemoryEstimate(key, value);
+                var newSize = m_getMemoryEstimate(key, value);
 
-                if (memoryEstimate > m_memoryLimit)
+                if (newSize > m_memoryLimit)
                 {
-                    throw new InsufficientMemoryException();
+                    throw new InsufficientMemoryException($"New key '{key}' estimated memory '{newSize}' is greater than tracking memory limit '{m_memoryLimit}'.");
                 }
 
-                TryRemoveKeysToAddNewItem(memoryEstimate);
+                TryRemoveKeysToAddNewItem(newSize);
 
-                m_totalMemory += memoryEstimate;
+                m_totalMemory += newSize;
             }
             
             FreqNode firstNode = m_root.NextNode;
@@ -641,15 +637,18 @@ public partial class LfuCache<TKey, TValue> :
         }
         return false;
     }
+    
     /// <inheritdoc />
     public void Append(KeyValuePair<TKey, TValue> value)
     {
         AddOrUpdate(value.Key, value.Value);
     }
+    
     void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> item)
     {
         this.AddOrUpdate(item.Key, item.Value);
     }
+    
     /// <summary>
     /// Clears LFU cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
@@ -657,6 +656,7 @@ public partial class LfuCache<TKey, TValue> :
     {
         RemoveLeastUsedItems(Count);
     }
+    
     bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
     {
         if (this.TryGetValue(item.Key, out var itemVal))
@@ -665,6 +665,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         return false;
     }
+    
     void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
         if ((arrayIndex < 0) || (arrayIndex > array.Length))
@@ -682,10 +683,12 @@ public partial class LfuCache<TKey, TValue> :
             arrayIndex++;
         }
     }
+    
     bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
     {
         return RemoveKey(item.Key);
     }
+    
     /// <summary>
     /// Copies keys to given collection.
     /// </summary>
@@ -867,6 +870,7 @@ public partial class LfuCache<TKey, TValue> :
             return removedCount;
         }
     }
+    
     /// <inheritdoc />
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
     {
@@ -881,11 +885,13 @@ public partial class LfuCache<TKey, TValue> :
             yield return new KeyValuePair<TKey, TValue>(kVal.Key, kVal.Value.Value);
         }
     }
+    
     /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator()
     {
         return m_map.Keys.GetEnumerator();
     }
+    
     /// <summary>
     /// Disposes allocated resources. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
@@ -896,6 +902,7 @@ public partial class LfuCache<TKey, TValue> :
         m_map.Dispose();
         m_setTemplate.Dispose();
     }
+    
     /// <summary> Returns true if given cache has the same keys, values and frequencies otherwise it returns false.</summary>
     /// <returns></returns>
     public bool DeepEquals([CanBeNull] LfuCache<TKey, TValue> lfuCache, IEqualityComparer<TValue> valueComparer = null)
@@ -928,6 +935,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         return true;
     }
+    
     /// <summary>
     /// Creates a full copy of Lfu cache.
     /// </summary>
