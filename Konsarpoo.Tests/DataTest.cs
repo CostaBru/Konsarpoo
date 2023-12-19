@@ -1088,6 +1088,28 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(val, arrVal);
             }
         }
+        
+        [Test]
+        public void TestCommonCopyFromArray([Values(0, 10)] int index, [Values(100, 3000)] int copyCount)
+        {
+            var array = Enumerable.Range(0, 5000).ToArray();
+
+            var dataList = new Data<int>();
+
+            dataList.Ensure(copyCount + index);
+
+            Assert.True(dataList.HasList);
+
+            dataList.CopyFrom(index, array, index, copyCount);
+
+            for (int i = index; i < copyCount; i++)
+            {
+                var val = dataList[i];
+                var arrVal = array[i];
+
+                Assert.AreEqual(val, arrVal);
+            }
+        }
 
         [Test]
         public void TestHugeCopyToArray([Values(0, 10)] int index)

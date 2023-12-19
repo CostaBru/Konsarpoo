@@ -821,6 +821,82 @@ namespace Konsarpoo.Collections
         {
             CopyTo(0, array, arrayIndex, m_count);
         }
+        
+        /// <summary>
+        /// Copies the array or a portion of it to the Data&amp;lt;T&amp;gt.
+        /// </summary>
+        /// <param name="index">Source index.</param>
+        /// <param name="array">Target array.</param>
+        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
+        /// <param name="count">The number of elements to copy.</param>
+        /// <exception cref="ArgumentNullException"/>
+        /// <exception cref="IndexOutOfRangeException">
+        /// length is greater than the number of elements from sourceIndex to the end of sourceArray.
+        /// -or- length is greater than the number of elements from destinationIndex to the end of destinationArray.
+        /// -or- arrayIndex is greater or equal destinationArray length.
+        /// -or- count is greater than collection size.
+        /// </exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyFrom(int index, [NotNull] T[] array, int arrayIndex, int count)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+            
+            if (m_count - index < count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Cannot copy {count} elements from collection with size {m_count} starting at {index} to array with length {array.Length}.");
+            }
+
+            var rootStorage = m_root?.Storage;
+            
+            if (rootStorage != null)
+            {
+                Array.Copy(array, arrayIndex, rootStorage, index, count);
+
+                return;
+            }
+
+            CopyFromSlow(index, array, arrayIndex, count);
+        }
+        
+        private void CopyFromSlow(int index, T[] array, int arrayIndex, int count)
+        {
+            if (array == null)
+            {
+                throw new ArgumentNullException(nameof(array));
+            }
+            
+            if (arrayIndex < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex),"An array index is negative.");
+            }
+            
+            if (arrayIndex >= array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex),$"An array index '{arrayIndex}' is greater or equal than array length ({array.Length}).");
+            }
+               
+            if (count > m_count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Copy count is greater than the number of elements from start to the end of collection.");
+            }
+            
+            if (count + arrayIndex > array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count),$"Copy count is greater than the number of elements from arrayIndex to the end of destinationArray");
+            }
+
+            var cnt = 0;
+
+            for (int i = index; i < array.Length && cnt < count; i++)
+            {
+                m_root[i] = array[arrayIndex++];
+
+                cnt++;
+            }
+        }
 
         /// <summary>
         /// Copies the Data&lt;T&gt; or a portion of it to an array.
