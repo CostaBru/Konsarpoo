@@ -1950,5 +1950,35 @@ namespace Konsarpoo.Collections.Tests
             
             Assert.AreEqual(0, ints.GetOrDefault(10000));
         }
+        
+        private class DataItem
+        {
+            public Data<double> Items { get; set; }
+        }
+         
+        [Test]
+        public void TestDisposingHandler()
+        {
+            var lfuCache = new LfuCache<int, Data<DataItem>>((v) => v, disposingStrategy: (k,v ) => v.Dispose());
+
+            var vals = new Data<DataItem>();
+
+            var doubles = new Data<double>() { Double.Pi };
+            vals.Add(new DataItem(){ Items = doubles});
+            
+            Data<DataItem>.SetDisposingHandler((d) =>
+            {
+                foreach (var item in d)
+                {
+                    item.Items.Dispose();
+                }
+            } );
+
+            lfuCache.AddOrUpdate(0, vals);
+
+            lfuCache.RemoveKey(0);
+            
+            Assert.AreEqual(0, doubles.Count);
+        }
     }
 }

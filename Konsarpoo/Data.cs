@@ -42,6 +42,7 @@ namespace Konsarpoo.Collections
         public static readonly T Default = default;
         
         private static volatile bool s_clearArrayOnReturn = KonsarpooAllocatorGlobalSetup.ClearArrayOnReturn;
+        private static Action<IReadOnlyList<T>> s_disposingHandler;
 
         [NonSerialized] private readonly IArrayAllocator<T> m_arrayAllocator;
         [NonSerialized] private readonly IArrayAllocator<INode> m_nodesAllocator;
@@ -89,6 +90,13 @@ namespace Konsarpoo.Collections
             PoolList<T>.s_clearArrayOnReturn = s_clearArrayOnReturn;
         }
         
+        /// <summary>
+        /// Sets disposing handler.
+        /// </summary>
+        public static void SetDisposingHandler(Action<IReadOnlyList<T>> disposingHandler)
+        {
+            s_disposingHandler = disposingHandler;
+        }
         
         /// <summary> Default Data&lt;T&gt; constructor.</summary>
         public Data()
@@ -230,6 +238,8 @@ namespace Konsarpoo.Collections
         /// </summary>
         ~Data()
         {
+            s_disposingHandler?.Invoke(this);
+            
             Clear();
         }
 
@@ -238,6 +248,8 @@ namespace Konsarpoo.Collections
         /// </summary>
         public void Dispose()
         {
+            s_disposingHandler?.Invoke(this);
+
             Clear();
 
             GC.SuppressFinalize(this);

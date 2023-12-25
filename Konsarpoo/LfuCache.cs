@@ -67,8 +67,12 @@ public partial class LfuCache<TKey, TValue> :
     
     [NonSerialized]
     private Set<TKey> m_obsoleteKeys;
+    
     [NonSerialized]
     private readonly Func<TValue, TValue> m_copyStrategy;
+    
+    [NonSerialized]
+    private readonly Action<TKey, TValue> m_disposingStrategy;
     
     [NonSerialized]
     private long m_memoryLimit;
@@ -118,15 +122,16 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer) : this(capacity, maxSizeStorageNodeArray, comparer, null)
     {
     }
-    
+
     /// <summary>
-    /// LfuCache class constructor with value copy strategy.
+    /// LfuCache class constructor with value copy strategy abd disposing.
     /// </summary>
     /// <param name="copyStrategy"></param>
-    public LfuCache(Func<TValue, TValue> copyStrategy): this(0,0,null, copyStrategy)
+    /// <param name="disposingStrategy"></param>
+    public LfuCache(Func<TValue, TValue> copyStrategy, Action<TKey, TValue> disposingStrategy = null): this(0,0,null, copyStrategy, disposingStrategy)
     {
     }
-    
+
     /// <summary>
     /// LfuCache class constructor with keys comparer parameter.
     /// </summary>
@@ -134,15 +139,17 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="comparer"></param>
     /// <param name="capacity"></param>
     /// <param name="copyStrategy"></param>
-    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null)
+    /// <param name="disposingStrategy"></param>
+    public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null,  Action<TKey, TValue> disposingStrategy = null)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
-        
+
         m_map = new(capacity, maxSizeStorageNodeArray, m_comparer);
         m_root = new(m_setTemplate);
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
+        m_disposingStrategy = disposingStrategy;
     }
     
     /// <summary>
@@ -621,6 +628,11 @@ public partial class LfuCache<TKey, TValue> :
                 m_totalMemory -= memoryEstimate;
             }
             
+            if (m_disposingStrategy != null)
+            {
+                m_disposingStrategy(key, data.Value);
+            }
+            
             data.FreqNode.Keys.Remove(key);
             
             if (data.FreqNode.Keys.Count == 0)
@@ -629,9 +641,11 @@ public partial class LfuCache<TKey, TValue> :
                 
                 data.FreqNode.Keys.Dispose();
             }
+            
             m_map.Remove(key);
             m_obsoleteKeys?.Remove(key);
-            if (m_copyStrategy != null && data.Value is IDisposable disposable)
+            
+            if (m_disposingStrategy == null && m_copyStrategy != null && data.Value is IDisposable disposable)
             {
                 disposable.Dispose();
             }

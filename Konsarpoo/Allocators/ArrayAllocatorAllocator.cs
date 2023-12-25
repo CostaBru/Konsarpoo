@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections.Allocators;
 
 /// <summary>
-/// Default array allocator implementation. Takes advantage of array pool for arrays with len greater than 64. 
+/// Default array pool allocator implementation.  
 /// </summary>
 /// <typeparam name="T"></typeparam>
 public class ArrayAllocatorAllocator<T> : IArrayAllocator<T>
