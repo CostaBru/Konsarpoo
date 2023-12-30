@@ -37,12 +37,12 @@ Please use one of the following commands to install Konsarpoo.
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 4.0.1
+PM> Install-Package Konsarpoo -Version 4.1.0
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 4.0.1
+> dotnet add package Konsarpoo --version 4.1.0
 ```
 
 ### DATA  
@@ -62,7 +62,7 @@ The ``GcArrayPoolMixedAllocator<T>`` instance is the default array allocator. It
 
 ### STACK API / QUEUE API
 
-The ``Konsarpoo.Collections.Data`` class supports ``Stack`` and ``Queue`` API with linear time performance for modifying methods. To access ``Queue`` API it is required to call ``Data.AsQueue()`` method which returns wrapper class with ``Data<T>`` as internal storage that keeps track of the start of queue.
+The ``Konsarpoo.Collections.Data`` class supports ``Stack`` and ``Queue`` API with linear time performance for accessing and modifying methods. To access ``Queue`` API it is required to call ``Data.AsQueue()`` method which returns wrapper class with ``Data<T>`` as internal storage that keeps track of the start of queue.
 
 ### BITARR
 
