@@ -1506,6 +1506,8 @@ namespace Konsarpoo.Collections.Tests
             if (dataList is IDisposable d)
             {
                 d.Dispose();
+                
+                Assert.True(dataList.Version >= ushort.MaxValue);
 
                 Assert.AreEqual(0, dataList.Count);
             }

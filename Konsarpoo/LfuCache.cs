@@ -457,14 +457,16 @@ public partial class LfuCache<TKey, TValue> :
             };
             freqNode.NextNode = nextNode;
         }
+        
         freqNode.Keys.Remove(key);
-        nextNode.Keys.Add(key);
         if (freqNode.Keys.Count == 0)
         {
             DeleteNode(freqNode);
             
             freqNode.Keys.Dispose();
         }
+        
+        nextNode.Keys.Add(key);
         
         if (nextNode.FreqValue > m_mostFreqNode.FreqValue)
         {
@@ -632,14 +634,15 @@ public partial class LfuCache<TKey, TValue> :
             {
                 m_disposingStrategy(key, data.Value);
             }
+
+            var freqNode = data.FreqNode;
             
-            data.FreqNode.Keys.Remove(key);
-            
-            if (data.FreqNode.Keys.Count == 0)
+            freqNode.Keys.Remove(key);
+            if (freqNode.Keys.Count == 0)
             {
-                DeleteNode(data.FreqNode);
+                DeleteNode(freqNode);
                 
-                data.FreqNode.Keys.Dispose();
+                freqNode.Keys.Dispose();
             }
             
             m_map.Remove(key);
@@ -854,21 +857,30 @@ public partial class LfuCache<TKey, TValue> :
             var toRemove = Math.Min(m_map.Count, count.Value);
             var removedCount = toRemove;
             
-            while (toRemove > 0)
+            var workingNode = m_root.NextNode;
+            
+            while (toRemove > 0 && workingNode.FreqValue != 0)
             {
-                var leastFreqUsedItemsNode = m_root.NextNode;
-                var keys = leastFreqUsedItemsNode.Keys.ToData();
-                foreach (var key in keys)
+                var nextNode = workingNode.NextNode;
+
+                if (workingNode.Keys.Count > 0)
                 {
-                    RemoveKey(key);
-                    toRemove--;
-                    if (toRemove <= 0)
+                    var keys = workingNode.Keys.ToData();
+                    
+                    foreach (var key in keys)
                     {
-                        break;
+                        RemoveKey(key);
+                        toRemove--;
+                        if (toRemove <= 0)
+                        {
+                            break;
+                        }
                     }
+
+                    keys.Dispose();
                 }
-                
-                keys.Dispose();
+
+                workingNode = nextNode;
             }
             
             return removedCount;
@@ -876,6 +888,12 @@ public partial class LfuCache<TKey, TValue> :
         else
         {
             var leastFreqUsedItemsNode = m_root.NextNode;
+            while (leastFreqUsedItemsNode.Keys.Count == 0)
+            {
+                var nextNode = leastFreqUsedItemsNode.NextNode;
+                leastFreqUsedItemsNode = nextNode;
+            }
+            
             var keys = leastFreqUsedItemsNode.Keys.ToData();
             int removedCount = 0;
             foreach (var key in keys)

@@ -252,6 +252,8 @@ namespace Konsarpoo.Collections
 
             Clear();
 
+            m_version = ushort.MaxValue;
+            
             GC.SuppressFinalize(this);
         }
       
