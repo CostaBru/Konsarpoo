@@ -238,6 +238,9 @@ namespace Konsarpoo.Collections.Tests
 
                 newSet.Dispose();
                 Assert.AreEqual(0, newSet.Count);
+                
+                Assert.True(set1.Remove("test0"));
+                Assert.False(set1.ContainsKey("test0"));
             }
             GC.Collect();
         }

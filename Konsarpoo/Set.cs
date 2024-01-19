@@ -260,6 +260,10 @@ namespace Konsarpoo.Collections
                 {
                     hashCode = 0;
                 }
+                else
+                {
+                    hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+                }
             }
             else
             {
@@ -498,6 +502,10 @@ namespace Konsarpoo.Collections
                     if (item == null)
                     {
                         hashCode = 0;
+                    }
+                    else
+                    {
+                        hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
                     }
                 }
                 else
