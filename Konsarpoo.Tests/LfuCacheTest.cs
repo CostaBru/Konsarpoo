@@ -333,7 +333,42 @@ public class LfuCacheTest : BaseTest
         Assert.True(lfuCache.ContainsKey(6));
         Assert.True(lfuCache.ContainsKey(7));
     }
-    
+
+    [Test]
+    public void TestFillRemove()
+    {
+        var lfuCache = new LfuCache<int, int>();
+
+        for (int i = 0; i < 1000; i++)
+        {
+            lfuCache[i] = i;
+        }
+        
+        for (int i = 0; i < 1000; i++)
+        {
+            lfuCache[i] = i;
+        }
+
+        while (lfuCache.Count > 0)
+        {
+            lfuCache.RemoveLeastUsedItems(1);
+        }
+        
+        Assert.True(lfuCache.Count == 0);
+        
+        for (int i = 0; i < 1000; i++)
+        {
+            lfuCache[i] = i;
+        }
+
+        while (lfuCache.Count > 0)
+        {
+            lfuCache.RemoveLeastUsedItems(3);
+        }
+        
+        Assert.True(lfuCache.Count == 0);
+    }
+
     [Test]
     public void TestMemoryTracking()
     {

@@ -26,8 +26,6 @@ public partial class LfuCache<TKey, TValue> :
     IDeserializationCallback,
     IDisposable
 {
-    private const int c_useArrayThreshold = 64;
-
     [NonSerialized]
     private TimeSpan m_obsolescenceTimeout;
     public class DataVal
@@ -506,6 +504,9 @@ public partial class LfuCache<TKey, TValue> :
 
         prevNode.NextNode = nextNode;
         nextNode.PrevNode = prevNode;
+
+        freqNode.NextNode = null;
+        freqNode.PrevNode = null;
     }
 
     /// <summary>
@@ -648,6 +649,7 @@ public partial class LfuCache<TKey, TValue> :
             var freqNode = data.FreqNode;
             
             freqNode.Keys.Remove(key);
+            
             if (freqNode.Keys.Count == 0)
             {
                 DeleteNode(freqNode);
@@ -814,23 +816,21 @@ public partial class LfuCache<TKey, TValue> :
             return 0;
         }
         int removedCount = 0;
-        
-        IReadOnlyList<TKey> keys = m_obsoleteKeys.Count < c_useArrayThreshold ?
-            m_obsoleteKeys.ToArray() 
-            : m_obsoleteKeys.ToData();
-        
-        foreach (var key in keys)
-        {
-            RemoveKey(key);
-            removedCount++;
-        }
 
-        if (keys is IDisposable dips)
+        var keys = m_obsoleteKeys;
+            
+        while (keys.Count > 0)
         {
-            dips.Dispose();
+            var key = keys.First();
+
+            if (RemoveKey(key))
+            {
+                removedCount++;
+            }
+            
+            keys.Remove(key);
         }
         
-        m_obsoleteKeys.Clear();
         return removedCount;
     }
 
@@ -862,6 +862,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// Removes all least frequently used items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
+    /// <param name="count">if is not set it removes all min least used items.</param>
     public int RemoveLeastUsedItems(int? count = null)
     {
         if (m_map.Count == 0)
@@ -879,23 +880,22 @@ public partial class LfuCache<TKey, TValue> :
             {
                 var nextNode = workingNode.NextNode;
 
-                IReadOnlyList<TKey> keys = workingNode.Keys.Count < c_useArrayThreshold
-                    ? workingNode.Keys.ToArray()
-                    : workingNode.Keys.ToData();
-
-                foreach (var key in keys)
+                var keys = workingNode.Keys;
+                
+                while (keys.Count > 0 && toRemove > 0)
                 {
-                    RemoveKey(key);
-                    toRemove--;
-                    if (toRemove <= 0)
+                    var key = keys.First();
+                    
+                    if (RemoveKey(key))
                     {
-                        break;
+                        toRemove--;
                     }
+                    keys.Remove(key);
                 }
 
-                if (keys is IDisposable disp)
+                if (workingNode.NextNode != null && keys.Count == 0)
                 {
-                    disp.Dispose();
+                    DeleteNode(workingNode);
                 }
 
                 workingNode = nextNode;
@@ -906,28 +906,34 @@ public partial class LfuCache<TKey, TValue> :
         else
         {
             var freqNode = m_root.NextNode;
+            
             while (freqNode.Keys.Count == 0 && freqNode != m_root)
             {
                 var nextNode = freqNode.NextNode;
                 freqNode = nextNode;
             }
 
-            IReadOnlyList<TKey> keys = freqNode.Keys.Count < c_useArrayThreshold 
-                ? freqNode.Keys.ToArray() 
-                : freqNode.Keys.ToData();
-            
             int removedCount = 0;
-            foreach (var key in keys)
+
+            var keys = freqNode.Keys;
+            
+            while (keys.Count > 0)
             {
-                RemoveKey(key);
-                removedCount++;
+                var key = keys.First();
+
+                if (RemoveKey(key))
+                {
+                    removedCount++;
+                }
+                
+                keys.Remove(key);
             }
 
-            if (keys is IDisposable dips)
+            if (freqNode.NextNode != null && freqNode.Keys.Count == 0)
             {
-                dips.Dispose();
+                DeleteNode(freqNode);
             }
-            
+
             return removedCount;
         }
     }
