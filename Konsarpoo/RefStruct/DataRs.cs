@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
@@ -1020,6 +1021,84 @@ public ref struct DataRs<T>
         }
 
         return false;
+    }
+    
+    /// <summary>
+    /// Returns average. 
+    /// </summary>
+    /// <param name="convert">Function to get double from T.</param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public double Average(Func<T, double> convert)
+    {
+        double sum = 0;
+        
+        for (int i = 0; i < m_count; i++)
+        {
+            sum += convert(m_buffer[i]);
+        }
+
+        return sum / m_count;
+    }
+
+    /// <summary>
+    /// Gets Max. 
+    /// </summary>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T Max()
+    {
+        T max = default;
+
+        var comparer = Comparer<T>.Default;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            ref var x = ref m_buffer[i];
+
+            if (i == 0)
+            {
+                max = x;
+                continue;
+            }
+            
+            if (comparer.Compare(x, max) > 0)
+            {
+                max = x;
+            }
+        }
+
+        return max;
+    }
+    
+    /// <summary>
+    /// Gets Min. 
+    /// </summary>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T Min()
+    {
+        T min = default;
+
+        var comparer = Comparer<T>.Default;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            ref var x = ref m_buffer[i];
+
+            if (i == 0)
+            {
+                min = x;
+                continue;
+            }
+            
+            if (comparer.Compare(x, min) < 0)
+            {
+                min = x;
+            }
+        }
+
+        return min;
     }
 
     /// <summary>

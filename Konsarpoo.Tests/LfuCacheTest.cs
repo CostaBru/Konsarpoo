@@ -368,6 +368,50 @@ public class LfuCacheTest : BaseTest
         
         Assert.True(lfuCache.Count == 0);
     }
+    
+    [Test]
+    public void TestCollision()
+    {
+        var lfuCache = new LfuCache<string, int>();
+
+        var bytesPerCacheItem = (1400 * 128) + 128;
+
+        var limit = 128 * 1024 * 1024;
+
+        lfuCache.StartTrackingMemory(limit, (k, v) => v);
+
+        int attemptCount = 0;
+
+        for (int a = 0; a < 5; a++)
+        {
+            for (int i = 0; i < 6500; i++)
+            {
+                var key = i.ToString();
+                
+                lfuCache[key] = bytesPerCacheItem;
+
+                lfuCache.TryGetValue(key, out var val);
+
+                Assert.False(lfuCache.IsBrokenFreqList(), $" {a} - {i}");
+            }
+
+            for (int i = 0; i < 6500; i++)
+            {
+                var key = i.ToString();
+               
+                Assert.False(lfuCache.IsBrokenFreqList(), $" {a} - {i}");
+
+                lfuCache.RemoveLeastUsedItems(1);
+                Assert.False(lfuCache.IsBrokenFreqList(), $" {a} - {i}");
+                
+                lfuCache.TryGetValue(key, out var val1);
+                
+                Assert.False(lfuCache.IsBrokenFreqList(), $" {a} - {i}");
+
+                lfuCache[key] = bytesPerCacheItem;
+            }
+        }
+    }
 
     [Test]
     public void TestMemoryTracking()

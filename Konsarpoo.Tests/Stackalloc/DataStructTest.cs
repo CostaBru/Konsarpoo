@@ -605,6 +605,55 @@ public class DataStructTest
     }
 
     [Test]
+    public void Avg()
+    {
+        Span<int> initStore = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore);
+
+        var data = Enumerable.Range(1, N).Select(i => i).ToArray();
+        
+        dataList.AddRange(data);
+        
+        Assert.AreEqual(data.Average(), dataList.Average(d => d));
+    }
+    
+    [Test]
+    public void Max([Values(true, false)] bool reverse)
+    {
+        Span<int> initStore = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore);
+
+        var data = Enumerable.Range(1, N).Select(i => i).ToList();
+
+        if (reverse)
+        {
+            data.Reverse();
+        }
+        
+        dataList.AddRange(data);
+        
+        Assert.AreEqual(data.Max(), dataList.Max());
+    }
+    
+    [Test]
+    public void Min([Values(true, false)] bool reverse)
+    {
+        Span<int> initStore = stackalloc int[N];
+        var dataList = new DataRs<int>(ref initStore);
+
+        var data = Enumerable.Range(1, N).Select(i => i).ToList();
+        
+        if (reverse)
+        {
+            data.Reverse();
+        }
+        
+        dataList.AddRange(data);
+        
+        Assert.AreEqual(data.Min(), dataList.Min());
+    }
+
+    [Test]
     public void TestRemoveAllItem([Values(6, 5, 4, 3, 2, 1)] int count,
         [Values( 5, 4, 3, 2, 1, 0)] int item, [Values(3, 1, 0)] int duplicates)
     {

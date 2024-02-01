@@ -447,15 +447,15 @@ public partial class LfuCache<TKey, TValue> :
     {
         var freqNode = data.FreqNode;
         var nextNode = freqNode.NextNode;
+        
         if (nextNode.FreqValue != freqNode.FreqValue + 1)
         {
             nextNode = new FreqNode(m_setTemplate)
             {
-                NextNode = freqNode.NextNode,
-                PrevNode = freqNode,
                 FreqValue = freqNode.FreqValue + 1
             };
-            freqNode.NextNode = nextNode;
+            
+            InsertNodeAfter(freqNode, nextNode);
         }
         
         freqNode.Keys.Remove(key);
@@ -501,12 +501,23 @@ public partial class LfuCache<TKey, TValue> :
 
         var prevNode = freqNode.PrevNode;
         var nextNode = freqNode.NextNode;
-
+        
         prevNode.NextNode = nextNode;
         nextNode.PrevNode = prevNode;
 
         freqNode.NextNode = null;
         freqNode.PrevNode = null;
+    }
+    
+    private void InsertNodeAfter(FreqNode curNode, FreqNode newNode)
+    {
+        var nextNode = curNode.NextNode;
+        
+        curNode.NextNode = newNode;
+        nextNode.PrevNode = newNode;
+
+        newNode.PrevNode = curNode;
+        newNode.NextNode = nextNode;
     }
 
     /// <summary>
@@ -577,9 +588,9 @@ public partial class LfuCache<TKey, TValue> :
             
             if (m_root.NextNode.FreqValue != 1)
             {
-                firstNode = new FreqNode(m_setTemplate) { FreqValue = 1, PrevNode = m_root, NextNode = firstNode };
-                m_root.NextNode.PrevNode = firstNode;
-                m_root.NextNode = firstNode;
+                firstNode = new FreqNode(m_setTemplate) { FreqValue = 1 };
+
+                InsertNodeAfter(m_root, firstNode);
                 
                 if (firstNode.FreqValue > m_mostFreqNode.FreqValue)
                 {
@@ -859,6 +870,33 @@ public partial class LfuCache<TKey, TValue> :
         return removeKey;
     }
 
+    internal bool IsBrokenFreqList()
+    {
+        var workingNode = m_root.NextNode;
+
+        while (workingNode != null)
+        {
+            workingNode = workingNode.NextNode;
+
+            if (workingNode.PrevNode == null || workingNode.PrevNode.NextNode == null || workingNode.PrevNode.PrevNode == null)
+            {
+                return true;
+            }
+
+            if (workingNode.NextNode == null)
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(workingNode, m_root))
+            {
+                break;
+            }
+        }
+
+        return workingNode == null;
+    }
+    
     /// <summary>
     /// Removes all least frequently used items from cache. Each value will be disposed if value is inherited from IDisposable interface and copy strategy is set.
     /// </summary>
