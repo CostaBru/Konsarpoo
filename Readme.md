@@ -33,7 +33,7 @@ Possible use cases of this package:
 
 ## Nuget
 
-Please use one of the following commands to install Konsarpoo.
+Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
