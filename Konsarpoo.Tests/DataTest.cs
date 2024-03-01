@@ -1982,5 +1982,65 @@ namespace Konsarpoo.Collections.Tests
             
             Assert.AreEqual(0, doubles.Count);
         }
+
+        [Test]
+        public void TestReadonlyUnion()
+        {
+            var data1 = Enumerable.Range(0, 10).ToData();
+            var data2 = Enumerable.Range(0, 10).ToData();
+            var data3 = Enumerable.Range(0, 10).ToData();
+
+            var dataExpected = new Data<int>();
+            
+            dataExpected.AddRange(data1);
+            dataExpected.AddRange(data2);
+            dataExpected.AddRange(data3);
+
+            var unionAsReadOnlyList = data1.UnionAsReadOnlyListWith(data2, data3);
+            
+            Assert.AreEqual(dataExpected.Count, unionAsReadOnlyList.Count);
+
+            for (int i = 0; i < 30; i++)
+            {
+                Assert.AreEqual(dataExpected[i], unionAsReadOnlyList[i]);
+            }
+
+            var enumerator = dataExpected.GetEnumerator();
+
+            foreach (var val in unionAsReadOnlyList)
+            {
+                enumerator.MoveNext();
+                
+                Assert.AreEqual(enumerator.Current, val);
+            }
+        }
+        
+        [Test]
+        public void TestReadonlyUnion1()
+        {
+            var data1 = Enumerable.Range(0, 10).ToData();
+
+            var dataExpected = new Data<int>();
+            
+            dataExpected.AddRange(data1);
+
+            var unionAsReadOnlyList = data1.UnionAsReadOnlyListWith();
+            
+            Assert.AreEqual(dataExpected.Count, unionAsReadOnlyList.Count);
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.AreEqual(dataExpected[i], unionAsReadOnlyList[i]);
+            }
+
+            var enumerator = dataExpected.GetEnumerator();
+
+            foreach (var val in unionAsReadOnlyList)
+            {
+                enumerator.MoveNext();
+                
+                Assert.AreEqual(enumerator.Current, val);
+            }
+        }
     }
 }
