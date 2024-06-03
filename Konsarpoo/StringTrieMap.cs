@@ -2,12 +2,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
     
-    internal class StringTrieMap<TValue> : IDictionary<string, TValue>, 
+    /// <summary>
+    /// The StringTrieMap&lt;TValue&gt; generic class that provides a mapping from a set of string keys to a set of values. Implemented as String Trie to store values more efficiently.
+    /// </summary>
+    /// <typeparam name="TValue"></typeparam>
+    [DebuggerTypeProxy(typeof(TrieMapDebugView<>))]
+    [DebuggerDisplay("Count = {Count}")]
+    [Serializable]
+    public partial class StringTrieMap<TValue> : 
+        IDictionary<string, TValue>, 
         ICollection<KeyValuePair<string, TValue>>,
         IEnumerable<KeyValuePair<string, TValue>>, 
         IReadOnlyDictionary<string, TValue>, 
@@ -17,311 +27,171 @@ namespace Konsarpoo.Collections;
         IDeserializationCallback,
         IDisposable
     {
-        [DebuggerDisplay("'{Value}' {ChildrenCount} {IsEndOfWord}")]
-        internal class TrieNode<TValue>
-        {
-            public char Value;
-            public Map<char, TrieNode<TValue>> Children;
-            public bool IsEndOfWord;
-            public TValue Reference;
-            public int ChildrenCount => Children.Count; 
+        [NonSerialized]
+        private TrieNode<TValue> m_root = new('\0');
 
-            public TrieNode(char value)
-            {
-                Value = value;
-                Children = new Map<char, TrieNode<TValue>>();
-            }
-
-            public TrieNode<TValue> GetChildNode(char c)
-            {
-                return Children.GetOrDefault(c);
-            }
-
-            public void AddChild(char c, TrieNode<TValue> newNode)
-            {
-                Children[c] = newNode;
-            }
-
-            public void Dispose()
-            {
-                foreach (var child in Children)
-                {
-                    child.Value.Dispose();
-                }
-            
-                Children.Dispose();
-            }
-        }
-        
-        private TrieNode<TValue> root = new('\0');
-
+        [NonSerialized]
         private bool m_caseSensitive = false;
+        
+        [NonSerialized]
+        private ushort m_version;
+        
+        [NonSerialized]
+        [CanBeNull]
+        private SerializationInfo m_sInfo;
+        
+        [NonSerialized] 
+        private static TValue s_nullRef;
+        
+        [NonSerialized]
+        [CanBeNull]
+        private Func<string, TValue> m_missingValueFactory;
+        
+        /// <summary>
+        /// Checks that both map and readonly dictionary has the same keys and values.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static bool operator ==([CanBeNull] StringTrieMap<TValue> a, [CanBeNull] IReadOnlyDictionary<string, TValue> b)
+        {
+            if (ReferenceEquals(a, null) && ReferenceEquals(b, null)) return true;
+            if (RuntimeHelpers.Equals(a, b)) return true;
+            if (ReferenceEquals(a, null) || ReferenceEquals(b, null)) return false;
+            return a.EqualsDict(b);
+        }
 
-        public StringTrieMap(bool caseSensitive = true)
+        /// <summary>
+        /// Checks that both map and readonly dictionary does not have the same keys and values.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static bool operator !=(StringTrieMap<TValue> a, IReadOnlyDictionary<string, TValue> b) => !(a == b);
+
+        /// <summary>
+        /// Default StringTrieMap constructor. Case sensitive by default.
+        /// </summary>
+        public StringTrieMap() : this(true)
+        {
+        }
+
+        /// <summary>
+        /// StringTrieMap constructor with case sensitivity option.
+        /// </summary>
+        /// <param name="caseSensitive"></param>
+        public StringTrieMap(bool caseSensitive)
         {
             this.m_caseSensitive = caseSensitive;
         }
 
-        bool IReadOnlyDictionary<string, TValue>.ContainsKey(string key)
+        /// <summary>
+        /// Copying constructor.
+        /// </summary>
+        /// <param name="copyFromMap"></param>
+        public StringTrieMap(StringTrieMap<TValue> copyFromMap)
         {
-            return ContainsKey(key);
-        }
-        
-        public bool ContainsKey([NotNull] string key)
-        {
-            if (key == null) throw new ArgumentNullException(nameof(key));
+            if (copyFromMap == null)
+            {
+                throw new ArgumentNullException(nameof(copyFromMap));
+            }
+
+            m_caseSensitive = copyFromMap.m_caseSensitive;
+            m_missingValueFactory = copyFromMap.m_missingValueFactory;
+            Count = copyFromMap.Count;
+
+            var node = copyFromMap.m_root;
+
+            var otherStack = new Data<TrieNode<TValue>>(copyFromMap.Count);
+            otherStack.Push(node);
+
+            var currentNode = m_root;
             
-            var word = m_caseSensitive ? key : key.ToLower();
-            var currentNode = root;
-            foreach (var c in word)
+            var thisStack = new Data<TrieNode<TValue>>(copyFromMap.Count);
+            thisStack.Push(currentNode);
+
+            while (otherStack.Any)
             {
-                currentNode = currentNode.GetChildNode(c);
-                if (currentNode == null)
+                var copyFrom = otherStack.Pop();
+                var copyTo = thisStack.Pop();
+                
+                foreach (var child in copyFrom.Children)
                 {
-                    return false;
-                }
-            }
-            return currentNode.IsEndOfWord;
-        }
-
-        public bool TryGetValue(string key, out TValue value)
-        {
-            value = ValueByRef(key, out var success);
-
-            return success;
-        }
-        
-        [NonSerialized]
-        private static TValue s_nullRef;
-    
-        public ref TValue ValueByRef(string key, out bool success)
-        {
-            var word = key;
-            success = false;
-            
-            if (m_caseSensitive == false)
-            {
-                word = word.ToLower();
-            }
-            
-            var currentNode = root;
-            foreach (var c in word)
-            {
-                currentNode = currentNode.GetChildNode(c);
-                if (currentNode == null)
-                {
-                    return ref s_nullRef;
-                }
-            }
-
-            if (currentNode.IsEndOfWord)
-            {
-                success = true;
-
-                return ref currentNode.Reference;
-            }
-
-            return ref s_nullRef;
-        }
-
-        public void Add(string key, TValue value)
-        {
-            var add = true;
-            Insert(key, ref value, ref add);
-        }
-
-        bool IDictionary<string, TValue>.ContainsKey(string key)
-        {
-            throw new NotImplementedException();
-        }
-
-        private void Insert(string key, ref TValue value, ref bool add)
-        {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
-
-            var word = key;
-
-            if (m_caseSensitive == false)
-            {
-                word = word.ToLower();
-            }
-
-            if (TryGetValue(key, out var _))
-            {
-                if (add)
-                {
-                    throw new ArgumentException($"Key '{key}' is already exists.");
-                }
-            }
-
-            var currentNode = root;
-
-            foreach (var c in word)
-            {
-                var childNode = currentNode.GetChildNode(c);
-                if (childNode != null)
-                {
-                    currentNode = childNode;
-                }
-                else
-                {
-                    var newNode = new TrieNode<TValue>(c)
+                    var newNode = new TrieNode<TValue>(child.Key)
                     {
-                        Reference = value
+                        IsEndOfWord = child.Value.IsEndOfWord,
+                        Value = child.Value.Value
                     };
-                    currentNode.AddChild(c, newNode);
-                    currentNode = newNode;
+
+                    copyTo.AddChild(child.Key, newNode);
+                    
+                    otherStack.Push(child.Value);
+                    thisStack.Push(newNode);
                 }
             }
-
-            currentNode.IsEndOfWord = true;
-
-            currentNode.Reference = value;
-
-            if (add)
-            {
-                Count++;
-            }
         }
 
-        public bool Remove(KeyValuePair<string, TValue> item)
+        /// <summary>
+        /// Deserialization constructor.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
+        protected StringTrieMap(SerializationInfo info, StreamingContext context) 
         {
-            return Remove(item.Key);
+            m_sInfo = info;
         }
 
-        public void Append(KeyValuePair<string, TValue> value)
+        /// <inheritdoc />
+        public void Dispose()
         {
-            Add(value.Key, value.Value);
+            Clear();
         }
+        
+        /// <summary>
+        /// SyncRoot object for thread safety.
+        /// </summary>
+        public object? SyncRoot => this;
+        
+        /// <summary>
+        /// Current version of container.
+        /// </summary>
+        public int Version => m_version;
+        
+        /// <summary>
+        /// Length of the collection.
+        /// </summary>
+        public int Length => Count;
 
+        /// <inheritdoc />
         public int Count { get; private set; }
 
+        /// <inheritdoc />
         public bool IsReadOnly => false;
+        
+        /// <summary>
+        /// Case sensitivity of the map.
+        /// </summary>
+        public bool CaseSensitive => m_caseSensitive;
 
-        public TValue this[string key]
+        /// <summary>
+        /// Enumerator for the map.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerator<KeyValuePair<string, TValue>> GetEnumerator()
         {
-            get
+            foreach (var tuple in GetKeyValuesString())
             {
-                var value = ValueByRef(key, out var found);
-
-                if (found)
-                {
-                    return value;
-                }
-                
-                throw new KeyNotFoundException($"Key '{key}' was not found.");
-            }
-            set
-            {
-                var set = false;
-                Insert(key, ref value, ref set);
+                yield return new KeyValuePair<string, TValue>(tuple.Key, tuple.Value);
             }
         }
 
-        IEnumerable<string> IReadOnlyDictionary<string, TValue>.Keys
-        {
-            get
-            {
-                foreach (var (key, _) in GetKeyValues())
-                {
-                    yield return key;
-                }
-            }
-        }
-
-        IEnumerable<TValue> IReadOnlyDictionary<string, TValue>.Values
-        {
-            get
-            {
-                foreach (var (_, value) in GetKeyValues())
-                {
-                    yield return value;
-                }
-            }
-        }
-
-        ICollection<string> IDictionary<string, TValue>.Keys
-        {
-            get
-            {
-                var data = new Data<string>(Count);
-                
-                foreach (var (key, _) in GetKeyValues())
-                {
-                    data.Add(key);
-                }
-
-                return data;
-            }
-        }
-
-        ICollection<TValue> IDictionary<string, TValue>.Values
-        {
-            get
-            {
-                var data = new Data<TValue>(Count);
-                
-                foreach (var (_, value) in GetKeyValues())
-                {
-                    data.Add(value);
-                }
-
-                return data;
-            }
-        }
-
-        public IEnumerable<(string Key, TValue Reference)> GetKeyValues()
-        {
-            var stack = new Data<(TrieNode<TValue> Node, string Prefix)>();
-            stack.Push((root, string.Empty));
-         
-            while (stack.Count > 0)
-            {
-                var (node, prefix) = stack.Pop();
-
-                if (node.IsEndOfWord)
-                {
-                    yield return (prefix, node.Reference);
-                }
-
-                foreach (var child in node.Children)
-                {
-                    stack.Push((child.Value, prefix + child.Value.Value));
-                }
-            }
-        }
-
+        /// <inheritdoc />
         public void Add(KeyValuePair<string, TValue> item)
         {
             Add(item.Key, item.Value);
         }
 
-        public void Clear()
-        {
-            var stack = new Data<TrieNode<TValue>>();
-            stack.Push(root);
-         
-            while (stack.Count > 0)
-            {
-                var node = stack.Pop();
-
-                foreach (var child in node.Children)
-                {
-                    stack.Push(child.Value);
-                }
-                
-                node.Children.Clear();
-            }
-            
-            root = new('\0');
-            
-            Count = 0;
-        }
-
-        public bool Contains(KeyValuePair<string, TValue> item)
+        bool ICollection<KeyValuePair<string, TValue>>.Contains(KeyValuePair<string, TValue> item)
         {
             if (TryGetValue(item.Key, out var value))
             {
@@ -331,6 +201,7 @@ namespace Konsarpoo.Collections;
             return false;
         }
 
+        /// <inheritdoc />
         public void CopyTo(KeyValuePair<string, TValue>[] array, int arrayIndex)
         {
             if (array == null)
@@ -345,52 +216,308 @@ namespace Konsarpoo.Collections;
 
             if (array.Length - arrayIndex < Count)
             {
-                throw new ArgumentException("The number of elements in the source collection is greater than the available space from arrayIndex to the end of the destination array.");
+                throw new ArgumentException(
+                    "The number of elements in the source collection is greater than the available space from arrayIndex to the end of the destination array.");
             }
 
-            foreach (var pair in this)
+            foreach (var pair in GetKeyValuesString())
             {
-                array[arrayIndex++] = pair;
+                array[arrayIndex++] = new KeyValuePair<string, TValue>(pair.Key, pair.Value);
+            }
+        }
+        
+          
+        IEnumerator IEnumerable.GetEnumerator() => GetKeyValuesString().GetEnumerator();
+
+        /// <summary>
+        /// Values of the map.
+        /// </summary>
+        public IEnumerable<TValue> Values => GetValues();
+
+        bool ICollection<KeyValuePair<string, TValue>>.Remove(KeyValuePair<string, TValue> item) => Remove(item.Key);
+
+       /// <inheritdoc />
+        bool IDictionary<string, TValue>.ContainsKey(string key) => ContainsKey(key);
+
+        /// <inheritdoc />
+        bool IReadOnlyDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValue(key, out value);
+
+        /// <inheritdoc />
+        public bool Remove(string key) => Remove((IEnumerable<char>)key);
+
+        bool IReadOnlyDictionary<string, TValue>.ContainsKey(string key) => ContainsKey(key);
+
+        bool IDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValue(key, out value);
+        
+        /// <inheritdoc />
+        public void Add(string key, TValue value)
+        {
+            Add((IEnumerable<char>)key, value);
+        }
+        
+        /// <summary>
+        /// Indexer for the map. Throws KeyNotFoundException if key is not found.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <exception cref="KeyNotFoundException"></exception>
+        public TValue this[string key]
+        {
+            get
+            {
+                var value = ValueByRef(key, out var found);
+
+                if (found)
+                {
+                    return value;
+                }
+                
+                if (m_missingValueFactory != null)
+                {
+                    var newValue = m_missingValueFactory(key);
+                    var set = false;
+                    Insert(key, ref newValue, ref set);
+
+                    return newValue;
+                }
+
+                throw new KeyNotFoundException($"Key '{key}' was not found.");
+            }
+            set
+            {
+                var add = false;
+                Insert(key, ref value, ref add);
             }
         }
 
+        ICollection<string> IDictionary<string, TValue>.Keys
+        {
+            get
+            {
+                var data = new Data<string>(Count);
+                
+                data.AddRange(Keys);
+
+                return data;
+            }
+        }
+
+        ICollection<TValue> IDictionary<string, TValue>.Values
+        {
+            get
+            {
+                var data = new Data<TValue>(Count);
+                
+                data.AddRange(Values);
+
+                return data;
+            }
+        }
+
+        /// <inheritdoc />
+        public void Append(KeyValuePair<string, TValue> value)
+        {
+            Add(value.Key, value.Value);
+        }
+        
+        /// <inheritdoc />
+        public IEnumerable<string> Keys
+        {
+            get
+            {
+                var version = m_version;
+
+                foreach (var kv in GetKeyValuesString())
+                {
+                    CheckState(ref version);
+                    
+                    yield return kv.Key;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Converts the map to a given list.
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="index"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public void CopyTo(IList<KeyValuePair<string, TValue>> destination, int index)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException("destination");
+            }
+            if ((index < 0) || (index > destination.Count))
+            {
+                throw new ArgumentOutOfRangeException("index");
+            }
+            if ((destination.Count - index) < Count)
+            {
+                throw new ArgumentException();
+            }
+            
+            var entries = GetKeyValuesString();
+
+            foreach (var entry in entries)
+            {
+                destination[index++] = new KeyValuePair<string, TValue>(entry.Key, entry.Value);
+            }
+        }
+
+        /// <summary>
+        /// Copies the elements of the map to a data collection, starting at a particular index.
+        /// </summary>
+        /// <returns></returns>
         public Data<KeyValuePair<string, TValue>> ToData()
         {
             var data = new Data<KeyValuePair<string, TValue>>(Count);
 
-            var keyValues = GetKeyValues();
+            var keyValues = GetKeyValuesString();
 
             foreach (var kv in keyValues)
             {
-                data.Add(new KeyValuePair<string, TValue>(kv.Key, kv.Reference));
+                data.Add(new KeyValuePair<string, TValue>(kv.Key, kv.Value));
             }
 
             return data;
         }
 
-        public bool Remove(string key)
+        /// <summary>
+        /// Converts the map to an array.
+        /// </summary>
+        /// <returns></returns>
+        public KeyValuePair<string, TValue>[] ToArray()
         {
-            var word = key;
-            
-            if (m_caseSensitive == false)
+            var keyValuePairs = new KeyValuePair<string, TValue>[Count];
+
+            int index = 0;
+            foreach (var kv in GetKeyValuesString())
             {
-                word = word.ToLower();
-            }
-            var currentNode = root;
-            foreach (var c in word)
-            {
-                currentNode = currentNode.GetChildNode(c);
-                if (currentNode == null)
-                {
-                    return false;
-                }
+                keyValuePairs[index] = new KeyValuePair<string, TValue>(kv.Key, kv.Value);
+
+                index++;
             }
 
-            if (currentNode.IsEndOfWord)
+            return keyValuePairs;
+        }
+        
+        /// <summary>
+        /// Adds the specified key and value to the map.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        public void Put(string key, TValue value)
+        {
+            var add = true;
+            Insert(key, ref value, ref add);
+        }
+        
+         /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet([NotNull] string key, Func<string, StringTrieMap<TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
             {
-                currentNode.Reference = default;
-                currentNode.IsEndOfWord = false;
-                Count--;
+                return value;
+            }
+
+            return missingValue(key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam>([NotNull] string key, TParam p1, Func<TParam, string, StringTrieMap<TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam1, TParam2>([NotNull] string key, TParam1 p1, TParam2 p2,  Func<TParam1, TParam2, string, StringTrieMap<TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, p2, key, this);
+        }
+    
+        /// <summary>
+        /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+        /// </summary>
+        /// <returns></returns>
+        public TValue GetSet<TParam1, TParam2, TParam3>([NotNull] string key, TParam1 p1, TParam2 p2, TParam3 p3, Func<TParam1, TParam2, TParam3, string, StringTrieMap<TValue>, TValue> missingValue)
+        {
+            if (TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return missingValue(p1, p2, p3, key, this);
+        }
+        
+        /// <summary>
+        /// Sets a missing value factory delegate up which would be called instead of throwing the KeyNotFound exception.
+        /// </summary>
+        /// <param name="missingValueFactory"></param>
+        public void EnsureValues([CanBeNull] Func<string, TValue> missingValueFactory) => m_missingValueFactory = missingValueFactory;
+
+        /// <summary>
+        /// Inefficient way to get key by its index.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public string KeyAt(int index) => Keys.ElementAt(index);
+
+        /// <summary>
+        /// Checks that this map and readonly dictionary has the same keys and values.
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
+        protected bool EqualsDict([NotNull] IReadOnlyDictionary<string, TValue> other)
+        {
+            if (other == null)
+            {
+                throw new ArgumentNullException(nameof(other));
+            }
+
+            if (Count == other.Count)
+            {
+                foreach (var kv in this)
+                {
+                    if (!(other.TryGetValue(kv.Key, out var otherValue)))
+                    {
+                        return false;
+                    }
+
+                    if (!(EqualityComparer<TValue>.Default.Equals(kv.Value, otherValue)))
+                    {
+                        return false;
+                    }
+                }
+
+                foreach (var kv in other)
+                {
+                    if (!(this.TryGetValue(kv.Key, out var otherValue)))
+                    {
+                        return false;
+                    }
+                }
 
                 return true;
             }
@@ -398,61 +525,93 @@ namespace Konsarpoo.Collections;
             return false;
         }
 
-        public void Dispose()
+        /// <summary>
+        /// Determines whether the specified Map&lt;TKey,TValue&gt; instances are considered equal by comparing type, sizes and elements.
+        /// </summary>
+        public override bool Equals(object obj)
         {
-            var q = new Data<TrieNode<TValue>>().AsQueue();
-            
-            q.Enqueue(root);
-
-            while (q.Any)
-            {
-                var node = q.Dequeue();
-
-                foreach (var child in node.Children)
-                {
-                    q.Enqueue(child.Value);
-                }
-
-                node.Dispose();
-            }
-            
-            Clear();
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return EqualsDict((StringTrieMap<TValue>)obj);
         }
 
-        public IEnumerator<KeyValuePair<string, TValue>> GetEnumerator()
+        /// <inheritdoc />
+        public void Clear()
         {
-            var stack = new Stack<(TrieNode<TValue> Node, string Prefix)>();
-            stack.Push((root, string.Empty));
+            var trieNode = m_root;
+        
+            m_root = new('\0');
+            Count = 0;
+            unchecked { ++m_version; }
+
+            var stack = new Data<TrieNode<TValue>>();
+            stack.Push(trieNode);
 
             while (stack.Count > 0)
             {
+                var node = stack.Pop();
+
+                foreach (var child in node.Children)
+                {
+                    stack.Push(child.Value);
+                }
+                
+                node.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Checks if the map contains a given value. Is not efficient.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool ContainsValue(TValue value)
+        {
+            foreach (var pair in this)
+            {
+                if (EqualityComparer<TValue>.Default.Equals(pair.Value, value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CheckState(ref ushort version)
+        {
+            if (version != m_version)
+            {
+                throw new InvalidOperationException($"Data collection was modified during enumeration.");
+            }
+        }
+        
+        private IEnumerable<(string Key, TValue Value)> GetKeyValuesString()
+        {
+            var version = m_version;
+            
+            var stack = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            stack.Push((m_root, string.Empty));
+         
+            while (stack.Count > 0)
+            {
                 var (node, prefix) = stack.Pop();
+                
+                CheckState(ref version);
 
                 if (node.IsEndOfWord)
                 {
-                    yield return new KeyValuePair<string, TValue>(prefix, node.Reference);
+                    yield return (prefix, node.Value);
                 }
 
                 foreach (var child in node.Children)
                 {
-                    stack.Push((child.Value, prefix + child.Key));
+                    stack.Push((child.Value, prefix + child.Value.KeyChar));
                 }
             }
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-          
-            info.AddValue("Count", Count);
-            info.AddValue("Items", ToData());
-        }
-
-        public void OnDeserialization(object sender)
-        {
+            
+            stack.Dispose();
         }
     }
