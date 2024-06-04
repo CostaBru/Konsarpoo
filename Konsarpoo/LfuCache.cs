@@ -37,24 +37,24 @@ public partial class LfuCache<TKey, TValue> :
    
     public class FreqNode
     {
-        public Set<TKey> Keys;
+        public ICollection<TKey> Keys;
         public FreqNode NextNode;
         public FreqNode PrevNode;
         public int FreqValue;
-        public FreqNode(Set<TKey> setTemplate)
+        public FreqNode(Func<ICollection<TKey>> setFactory)
         {
             NextNode = this;
             PrevNode = this;
-            Keys = new Set<TKey>(setTemplate);
+            Keys = setFactory();
         }
     }
     
     [NonSerialized]
-    private Set<TKey> m_setTemplate;
+    private Func<ICollection<TKey>> m_setFactory;
     [NonSerialized]
     private IEqualityComparer<TKey> m_comparer;
     [NonSerialized]
-    private Map<TKey, DataVal> m_map;
+    private IDictionary<TKey, DataVal> m_map;
     [NonSerialized] 
     private FreqNode m_root;
     
@@ -63,10 +63,12 @@ public partial class LfuCache<TKey, TValue> :
         
     [NonSerialized]
     private static TValue s_nullRef;
+    
+    [NonSerialized]
     private IStopwatch m_stopwatch;
     
     [NonSerialized]
-    private Set<TKey> m_obsoleteKeys;
+    private ICollection<TKey> m_obsoleteKeys;
     
     [NonSerialized]
     private readonly Func<TValue, TValue> m_copyStrategy;
@@ -80,6 +82,8 @@ public partial class LfuCache<TKey, TValue> :
     private long m_totalMemory;
     [NonSerialized]
     private Func<TKey, TValue, long> m_getMemoryEstimate;
+
+    private int m_version = 0;
 
     /// <summary>
     /// Gets currently tracking memory limit.
@@ -143,10 +147,10 @@ public partial class LfuCache<TKey, TValue> :
     public LfuCache(int capacity, int maxSizeStorageNodeArray, IEqualityComparer<TKey> comparer, Func<TValue, TValue> copyStrategy = null,  Action<TKey, TValue> disposingStrategy = null)
     {
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-        m_setTemplate = new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
+        m_setFactory = () => new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
 
-        m_map = new(capacity, maxSizeStorageNodeArray, m_comparer);
-        m_root = new(m_setTemplate);
+        m_map = new Map<TKey, DataVal>(capacity, maxSizeStorageNodeArray, m_comparer);
+        m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
         m_disposingStrategy = disposingStrategy;
@@ -172,10 +176,33 @@ public partial class LfuCache<TKey, TValue> :
         m_comparer = mapTemplate.Comparer;
         m_map = new Map<TKey, DataVal>(mapTemplate);
         m_map.Clear();
-        m_setTemplate = new (setTemplate, m_comparer);
-        m_setTemplate.Clear();
+        m_setFactory = () => new Set<TKey>(setTemplate, m_comparer);
+        m_root = new(m_setFactory);
+        m_mostFreqNode = m_root;
+    }
+    
+    /// <summary>
+    /// LfuCache constructor with customizable storage.
+    /// </summary>
+    /// <param name="storage"></param>
+    /// <param name="setFactory"></param>
+    /// <exception cref="ArgumentNullException"></exception>
+    public LfuCache([NotNull]IDictionary<TKey, DataVal> storage, [NotNull] Func<ICollection<TKey>> setFactory)
+    {
+        if (storage == null)
+        {
+            throw new ArgumentNullException(nameof(storage));
+        }
+        if (setFactory == null)
+        {
+            throw new ArgumentNullException(nameof(setFactory));
+        }
         
-        m_root = new(m_setTemplate);
+        m_comparer = EqualityComparer<TKey>.Default;
+        m_map = storage;
+        m_setFactory = setFactory;
+        
+        m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
     }
 
@@ -196,7 +223,7 @@ public partial class LfuCache<TKey, TValue> :
         m_stopwatch = stopwatch ?? throw new ArgumentNullException(nameof(stopwatch));
         if (m_obsoleteKeys == null)
         {
-            m_obsoleteKeys = new Set<TKey>(m_setTemplate);
+            m_obsoleteKeys = m_setFactory();
         }
         m_stopwatch.Start();
     }
@@ -422,21 +449,6 @@ public partial class LfuCache<TKey, TValue> :
         }
     }
 
-    /// <summary>
-    /// Returns the actual buckets count. If the value is equal to values count resize will happen on text insert.
-    /// </summary>
-    public int BucketCount => m_map.BucketCount;
-
-    /// <summary>
-    /// Returns the bucket index for given key.
-    /// </summary>
-    /// <returns></returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int GetBucketIndex([NotNull] ref TKey item)
-    {
-        return m_map.GetBucketIndex(ref item);
-    }
-
     /// <inheritdoc />
     IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => m_map.Keys;
     
@@ -450,7 +462,7 @@ public partial class LfuCache<TKey, TValue> :
         
         if (nextNode.FreqValue != freqNode.FreqValue + 1)
         {
-            nextNode = new FreqNode(m_setTemplate)
+            nextNode = new FreqNode(m_setFactory)
             {
                 FreqValue = freqNode.FreqValue + 1
             };
@@ -462,8 +474,11 @@ public partial class LfuCache<TKey, TValue> :
         if (freqNode.Keys.Count == 0)
         {
             DeleteNode(freqNode);
-            
-            freqNode.Keys.Dispose();
+
+            if (freqNode.Keys is IDisposable d)
+            {
+                d.Dispose();
+            }
         }
         
         nextNode.Keys.Add(key);
@@ -588,7 +603,7 @@ public partial class LfuCache<TKey, TValue> :
             
             if (m_root.NextNode.FreqValue != 1)
             {
-                firstNode = new FreqNode(m_setTemplate) { FreqValue = 1 };
+                firstNode = new FreqNode(m_setFactory) { FreqValue = 1 };
 
                 InsertNodeAfter(m_root, firstNode);
                 
@@ -606,6 +621,9 @@ public partial class LfuCache<TKey, TValue> :
             }
             
             m_map[key] = dataVal;
+
+            unchecked { m_version++; }
+
             return true;
         }
     }
@@ -664,8 +682,11 @@ public partial class LfuCache<TKey, TValue> :
             if (freqNode.Keys.Count == 0)
             {
                 DeleteNode(freqNode);
-                
-                freqNode.Keys.Dispose();
+
+                if (freqNode.Keys is IDisposable d)
+                {
+                    d.Dispose();
+                }
             }
             
             if (m_disposingStrategy == null && m_copyStrategy != null && data.Value is IDisposable disposable)
@@ -675,6 +696,8 @@ public partial class LfuCache<TKey, TValue> :
             
             m_obsoleteKeys?.Remove(key);
             m_map.Remove(key);
+            
+            unchecked { m_version++; }
 
             return true;
         }
@@ -939,6 +962,8 @@ public partial class LfuCache<TKey, TValue> :
                 workingNode = nextNode;
             }
             
+            unchecked { m_version++; }
+            
             return removedCount;
         }
         else
@@ -971,6 +996,8 @@ public partial class LfuCache<TKey, TValue> :
             {
                 DeleteNode(freqNode);
             }
+            
+            unchecked { m_version++; }
 
             return removedCount;
         }
@@ -979,10 +1006,10 @@ public partial class LfuCache<TKey, TValue> :
     /// <inheritdoc />
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
     {
-        var mapVersion = m_map.Version;
+        var mapVersion = m_version;
         foreach (var kVal in m_map)
         {
-            if (mapVersion != m_map.Version)
+            if (mapVersion != m_version)
             {
                 throw new InvalidOperationException($"LfuCache collection was modified during enumeration.");
             }
@@ -1003,9 +1030,14 @@ public partial class LfuCache<TKey, TValue> :
     public void Dispose()
     {
         Clear();
-        m_obsoleteKeys?.Dispose();
-        m_map.Dispose();
-        m_setTemplate.Dispose();
+        if (m_obsoleteKeys is IDisposable disp)
+        {
+            disp.Dispose();
+        }
+        if (m_map is IDisposable d)
+        {
+            d.Dispose();
+        }
     }
     
     /// <summary> Returns true if given cache has the same keys, values and frequencies otherwise it returns false.</summary>

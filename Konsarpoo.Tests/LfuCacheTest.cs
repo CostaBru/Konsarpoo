@@ -89,60 +89,58 @@ public class LfuCacheTest : BaseTest
         lfuCache.Dispose();
         Assert.AreEqual(0, lfuCache.Count);
     }
-    
-    private class ConcurrentHashset<TKey> : ICollection<TKey>
+
+    [Test]
+    public void TestStringTrieStorage()
     {
-        private readonly ConcurrentDictionary<TKey, byte> m_dict;
+        var storage = new StringTrieMap<LfuCache<string, string>.DataVal>();
+        Func<StringTrieHashset> factory = () => new StringTrieHashset();
+        
+        var lfuCache = new LfuCache<string, string>(storage, factory);
 
-        public ConcurrentHashset() : this(null)
+        lfuCache.AddOrUpdate(@"c:\\users\kb\path1", "d1");
+        lfuCache.AddOrUpdate(@"c:\\users\kb\path2\path2", "d2");
+        lfuCache.AddOrUpdate(@"c:\\users\kb\path3\path3\path3", "d3");
+        lfuCache.AddOrUpdate(@"c:\\users\kb\path4\path4\path4\path4", "d4");
+        lfuCache.AddOrUpdate(@"c:\\users\kb\path5\path5\path5\path5\path5", "d5");
+        
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path1"));
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path2\path2"));
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path3\path3\path3"));
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path4\path4\path4\path4"));
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path5\path5\path5\path5\path5"));
+        
+        Assert.AreEqual("d1",lfuCache[@"c:\\users\kb\path1"]);
+        Assert.AreEqual("d2",lfuCache[@"c:\\users\kb\path2\path2"]);
+        Assert.AreEqual("d3",lfuCache[@"c:\\users\kb\path3\path3\path3"]);
+        Assert.AreEqual("d4",lfuCache[@"c:\\users\kb\path4\path4\path4\path4"]);
+        Assert.AreEqual("d5",lfuCache[@"c:\\users\kb\path5\path5\path5\path5\path5"]);
+        
+        lfuCache.Dispose();
+        
+        Assert.AreEqual(0, lfuCache.Count);
+    }
+    
+    private class StringTrieHashset : ICollection<string>
+    {
+        private StringTrieMap<byte> m_storage = new StringTrieMap<byte>();
+        public void Add(string item)
         {
+            m_storage.TryAdd(item, byte.MaxValue);
         }
-
-        public ConcurrentHashset(IEqualityComparer<TKey> comparer)
-        {
-            m_dict = new ConcurrentDictionary<TKey, byte>(comparer);
-        }
-
-        public IEnumerator<TKey> GetEnumerator()
-        {
-            return m_dict.Keys.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public void Add(TKey item)
-        {
-            m_dict[item] = 1;
-        }
-
         public void Clear()
         {
-            m_dict.Clear();
+            m_storage.Clear();
         }
-
-        public bool Contains(TKey item)
-        {
-            return m_dict.ContainsKey(item);
-        }
-
-        public void CopyTo(TKey[] array, int arrayIndex)
-        {
-            m_dict.Keys.CopyTo(array, arrayIndex);
-        }
-
-        public bool Remove(TKey item)
-        {
-            return m_dict.TryRemove(item, out var val);
-        }
-
-        public int Count => m_dict.Count;
-
+        public IEnumerator<string> GetEnumerator() => m_storage.Keys.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public bool Contains(string item) => m_storage.ContainsKey(item);
+        public void CopyTo(string[] array, int arrayIndex) => throw new NotImplementedException();
+        public bool Remove(string item) => m_storage.Remove(item);
+        public int Count => m_storage.Count;
         public bool IsReadOnly => false;
     }
-   
+
     [Test]
     public void TestRemove()
     {

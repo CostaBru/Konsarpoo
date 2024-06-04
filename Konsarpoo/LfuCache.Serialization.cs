@@ -62,14 +62,14 @@ public partial class LfuCache<TKey, TValue>
 
         storage.OnDeserialization(this);
 
-        if (m_setTemplate == null)
+        if (m_setFactory == null)
         {
-            m_setTemplate = new Set<TKey>(m_comparer);
+            m_setFactory = () => new Set<TKey>(m_comparer);
         }
 
         if (m_root == null)
         {
-            m_root = new FreqNode(m_setTemplate);
+            m_root = new FreqNode(m_setFactory);
         }
 
         if (m_map == null)
@@ -84,7 +84,7 @@ public partial class LfuCache<TKey, TValue>
 
             foreach (var kv in storage.GroupBy(kv => kv.Value.frequency).OrderBy(r => r.Key))
             {
-                var newNode = new FreqNode(m_setTemplate)
+                var newNode = new FreqNode(m_setFactory)
                     { FreqValue = kv.Key, PrevNode = prevNode, NextNode = nextNode };
 
                 m_root.NextNode.PrevNode = newNode;
