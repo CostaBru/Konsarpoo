@@ -569,6 +569,134 @@ namespace Konsarpoo.Collections;
         }
 
         /// <summary>
+        /// Returns values where key starts with a given substring. If substring is empty it returns all values.
+        /// </summary>
+        /// <param name="substring"></param>
+        /// <returns></returns>
+        public IEnumerable<TValue> WhereKeyStartsWith(string substring) => WhereKeyCore(substring, (p, s) => p.StartsWith(s));
+
+        /// <summary>
+        /// Returns values where key contains a given substring. If substring is empty it returns all values.
+        /// </summary>
+        /// <param name="substring"></param>
+        /// <returns></returns>
+        public IEnumerable<TValue> WhereKeyContains(string substring) => WhereKeyCore(substring, (p, s) => p.Contains(s));
+
+        private IEnumerable<TValue> WhereKeyCore(string substring, Func<string, string, bool> func)
+        {
+            if (string.IsNullOrEmpty(substring))
+            {
+                foreach (var value in Values)
+                {
+                    yield return value;
+                }
+
+                yield break;
+            }
+
+            if (m_caseSensitive == false)
+            {
+                substring = substring.ToLower();
+            }
+
+            var version = m_version;
+
+            var data = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            
+            var stack = data.AsQueue();
+            stack.Enqueue((m_root, string.Empty));
+
+            while (stack.Any)
+            {
+                var (node, prefix) = stack.Dequeue();
+
+                CheckState(ref version);
+
+                //null prefix means that key is already starts with the substring and we provide all sub nodes.
+                if (node.IsEndOfWord && (prefix == null || func(prefix, substring)))
+                {
+                    yield return node.Value;
+
+                    foreach (var child in node.Children)
+                    {
+                        stack.Enqueue((child.Value, null));
+                    }
+                }
+                else
+                {
+                    if (prefix == null)
+                    {
+                        foreach (var child in node.Children)
+                        {
+                            stack.Enqueue((child.Value, null));
+                        }
+                    }
+                    else
+                    {
+                        foreach (var child in node.Children)
+                        {
+                            stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
+                        }
+                    }
+                }
+            }
+
+            data.Dispose();
+        }
+        
+        /// <summary>
+        /// Returns values where key ends with a given substring. If substring is empty it returns all values.
+        /// </summary>
+        /// <param name="substring"></param>
+        /// <returns></returns>
+        public IEnumerable<TValue> WhereKeyEndsWith(string substring)
+        {
+            if (string.IsNullOrEmpty(substring))
+            {
+                foreach (var value in Values)
+                {
+                    yield return value;
+                }
+
+                yield break;
+            }
+
+            if (m_caseSensitive == false)
+            {
+                substring = substring.ToLower();
+            }
+
+            var version = m_version;
+
+            var data = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            
+            var stack = data.AsQueue();
+            stack.Enqueue((m_root, string.Empty));
+
+            while (stack.Any)
+            {
+                var (node, prefix) = stack.Dequeue();
+
+                CheckState(ref version);
+
+                //IsEndOfWord and key is already ends with the substring we skip all sub nodes.
+                if (node.IsEndOfWord && prefix.EndsWith(substring))
+                {
+                    yield return node.Value;
+                }
+                else
+                {
+                    foreach (var child in node.Children)
+                    {
+                        stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
+                    }
+                }
+            }
+
+            data.Dispose();
+        }
+
+        /// <summary>
         /// Checks if the map contains a given value. Is not efficient.
         /// </summary>
         /// <param name="value"></param>

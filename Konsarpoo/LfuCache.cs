@@ -455,10 +455,10 @@ public partial class LfuCache<TKey, TValue> :
 
     /// <inheritdoc />
     IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => MapStorage.Keys;
-    
   
     /// <inheritdoc />0
     IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => MapStorage.Values.Select(v => v.Value);
+    
     private void AccessItem(TKey key, DataVal data, TValue value, bool hasValue)
     {
         var freqNode = data.FreqNode;

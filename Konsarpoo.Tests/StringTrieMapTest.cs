@@ -509,5 +509,111 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual("3", m3.GetSet("3", (v, m) => m[v] = v));
             Assert.AreEqual("3", m3["3"]);
         }
+        
+        [Test]
+        public void TestStartWith()
+        {
+            var m3 = new StringTrieMap<string>()
+            {
+                { "a", "a" },
+                { "abc", "abc" },
+                { "abcd", "abcd" },
+                { "bc", "bc" },
+                { "c", "c" },
+            };
+
+            var vals = m3.WhereKeyStartsWith("a").OrderBy(a => a).ToArray();
+            var expected = new[]{"a", "abc", "abcd"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+            
+            vals = m3.WhereKeyStartsWith("a123").OrderBy(a => a).ToArray();
+            expected = Array.Empty<string>();
+            
+            Assert.AreEqual(expected, vals);
+        }
+        
+        [Test]
+        public void TestStartWithCaseInsensitive()
+        {
+            var m3 = new StringTrieMap<string>(false)
+            {
+                { "a", "a" },
+                { "ABC", "abc" },
+                { "aBcd", "abcd" },
+                { "bc", "bc" },
+                { "C", "c" },
+            };
+
+            var vals = m3.WhereKeyStartsWith("a").OrderBy(a => a).ToArray();
+            var expected = new[]{"a", "abc", "abcd"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+            
+            vals = m3.WhereKeyStartsWith("a123").OrderBy(a => a).ToArray();
+            expected = Array.Empty<string>();
+            
+            Assert.AreEqual(expected, vals);
+        }
+        
+        [Test]
+        public void TestStartWithEmpty()
+        {
+            var m3 = new StringTrieMap<string>()
+            {
+                { "a", "a" },
+            };
+
+            var vals = m3.WhereKeyStartsWith(string.Empty).OrderBy(a => a).ToArray();
+            var expected = new[]{"a"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+        }
+        
+        [Test]
+        public void TestKeyContainsSubstring()
+        {
+            var m3 = new StringTrieMap<string>()
+            {
+                { "abc", "abc" },
+                { "abcd", "abcd" },
+                { "dbc", "dbc" },
+            };
+
+            var vals = m3.WhereKeyContains("abc").OrderBy(a => a).ToArray();
+            var expected = new[]{"abc", "abcd"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+        }
+        
+        [Test]
+        public void TestEndsWithSubstring()
+        {
+            var m3 = new StringTrieMap<string>()
+            {
+                { "abc", "abc" },
+                { "abcd", "abcd" },
+                { "dbc", "dbc" },
+            };
+
+            var vals = m3.WhereKeyEndsWith("bc").OrderBy(a => a).ToArray();
+            var expected = new[]{"abc", "dbc"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+        }
+        
+        [Test]
+        public void TestEndsWithEmpty()
+        {
+            var m3 = new StringTrieMap<string>()
+            {
+                { "a", "a" },
+            };
+
+            var vals = m3.WhereKeyEndsWith(string.Empty).OrderBy(a => a).ToArray();
+            var expected = new[]{"a"}.OrderBy(a => a).ToArray();
+            
+            Assert.AreEqual(expected, vals);
+        }
     }
 }
