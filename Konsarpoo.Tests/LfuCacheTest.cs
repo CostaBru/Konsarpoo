@@ -93,10 +93,8 @@ public class LfuCacheTest : BaseTest
     [Test]
     public void TestStringTrieStorage()
     {
-        var storage = new StringTrieMap<LfuCache<string, string>.DataVal>();
-        Func<StringTrieHashset> factory = () => new StringTrieHashset();
         
-        var lfuCache = new LfuCache<string, string>(storage, factory);
+        var lfuCache = new LfuCacheStringTrie<string>(false);
 
         lfuCache.AddOrUpdate(@"c:\\users\kb\path1", "d1");
         lfuCache.AddOrUpdate(@"c:\\users\kb\path2\path2", "d2");
@@ -104,6 +102,7 @@ public class LfuCacheTest : BaseTest
         lfuCache.AddOrUpdate(@"c:\\users\kb\path4\path4\path4\path4", "d4");
         lfuCache.AddOrUpdate(@"c:\\users\kb\path5\path5\path5\path5\path5", "d5");
         
+        Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path1"));
         Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path1"));
         Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path2\path2"));
         Assert.True(lfuCache.ContainsKey(@"c:\\users\kb\path3\path3\path3"));
@@ -121,25 +120,7 @@ public class LfuCacheTest : BaseTest
         Assert.AreEqual(0, lfuCache.Count);
     }
     
-    private class StringTrieHashset : ICollection<string>
-    {
-        private StringTrieMap<byte> m_storage = new StringTrieMap<byte>();
-        public void Add(string item)
-        {
-            m_storage.TryAdd(item, byte.MaxValue);
-        }
-        public void Clear()
-        {
-            m_storage.Clear();
-        }
-        public IEnumerator<string> GetEnumerator() => m_storage.Keys.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-        public bool Contains(string item) => m_storage.ContainsKey(item);
-        public void CopyTo(string[] array, int arrayIndex) => throw new NotImplementedException();
-        public bool Remove(string item) => m_storage.Remove(item);
-        public int Count => m_storage.Count;
-        public bool IsReadOnly => false;
-    }
+   
 
     [Test]
     public void TestRemove()

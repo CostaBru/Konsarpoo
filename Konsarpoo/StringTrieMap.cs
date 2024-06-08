@@ -10,7 +10,7 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections;
     
     /// <summary>
-    /// The StringTrieMap&lt;TValue&gt; generic class that provides a mapping from a set of string keys to a set of values. Implemented as String Trie to store values more efficiently.
+    /// The StringTrieMap&lt;TValue&gt; generic class that provides a mapping from a set of string keys to a set of values. Implemented as String Trie to store keys more efficiently.
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
     [DebuggerTypeProxy(typeof(TrieMapDebugView<>))]
@@ -29,9 +29,6 @@ namespace Konsarpoo.Collections;
     {
         [NonSerialized]
         private TrieNode<TValue> m_root = new('\0');
-
-        [NonSerialized]
-        private bool m_caseSensitive = false;
         
         [NonSerialized]
         private ushort m_version;
@@ -47,6 +44,11 @@ namespace Konsarpoo.Collections;
         [CanBeNull]
         private Func<string, TValue> m_missingValueFactory;
         
+        [NonSerialized]
+        private int m_count;
+        
+        private bool m_caseSensitive = false;
+
         /// <summary>
         /// Checks that both map and readonly dictionary has the same keys and values.
         /// </summary>
@@ -98,7 +100,7 @@ namespace Konsarpoo.Collections;
 
             m_caseSensitive = copyFromMap.m_caseSensitive;
             m_missingValueFactory = copyFromMap.m_missingValueFactory;
-            Count = copyFromMap.Count;
+            m_count = copyFromMap.m_count;
 
             var node = copyFromMap.m_root;
 
@@ -163,7 +165,7 @@ namespace Konsarpoo.Collections;
         public int Length => Count;
 
         /// <inheritdoc />
-        public int Count { get; private set; }
+        public int Count => m_count;
 
         /// <inheritdoc />
         public bool IsReadOnly => false;
@@ -191,9 +193,9 @@ namespace Konsarpoo.Collections;
             Add(item.Key, item.Value);
         }
 
-        bool ICollection<KeyValuePair<string, TValue>>.Contains(KeyValuePair<string, TValue> item)
+        public bool Contains(KeyValuePair<string, TValue> item)
         {
-            if (TryGetValue(item.Key, out var value))
+            if (TryGetValueCore(item.Key, out var value))
             {
                 return EqualityComparer<TValue>.Default.Equals(value ,item.Value);
             }
@@ -233,26 +235,27 @@ namespace Konsarpoo.Collections;
         /// Values of the map.
         /// </summary>
         public IEnumerable<TValue> Values => GetValues();
-
-        bool ICollection<KeyValuePair<string, TValue>>.Remove(KeyValuePair<string, TValue> item) => Remove(item.Key);
-
-       /// <inheritdoc />
-        bool IDictionary<string, TValue>.ContainsKey(string key) => ContainsKey(key);
+        
+        public bool Remove(KeyValuePair<string, TValue> item) => Remove(item.Key);
 
         /// <inheritdoc />
-        bool IReadOnlyDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValue(key, out value);
+        public bool ContainsKey(string key) => TryGetValueCore(key, out var _);
 
         /// <inheritdoc />
-        public bool Remove(string key) => Remove((IEnumerable<char>)key);
+        public bool TryGetValue(string key, out TValue value) => TryGetValueCore(key, out value);
 
-        bool IReadOnlyDictionary<string, TValue>.ContainsKey(string key) => ContainsKey(key);
+        /// <inheritdoc />
+        public bool Remove(string key) => RemoveCore(key);
 
-        bool IDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValue(key, out value);
+        bool IReadOnlyDictionary<string, TValue>.ContainsKey(string key) => TryGetValueCore(key, out var _);
+
+        bool IDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValueCore(key, out value);
         
         /// <inheritdoc />
         public void Add(string key, TValue value)
         {
-            Add((IEnumerable<char>)key, value);
+            var add = true;
+            Insert(key, ref value, ref add);
         }
         
         /// <summary>
@@ -295,7 +298,7 @@ namespace Konsarpoo.Collections;
             {
                 var data = new Data<string>(Count);
                 
-                data.AddRange(Keys);
+                data.AddRange(GetKeys());
 
                 return data;
             }
@@ -320,18 +323,22 @@ namespace Konsarpoo.Collections;
         }
         
         /// <inheritdoc />
-        public IEnumerable<string> Keys
+        IEnumerable<string> IReadOnlyDictionary<string, TValue>.Keys
         {
             get
             {
-                var version = m_version;
-
                 foreach (var kv in GetKeyValuesString())
                 {
-                    CheckState(ref version);
-                    
                     yield return kv.Key;
                 }
+            }
+        }
+        
+        private IEnumerable<string> GetKeys()
+        {
+            foreach (var kv in GetKeyValuesString())
+            {
+                yield return kv.Key;
             }
         }
         
@@ -420,7 +427,7 @@ namespace Konsarpoo.Collections;
         /// <returns></returns>
         public TValue GetSet([NotNull] string key, Func<string, StringTrieMap<TValue>, TValue> missingValue)
         {
-            if (TryGetValue(key, out var value))
+            if (TryGetValueCore(key, out var value))
             {
                 return value;
             }
@@ -434,7 +441,7 @@ namespace Konsarpoo.Collections;
         /// <returns></returns>
         public TValue GetSet<TParam>([NotNull] string key, TParam p1, Func<TParam, string, StringTrieMap<TValue>, TValue> missingValue)
         {
-            if (TryGetValue(key, out var value))
+            if (TryGetValueCore(key, out var value))
             {
                 return value;
             }
@@ -448,7 +455,7 @@ namespace Konsarpoo.Collections;
         /// <returns></returns>
         public TValue GetSet<TParam1, TParam2>([NotNull] string key, TParam1 p1, TParam2 p2,  Func<TParam1, TParam2, string, StringTrieMap<TValue>, TValue> missingValue)
         {
-            if (TryGetValue(key, out var value))
+            if (TryGetValueCore(key, out var value))
             {
                 return value;
             }
@@ -462,7 +469,7 @@ namespace Konsarpoo.Collections;
         /// <returns></returns>
         public TValue GetSet<TParam1, TParam2, TParam3>([NotNull] string key, TParam1 p1, TParam2 p2, TParam3 p3, Func<TParam1, TParam2, TParam3, string, StringTrieMap<TValue>, TValue> missingValue)
         {
-            if (TryGetValue(key, out var value))
+            if (TryGetValueCore(key, out var value))
             {
                 return value;
             }
@@ -482,7 +489,7 @@ namespace Konsarpoo.Collections;
         /// <param name="index"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        public string KeyAt(int index) => Keys.ElementAt(index);
+        public string KeyAt(int index) => GetKeys().ElementAt(index);
 
         /// <summary>
         /// Checks that this map and readonly dictionary has the same keys and values.
@@ -513,7 +520,7 @@ namespace Konsarpoo.Collections;
 
                 foreach (var kv in other)
                 {
-                    if (!(this.TryGetValue(kv.Key, out var otherValue)))
+                    if (!(TryGetValueCore(kv.Key, out var otherValue)))
                     {
                         return false;
                     }
@@ -542,7 +549,7 @@ namespace Konsarpoo.Collections;
             var trieNode = m_root;
         
             m_root = new('\0');
-            Count = 0;
+            m_count = 0;
             unchecked { ++m_version; }
 
             var stack = new Data<TrieNode<TValue>>();
@@ -568,9 +575,9 @@ namespace Konsarpoo.Collections;
         /// <returns></returns>
         public bool ContainsValue(TValue value)
         {
-            foreach (var pair in this)
+            foreach (var v in this.Values)
             {
-                if (EqualityComparer<TValue>.Default.Equals(pair.Value, value))
+                if (EqualityComparer<TValue>.Default.Equals(v, value))
                 {
                     return true;
                 }

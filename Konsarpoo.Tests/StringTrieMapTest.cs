@@ -323,8 +323,10 @@ namespace Konsarpoo.Collections.Tests
             }
 
             var comparer = ignoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-            
-            var hashSet1 = new HashSet<string>(map.Keys, comparer);
+
+            var data = map.ToData();
+
+            var hashSet1 = new HashSet<string>(data.Select(s => s.Key), comparer);
 
             foreach (var key in dict.Keys)
             {
@@ -429,6 +431,7 @@ namespace Konsarpoo.Collections.Tests
             var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<StringTrieMap<int>>(serializeWithDcs);
 
             Assert.True(deserializeWithDcs == map);
+            Assert.AreEqual(true, map.CaseSensitive);
         }
       
         [Test]

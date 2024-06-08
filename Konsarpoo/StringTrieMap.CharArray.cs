@@ -1,18 +1,80 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
-public partial class StringTrieMap<TValue> 
+public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TValue>
 {
-    public bool ContainsKey([NotNull] IEnumerable<char> key) => TryGetValue(key, out var _);
+    bool IDictionary<IEnumerable<char>, TValue>.ContainsKey([NotNull] IEnumerable<char> key) => TryGetValueCore(key, out var _);
 
-    public bool TryGetValue(IEnumerable<char> key, out TValue value)
+    bool IDictionary<IEnumerable<char>, TValue>.TryGetValue(IEnumerable<char> key, out TValue value) => TryGetValueCore(key, out value);
+
+    private bool TryGetValueCore(IEnumerable<char> key, out TValue value)
     {
         value = ValueByRef(key, out var success);
 
         return success;
+    }
+
+    TValue IDictionary<IEnumerable<char>, TValue>.this[IEnumerable<char> key]
+    {
+        get
+        {
+            var value = ValueByRef(key, out var found);
+
+            if (found)
+            {
+                return value;
+            }
+                
+            if (m_missingValueFactory != null)
+            {
+                var newValue = m_missingValueFactory(new string(key.ToArray()));
+                var set = false;
+                Insert(key, ref newValue, ref set);
+
+                return newValue;
+            }
+
+            throw new KeyNotFoundException($"Key '{key}' was not found.");
+        }
+        set
+        {
+            var add = false;
+            Insert(key, ref value, ref add);
+        }
+    }
+
+    ICollection<IEnumerable<char>> IDictionary<IEnumerable<char>, TValue>.Keys
+    {
+        get
+        {
+            var data = new Data<IEnumerable<char>>(Count);
+
+            foreach (var key in GetKeys())
+            {
+                data.Add(key);
+            }
+
+            return data;
+        }
+    }
+
+    ICollection<TValue> IDictionary<IEnumerable<char>, TValue>.Values
+    {
+        get
+        {
+            var data = new Data<TValue>(Count);
+
+            foreach (var value in Values)
+            {
+                data.Add(value);
+            }
+
+            return data;
+        }
     }
 
     public ref TValue ValueByRef(IEnumerable<char> key, out bool success)
@@ -55,7 +117,7 @@ public partial class StringTrieMap<TValue>
         return ref s_nullRef;
     }
 
-    public void Add(IEnumerable<char> key, TValue value)
+    void IDictionary<IEnumerable<char>, TValue>.Add(IEnumerable<char> key, TValue value)
     {
         var add = true;
         Insert(key, ref value, ref add);
@@ -68,7 +130,7 @@ public partial class StringTrieMap<TValue>
             throw new ArgumentNullException(nameof(key));
         }
 
-        if (TryGetValue(key, out var _))
+        if (TryGetValueCore(key, out var _))
         {
             if (add)
             {
@@ -123,7 +185,7 @@ public partial class StringTrieMap<TValue>
 
         if (add || currentNode.IsEndOfWord == false)
         {
-            Count++;
+            m_count++;
             unchecked { ++m_version; }
         }
 
@@ -132,7 +194,7 @@ public partial class StringTrieMap<TValue>
     }
 
 
-    private IEnumerable<(IEnumerable<char> Key, TValue Reference)> GetKeyValues()
+    private IEnumerable<(IEnumerable<char> Key, TValue Value)> GetKeyValues()
     {
         var version = m_version;
         
@@ -186,7 +248,9 @@ public partial class StringTrieMap<TValue>
         stack.Dispose();
     }
 
-    public bool Remove(IEnumerable<char> key)
+    bool IDictionary<IEnumerable<char>, TValue>.Remove(IEnumerable<char> key) => RemoveCore(key);
+
+    private bool RemoveCore(IEnumerable<char> key)
     {
         var word = key;
 
@@ -219,11 +283,63 @@ public partial class StringTrieMap<TValue>
         {
             currentNode.Value = default;
             currentNode.IsEndOfWord = false;
-            Count--;
-            unchecked { ++m_version; }
+            m_count--;
+            unchecked
+            {
+                ++m_version;
+            }
+
             return true;
         }
 
         return false;
     }
+
+    IEnumerator<KeyValuePair<IEnumerable<char>, TValue>> IEnumerable<KeyValuePair<IEnumerable<char>, TValue>>.GetEnumerator()
+    {
+        var keyValues = GetKeyValues();
+
+        foreach (var tuple in keyValues)
+        {
+            yield return new KeyValuePair<IEnumerable<char>, TValue>(tuple.Key, tuple.Value);
+        }
+    }
+
+    void ICollection<KeyValuePair<IEnumerable<char>, TValue>>.Add(KeyValuePair<IEnumerable<char>, TValue> item)
+    {
+        var itemValue = item.Value;
+        var add = true;
+        
+        Insert(item.Key, ref itemValue, ref add);
+    }
+
+    bool ICollection<KeyValuePair<IEnumerable<char>, TValue>>.Contains(KeyValuePair<IEnumerable<char>, TValue> item)
+    {
+        return TryGetValueCore(item.Key, out var value) && EqualityComparer<TValue>.Default.Equals(value, item.Value);
+    }
+
+    void ICollection<KeyValuePair<IEnumerable<char>, TValue>>.CopyTo(KeyValuePair<IEnumerable<char>, TValue>[] destination, int index)
+    {
+        if (destination == null)
+        {
+            throw new ArgumentNullException("destination");
+        }
+        if ((index < 0) || (index > destination.Length))
+        {
+            throw new ArgumentOutOfRangeException("index");
+        }
+        if ((destination.Length - index) < Count)
+        {
+            throw new ArgumentException();
+        }
+            
+        var entries = GetKeyValues();
+
+        foreach (var entry in entries)
+        {
+            destination[index++] = new KeyValuePair<IEnumerable<char>, TValue>(entry.Key, entry.Value);
+        }
+    }
+
+    bool ICollection<KeyValuePair<IEnumerable<char>, TValue>>.Remove(KeyValuePair<IEnumerable<char>, TValue> item) => RemoveCore(item.Key);
 }

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
   
@@ -26,6 +25,8 @@ public partial class LfuCache<TKey, TValue> :
     IDeserializationCallback,
     IDisposable
 {
+   
+    
     [NonSerialized]
     private TimeSpan m_obsolescenceTimeout;
     public class DataVal
@@ -53,8 +54,11 @@ public partial class LfuCache<TKey, TValue> :
     private Func<ICollection<TKey>> m_setFactory;
     [NonSerialized]
     private IEqualityComparer<TKey> m_comparer;
+    
+    /// <summary> Storage of key and nodes. </summary>
     [NonSerialized]
-    private IDictionary<TKey, DataVal> m_map;
+    protected IDictionary<TKey, DataVal> MapStorage;
+    
     [NonSerialized] 
     private FreqNode m_root;
     
@@ -149,7 +153,7 @@ public partial class LfuCache<TKey, TValue> :
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
         m_setFactory = () => new Set<TKey>(capacity, maxSizeStorageNodeArray, m_comparer);
 
-        m_map = new Map<TKey, DataVal>(capacity, maxSizeStorageNodeArray, m_comparer);
+        MapStorage = new Map<TKey, DataVal>(capacity, maxSizeStorageNodeArray, m_comparer);
         m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
         m_copyStrategy = copyStrategy;
@@ -174,8 +178,8 @@ public partial class LfuCache<TKey, TValue> :
         }
         
         m_comparer = mapTemplate.Comparer;
-        m_map = new Map<TKey, DataVal>(mapTemplate);
-        m_map.Clear();
+        MapStorage = new Map<TKey, DataVal>(mapTemplate);
+        MapStorage.Clear();
         m_setFactory = () => new Set<TKey>(setTemplate, m_comparer);
         m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
@@ -184,14 +188,14 @@ public partial class LfuCache<TKey, TValue> :
     /// <summary>
     /// LfuCache constructor with customizable storage.
     /// </summary>
-    /// <param name="storage"></param>
+    /// <param name="mapStorage"></param>
     /// <param name="setFactory"></param>
     /// <exception cref="ArgumentNullException"></exception>
-    public LfuCache([NotNull]IDictionary<TKey, DataVal> storage, [NotNull] Func<ICollection<TKey>> setFactory)
+    public LfuCache([NotNull]IDictionary<TKey, DataVal> mapStorage, [NotNull] Func<ICollection<TKey>> setFactory)
     {
-        if (storage == null)
+        if (mapStorage == null)
         {
-            throw new ArgumentNullException(nameof(storage));
+            throw new ArgumentNullException(nameof(mapStorage));
         }
         if (setFactory == null)
         {
@@ -199,7 +203,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         
         m_comparer = EqualityComparer<TKey>.Default;
-        m_map = storage;
+        MapStorage = mapStorage;
         m_setFactory = setFactory;
         
         m_root = new(m_setFactory);
@@ -253,7 +257,7 @@ public partial class LfuCache<TKey, TValue> :
         }
         
         long mem = 0;
-        foreach (var kv in m_map)
+        foreach (var kv in MapStorage)
         {
             mem += getMemoryEstimate(kv.Key, kv.Value.Value);
         }
@@ -299,7 +303,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <inheritdoc />
     public bool ContainsKey(TKey key)
     {
-        return m_map.ContainsKey(key);
+        return MapStorage.ContainsKey(key);
     }
     
     /// <summary>
@@ -370,7 +374,7 @@ public partial class LfuCache<TKey, TValue> :
     public bool TryGetValue([NotNull] TKey key, out TValue value)
     {
         value = default;
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
             AccessItem(key, data, default, false);
             if (m_copyStrategy != null)
@@ -393,7 +397,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public int GetFrequency([NotNull] TKey key)
     {
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
            return data.FreqNode.FreqValue;
         }
@@ -406,7 +410,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public TimeSpan GetLastAccessTime([NotNull] TKey key)
     {
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
             return TimeSpan.FromTicks(data.AccessTickCount);
         }
@@ -422,7 +426,7 @@ public partial class LfuCache<TKey, TValue> :
     public ref TValue ValueByRef([NotNull] TKey key, out bool success)
     {
         success = false;
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
             AccessItem(key, data, default, false);
             
@@ -450,11 +454,11 @@ public partial class LfuCache<TKey, TValue> :
     }
 
     /// <inheritdoc />
-    IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => m_map.Keys;
+    IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => MapStorage.Keys;
     
   
     /// <inheritdoc />0
-    IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => m_map.Values.Select(v => v.Value);
+    IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => MapStorage.Values.Select(v => v.Value);
     private void AccessItem(TKey key, DataVal data, TValue value, bool hasValue)
     {
         var freqNode = data.FreqNode;
@@ -554,7 +558,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns>true if item added, false if item updated.</returns>
     public bool AddOrUpdate(TKey key, TValue value)
     {
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
             if (m_memoryLimit > 0)
             {
@@ -620,7 +624,7 @@ public partial class LfuCache<TKey, TValue> :
                 dataVal.AccessTickCount = m_stopwatch.ElapsedTicks;
             }
             
-            m_map[key] = dataVal;
+            MapStorage[key] = dataVal;
 
             unchecked { m_version++; }
 
@@ -661,7 +665,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public bool RemoveKey(TKey key)
     {
-        if (m_map.TryGetValue(key, out var data))
+        if (MapStorage.TryGetValue(key, out var data))
         {
             if (m_memoryLimit > 0)
             {
@@ -695,7 +699,7 @@ public partial class LfuCache<TKey, TValue> :
             }
             
             m_obsoleteKeys?.Remove(key);
-            m_map.Remove(key);
+            MapStorage.Remove(key);
             
             unchecked { m_version++; }
 
@@ -743,7 +747,7 @@ public partial class LfuCache<TKey, TValue> :
             throw new ArgumentException();
         }
         
-        foreach (var kVal in m_map)
+        foreach (var kVal in MapStorage)
         {
             array[arrayIndex] = new KeyValuePair<TKey, TValue>(kVal.Key, kVal.Value.Value);
             arrayIndex++;
@@ -762,13 +766,13 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="arrayIndex"></param>
     public void CopyKeysTo(TKey[] array, int arrayIndex)
     {
-        m_map.Keys.CopyTo(array, arrayIndex);
+        MapStorage.Keys.CopyTo(array, arrayIndex);
     }
     
     /// <summary>
     /// Returns count of cached items.
     /// </summary>
-    public int Count => m_map.Count;
+    public int Count => MapStorage.Count;
     
     bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
     
@@ -799,7 +803,7 @@ public partial class LfuCache<TKey, TValue> :
         {
             foreach (var nodeKey in node.Keys)
             {
-                var accessTickCount = m_map[nodeKey].AccessTickCount;
+                var accessTickCount = MapStorage[nodeKey].AccessTickCount;
                 
                 if (stopwatchElapsedTicks - m_obsolescenceTimeout.Ticks > accessTickCount)
                 {
@@ -829,7 +833,7 @@ public partial class LfuCache<TKey, TValue> :
     public void ResetObsolescence()
     {
         m_obsoleteKeys?.Clear();
-        foreach (var dataVal in m_map)
+        foreach (var dataVal in MapStorage)
         {
             dataVal.Value.AccessTickCount = 0;
         }
@@ -841,7 +845,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public int RemoveObsoleteItems()
     {
-        if (m_map.Count == 0)
+        if (MapStorage.Count == 0)
         {
             return 0;
         }
@@ -874,7 +878,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <returns></returns>
     public bool RemoveObsoleteItem()
     {
-        if (m_map.Count == 0)
+        if (MapStorage.Count == 0)
         {
             return false;
         }
@@ -926,13 +930,13 @@ public partial class LfuCache<TKey, TValue> :
     /// <param name="count">if is not set it removes all min least used items.</param>
     public int RemoveLeastUsedItems(int? count = null)
     {
-        if (m_map.Count == 0)
+        if (MapStorage.Count == 0)
         {
             return 0;
         }
         if (count.HasValue)
         {
-            var toRemove = Math.Min(m_map.Count, count.Value);
+            var toRemove = Math.Min(MapStorage.Count, count.Value);
             var removedCount = toRemove;
             
             var workingNode = m_root.NextNode;
@@ -1007,7 +1011,7 @@ public partial class LfuCache<TKey, TValue> :
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
     {
         var mapVersion = m_version;
-        foreach (var kVal in m_map)
+        foreach (var kVal in MapStorage)
         {
             if (mapVersion != m_version)
             {
@@ -1021,7 +1025,7 @@ public partial class LfuCache<TKey, TValue> :
     /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return m_map.Keys.GetEnumerator();
+        return MapStorage.Keys.GetEnumerator();
     }
     
     /// <summary>
@@ -1034,7 +1038,7 @@ public partial class LfuCache<TKey, TValue> :
         {
             disp.Dispose();
         }
-        if (m_map is IDisposable d)
+        if (MapStorage is IDisposable d)
         {
             d.Dispose();
         }
@@ -1054,9 +1058,9 @@ public partial class LfuCache<TKey, TValue> :
             return false;
         }
         var equalityComparer = valueComparer ?? EqualityComparer<TValue>.Default;
-        foreach (var kVal in m_map)
+        foreach (var kVal in MapStorage)
         {
-            if (lfuCache.m_map.TryGetValue(kVal.Key, out var otherVal) == false)
+            if (lfuCache.MapStorage.TryGetValue(kVal.Key, out var otherVal) == false)
             {
                 return false;
             }

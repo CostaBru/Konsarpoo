@@ -2,15 +2,57 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
+using System.Xml;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 
 namespace Konsarpoo.Collections;
 
-public partial class StringTrieMap<TValue>
+[KnownType(typeof(KeyValuePair<,>))]
+public partial class StringTrieMap<TValue> : IXmlSerializable
 {
     private const string VersionName = "Version";
     private const string SizeName = "Size";
     private const string KeyValuePairsName = "KeyValuePairs";
     private const string CaseSensitiveName = "CaseSensitive";
+    
+    XmlSchema IXmlSerializable.GetSchema() => null;
+
+    void IXmlSerializable.ReadXml(XmlReader reader)
+    {
+        var dataContractSerializer = new DataContractSerializer(typeof(TValue));
+
+        Clear();
+
+        m_caseSensitive = bool.Parse(reader.GetAttribute(CaseSensitiveName));
+        var add = true;
+        
+        reader.ReadStartElement();
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            var key = reader.GetAttribute("Key");
+            reader.ReadStartElement("Item");
+            var value = (TValue)dataContractSerializer.ReadObject(reader);
+            reader.ReadEndElement();
+            Insert(key, ref value, ref add);
+        }
+        reader.ReadEndElement();
+    }
+
+    void IXmlSerializable.WriteXml(XmlWriter writer)
+    {
+        var dataContractSerializer = new DataContractSerializer(typeof(TValue));
+
+        writer.WriteAttributeString(CaseSensitiveName, m_caseSensitive.ToString());
+
+        foreach (var item in GetKeyValuesString())
+        {
+            writer.WriteStartElement("Item");
+            writer.WriteAttributeString("Key", item.Key);
+            dataContractSerializer.WriteObject(writer, item.Value);
+            writer.WriteEndElement();
+        }
+    }
 
     /// <inheritdoc />
     [System.Security.SecurityCritical] // auto-generated_required

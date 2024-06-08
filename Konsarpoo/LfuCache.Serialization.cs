@@ -35,7 +35,7 @@ public partial class LfuCache<TKey, TValue>
 
         var valuePairs = new Data<KeyValuePair<TKey, (TValue value, int frequency)>>();
 
-        valuePairs.AddRange(m_map.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue))));
+        valuePairs.AddRange(MapStorage.Select(kv => new KeyValuePair<TKey, (TValue value, int frequency)>(kv.Key, (kv.Value.Value, kv.Value.FreqNode.FreqValue))));
         
         info.AddValue(StorageName, valuePairs, typeof(Data<KeyValuePair<TKey,(TValue value, int frequency)>>));
         info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
@@ -72,9 +72,9 @@ public partial class LfuCache<TKey, TValue>
             m_root = new FreqNode(m_setFactory);
         }
 
-        if (m_map == null)
+        if (MapStorage == null)
         {
-            m_map = new Map<TKey, DataVal>(m_comparer);
+            MapStorage = new Map<TKey, DataVal>(m_comparer);
         }
 
         lock (m_root)
@@ -93,7 +93,7 @@ public partial class LfuCache<TKey, TValue>
                 foreach (var st in kv)
                 {
                     newNode.Keys.Add(st.Key);
-                    m_map[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode };
+                    MapStorage[st.Key] = new DataVal() { Value = st.Value.value, FreqNode = newNode };
                 }
 
                 prevNode = newNode;
