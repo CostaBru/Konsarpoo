@@ -19,7 +19,9 @@ List of generic collections and APIs supported:
 
 Some extras built in:
 - ``BitArr``
+- ``String Trie Map``
 - ``Lfu Cache``
+- ``Lfu Cache String Trie``
 - std::vector api
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
@@ -37,12 +39,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 4.2.0
+PM> Install-Package Konsarpoo -Version 5.0.0
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 4.2.0
+> dotnet add package Konsarpoo --version 5.0.0
 ```
 
 ### DATA  
@@ -68,6 +70,10 @@ The ``Konsarpoo.Collections.Data`` class supports ``Stack`` and ``Queue`` API wi
 
 It is a compact array of bit values, which are represented as Booleans. It uses ``Data<int>`` as internal storage.
 
+### STRING TRIE MAP
+
+``StringTrieMap<V>`` is generic map collection that supports the built in ``Dictionary`` API and implemented as trie data structure. It is designed to store strings as keys and have O(k) value access time. https://en.wikipedia.org/wiki/Trie. 
+
 ### LFU CACHE
 
 A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. 
@@ -77,6 +83,10 @@ In addition to that it can keep track both:
 -  of total memory used by cache and remove obsolete and least accessed keys to insert a new item.
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
+
+### LFU CACHE STRING TRIE
+
+A LFU CACHE data structure where string keys stored in STRING TRIE MAP.
 
 # Stackalloc and ref struct 
 
