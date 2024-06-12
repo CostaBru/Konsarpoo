@@ -28,7 +28,7 @@ namespace Konsarpoo.Collections;
         IDisposable
     {
         [NonSerialized]
-        private TrieNode<TValue> m_root = new('\0');
+        private TrieLinkNode<TValue> m_root = new('\0');
         
         [NonSerialized]
         private ushort m_version;
@@ -104,12 +104,12 @@ namespace Konsarpoo.Collections;
 
             var node = copyFromMap.m_root;
 
-            var otherStack = new Data<TrieNode<TValue>>(copyFromMap.Count);
+            var otherStack = new Data<TrieLinkNode<TValue>>(copyFromMap.Count);
             otherStack.Push(node);
 
             var currentNode = m_root;
             
-            var thisStack = new Data<TrieNode<TValue>>(copyFromMap.Count);
+            var thisStack = new Data<TrieLinkNode<TValue>>(copyFromMap.Count);
             thisStack.Push(currentNode);
 
             while (otherStack.Any)
@@ -119,13 +119,21 @@ namespace Konsarpoo.Collections;
                 
                 foreach (var child in copyFrom)
                 {
-                    var newNode = new TrieNode<TValue>(child.Key)
+                    TrieLinkNode<TValue> newNode;
+                    
+                    if (child.Value is TrieEndNode<TValue> en)
                     {
-                        IsEndOfWord = child.Value.IsEndOfWord,
-                        Value = child.Value.Value
-                    };
-
-                    copyTo.AddChild(child.Key, newNode);
+                        newNode = new TrieEndNode<TValue>(child.Key)
+                        {
+                            Value = en.Value
+                        };
+                    }
+                    else
+                    {
+                        newNode = new TrieLinkNode<TValue>(child.Key);
+                    }
+                   
+                    copyTo.AddChild(newNode);
                     
                     otherStack.Push(child.Value);
                     thisStack.Push(newNode);
@@ -552,7 +560,7 @@ namespace Konsarpoo.Collections;
             m_count = 0;
             unchecked { ++m_version; }
 
-            var stack = new Data<TrieNode<TValue>>();
+            var stack = new Data<TrieLinkNode<TValue>>();
             stack.Push(trieNode);
 
             while (stack.Count > 0)
@@ -601,7 +609,7 @@ namespace Konsarpoo.Collections;
 
             var version = m_version;
 
-            var data = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            var data = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
             
             var stack = data.AsQueue();
             stack.Enqueue((m_root, string.Empty));
@@ -613,11 +621,11 @@ namespace Konsarpoo.Collections;
                 CheckState(ref version);
 
                 //null prefix means that key is already starts with the substring and we provide all sub nodes.
-                if (node.IsEndOfWord && (prefix == null || func(prefix, substring)))
+                if (node is TrieEndNode<TValue> en && (prefix == null || func(prefix, substring)))
                 {
-                    yield return node.Value;
+                    yield return en.Value;
 
-                    foreach (var child in node)
+                    foreach (var child in en)
                     {
                         stack.Enqueue((child.Value, null));
                     }
@@ -668,7 +676,7 @@ namespace Konsarpoo.Collections;
 
             var version = m_version;
 
-            var data = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            var data = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
             
             var stack = data.AsQueue();
             stack.Enqueue((m_root, string.Empty));
@@ -680,9 +688,9 @@ namespace Konsarpoo.Collections;
                 CheckState(ref version);
 
                 //IsEndOfWord and key is already ends with the substring we skip all sub nodes.
-                if (node.IsEndOfWord && prefix.EndsWith(substring))
+                if (node is TrieEndNode<TValue> en && prefix.EndsWith(substring))
                 {
-                    yield return node.Value;
+                    yield return en.Value;
                 }
                 else
                 {
@@ -727,7 +735,7 @@ namespace Konsarpoo.Collections;
         {
             var version = m_version;
             
-            var stack = new Data<(TrieNode<TValue> Node, string Prefix)>();
+            var stack = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
             stack.Push((m_root, string.Empty));
          
             while (stack.Count > 0)
@@ -736,9 +744,9 @@ namespace Konsarpoo.Collections;
                 
                 CheckState(ref version);
 
-                if (node.IsEndOfWord)
+                if (node is TrieEndNode<TValue> en)
                 {
-                    yield return (prefix, node.Value);
+                    yield return (prefix, en.Value);
                 }
 
                 foreach (var child in node)

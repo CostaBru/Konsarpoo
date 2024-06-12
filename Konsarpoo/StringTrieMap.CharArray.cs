@@ -107,11 +107,11 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             }
         }
 
-        if (currentNode.IsEndOfWord)
+        if (currentNode is TrieEndNode<TValue> en)
         {
             success = true;
 
-            return ref currentNode.Value;
+            return ref en.Value;
         }
 
         return ref s_nullRef;
@@ -139,6 +139,8 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         }
 
         var currentNode = m_root;
+        var currentNodeParent = m_root;
+        var newNodeAdded = (TrieLinkNode<TValue>) null;
 
         if (m_caseSensitive == false)
         {
@@ -147,18 +149,18 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
                 var lower = char.ToLower(c);
 
                 var childNode = currentNode.GetChildNode(lower);
-                if (childNode != null)
+                if (childNode == null)
                 {
-                    currentNode = childNode;
+                    var newNode = new TrieLinkNode<TValue>(lower);
+                    currentNode.AddChild(newNode);
+                    currentNodeParent = currentNode;
+                    currentNode = newNode;
+                    newNodeAdded = newNode;
                 }
                 else
                 {
-                    var newNode = new TrieNode<TValue>(lower)
-                    {
-                        Value = value
-                    };
-                    currentNode.AddChild(lower, newNode);
-                    currentNode = newNode;
+                    currentNodeParent = currentNode;
+                    currentNode = childNode;
                 }
             }
         }
@@ -167,38 +169,47 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             foreach (var c in key)
             {
                 var childNode = currentNode.GetChildNode(c);
-                if (childNode != null)
+                if (childNode == null)
                 {
-                    currentNode = childNode;
+                    var newNode = new TrieLinkNode<TValue>(c);
+
+                    currentNode.AddChild(newNode);
+                    currentNodeParent = currentNode;
+                    currentNode = newNode;
+                    newNodeAdded = newNode;
                 }
                 else
                 {
-                    var newNode = new TrieNode<TValue>(c)
-                    {
-                        Value = value
-                    };
-                    currentNode.AddChild(c, newNode);
-                    currentNode = newNode;
+                    currentNodeParent = currentNode;
+                    currentNode = childNode;
                 }
             }
         }
 
-        if (add || currentNode.IsEndOfWord == false)
+        if (currentNode is TrieEndNode<TValue> en)
         {
-            m_count++;
-            unchecked { ++m_version; }
+            en.Value = value;
         }
+        else
+        {
+            currentNodeParent.MakeChildEndOfWord(currentNode, value);
 
-        currentNode.IsEndOfWord = true;
-        currentNode.Value = value;
+            if (add || ReferenceEquals(newNodeAdded, currentNode))
+            {
+                m_count++;
+                unchecked
+                {
+                    ++m_version;
+                }
+            }
+        }
     }
-
 
     private IEnumerable<(IEnumerable<char> Key, TValue Value)> GetKeyValues()
     {
         var version = m_version;
         
-        var stack = new Data<(TrieNode<TValue> Node, string Prefix)>();
+        var stack = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
         stack.Push((m_root, string.Empty));
 
         while (stack.Count > 0)
@@ -207,9 +218,9 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             
             CheckState(ref version);
 
-            if (node.IsEndOfWord)
+            if (node is TrieEndNode<TValue> en)
             {
-                yield return (prefix, node.Value);
+                yield return (prefix, en.Value);
             }
 
             foreach (var child in node)
@@ -225,7 +236,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
     {
         var version = m_version;
 
-        var stack = new Data<TrieNode<TValue>>();
+        var stack = new Data<TrieLinkNode<TValue>>();
         stack.Push(m_root);
 
         while (stack.Count > 0)
@@ -234,9 +245,9 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             
             CheckState(ref version);
 
-            if (node.IsEndOfWord)
+            if (node is TrieEndNode<TValue> en)
             {
-                yield return node.Value;
+                yield return en.Value;
             }
 
             foreach (var child in node)
@@ -255,14 +266,21 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         var word = key;
 
         var currentNode = m_root;
+        var data = new Data<TrieLinkNode<TValue>>();
+        var treeStructure = data.AsStack();
 
         if (m_caseSensitive == false)
         {
             foreach (var c in word)
             {
-                currentNode = currentNode.GetChildNode(char.ToLower(c));
+                var node = currentNode.GetChildNode(char.ToLower(c));
+
+                treeStructure.Push(node);
+                currentNode = node;
+                
                 if (currentNode == null)
                 {
+                    data.Dispose();
                     return false;
                 }
             }
@@ -271,18 +289,48 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         {
             foreach (var c in word)
             {
-                currentNode = currentNode.GetChildNode(c);
+                var node = currentNode.GetChildNode(c);
+                
+                treeStructure.Push(node);
+                currentNode = node;
+                
                 if (currentNode == null)
                 {
+                    data.Dispose();
                     return false;
                 }
             }
         }
 
-        if (currentNode.IsEndOfWord)
+        if (currentNode is TrieEndNode<TValue> en)
         {
-            currentNode.Value = default;
-            currentNode.IsEndOfWord = false;
+            var currentNodeParent = treeStructure.Pop();
+            currentNodeParent = treeStructure.Pop();
+
+            if (currentNode.Any)
+            {
+                currentNodeParent.MakeChildLinkNode(en);
+            }
+            else
+            {
+                currentNodeParent.RemoveNode(currentNode);
+                
+                currentNode.Dispose();
+
+                var node = currentNodeParent;
+
+                while (node.Any == false)
+                {
+                    var parent = treeStructure.Pop();
+
+                    parent.RemoveNode(node);
+                    
+                    node.Dispose();
+
+                    node = parent;
+                }
+            }
+
             m_count--;
             unchecked
             {

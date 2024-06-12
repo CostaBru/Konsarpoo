@@ -7,8 +7,8 @@ namespace Konsarpoo.Collections;
 
 public partial class StringTrieMap<TValue>
 {
-    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} {IsEndOfWord}")]
-    internal class TrieNode<TValue> : IEnumerable<KeyValuePair<char, TrieNode<TValue>>>
+    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} False")]
+    internal class TrieLinkNode<TValue> : IEnumerable<KeyValuePair<char, TrieLinkNode<TValue>>>
     {
         protected int ChildrenCount
         {
@@ -18,35 +18,35 @@ public partial class StringTrieMap<TValue>
                 {
                     return 0;
                 }
-                
-                if(Children is TrieNode<TValue> sn)
+
+                if (Children is TrieLinkNode<TValue> sn)
                 {
                     return 1;
                 }
-                
-                return ((Map<char, TrieNode<TValue>>)Children).Count;
+
+                return ((Map<char, TrieLinkNode<TValue>>)Children).Count;
             }
         }
+
+        public bool Any => Children != null;
 
         protected object Children;
         
         public char KeyChar;
-        public bool IsEndOfWord;
-        public TValue Value;
 
-        public TrieNode(char keyChar)
+        public TrieLinkNode(char keyChar)
         {
             KeyChar = keyChar;
         }
 
-        public TrieNode<TValue> GetChildNode(char c)
+        public TrieLinkNode<TValue> GetChildNode(char c)
         {
             if (Children == null)
             {
                 return null;
             }
 
-            if (Children is TrieNode<TValue> singleNode)
+            if (Children is TrieLinkNode<TValue> singleNode)
             {
                 if (c == singleNode?.KeyChar)
                 {
@@ -56,10 +56,10 @@ public partial class StringTrieMap<TValue>
                 return null;
             }
 
-            return ((Map<char, TrieNode<TValue>>)Children).GetOrDefault(c);
+            return ((Map<char, TrieLinkNode<TValue>>)Children).GetOrDefault(c);
         }
 
-        public void AddChild(char c, TrieNode<TValue> newNode)
+        public void AddChild(TrieLinkNode<TValue> newNode)
         {
             if (Children == null)
             {
@@ -67,20 +67,20 @@ public partial class StringTrieMap<TValue>
                 return;
             }
             
-            var map = Children as Map<char, TrieNode<TValue>>;
+            var map = Children as Map<char, TrieLinkNode<TValue>>;
             
             if(map != null)
             {
-                map[c] = newNode;
+                map[newNode.KeyChar] = newNode;
                 return;
             }
             
-            var singleNode = (TrieNode<TValue>)Children;
+            var singleNode = (TrieLinkNode<TValue>)Children;
 
-            Children = new Map<char, TrieNode<TValue>>
+            Children = new Map<char, TrieLinkNode<TValue>>
             {
                 { singleNode.KeyChar, singleNode },
-                { c, newNode }
+                { newNode.KeyChar, newNode }
             };
         }
 
@@ -90,9 +90,9 @@ public partial class StringTrieMap<TValue>
             Children = null;
         }
 
-        public IEnumerator<KeyValuePair<char, TrieNode<TValue>>> GetEnumerator()
+        public IEnumerator<KeyValuePair<char, TrieLinkNode<TValue>>> GetEnumerator()
         {
-            var singleNode = Children as TrieNode<TValue>;
+            var singleNode = Children as TrieLinkNode<TValue>;
             
             if (singleNode == null)
             {
@@ -101,7 +101,7 @@ public partial class StringTrieMap<TValue>
                     yield break;
                 }
 
-                var map = (Map<char, TrieNode<TValue>>)Children;
+                var map = (Map<char, TrieLinkNode<TValue>>)Children;
                 
                 foreach (var child in map)
                 {
@@ -110,10 +110,56 @@ public partial class StringTrieMap<TValue>
             }
             else
             {
-                yield return new KeyValuePair<char, TrieNode<TValue>>(singleNode.KeyChar, singleNode);
+                yield return new KeyValuePair<char, TrieLinkNode<TValue>>(singleNode.KeyChar, singleNode);
             }
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public void MakeChildEndOfWord(TrieLinkNode<TValue> currentNode, TValue value)
+        {
+            if (Children is TrieLinkNode<TValue>)
+            {
+                Children = new TrieEndNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+                return;
+            }
+            
+            var map = (Map<char, TrieLinkNode<TValue>>)Children;
+            map[currentNode.KeyChar] = new TrieEndNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+        }
+
+        public void MakeChildLinkNode(TrieEndNode<TValue> currentNode)
+        {
+            if (Children is TrieLinkNode<TValue>)
+            {
+                Children = new TrieLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children};
+                return;
+            }
+            
+            var map = (Map<char, TrieLinkNode<TValue>>)Children;
+            map[currentNode.KeyChar] = new TrieLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children};
+        }
+
+        public void RemoveNode(TrieLinkNode<TValue> node)
+        {
+            if (Children is TrieLinkNode<TValue>)
+            {
+                Children = null;
+                return;
+            }
+            
+            var map = (Map<char, TrieLinkNode<TValue>>)Children;
+            map.Remove(node.KeyChar);
+        }
+    }
+
+    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} True")]
+    internal class TrieEndNode<TValue> : TrieLinkNode<TValue>
+    {
+        public TValue Value;
+
+        public TrieEndNode(char keyChar) : base(keyChar)
+        {
+        }
     }
 }
