@@ -1,6 +1,6 @@
 ﻿# Konsarpoo .NET  
 
-[![Konsarpoo build, tests and coverage](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml/badge.svg)](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/CostaBru/53438eb82c2cc9b70de34df4f14a7072/raw/Konsarpoo__head.json) ![GitHub Release Date](https://img.shields.io/github/release-date/CostaBru/Konsarpoo) ![Nuget](https://img.shields.io/nuget/dt/Konsarpoo)  ![GitHub search hit counter](https://img.shields.io/github/search/CostaBru/Konsarpoo/goto)
+[![Konsarpoo build, tests and coverage](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml/badge.svg)](https://github.com/CostaBru/Konsarpoo/actions/workflows/dotnet.yml) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/CostaBru/53438eb82c2cc9b70de34df4f14a7072/raw/Konsarpoo__head.json) ![GitHub Release Date](https://img.shields.io/github/release-date/CostaBru/Konsarpoo) ![Nuget](https://img.shields.io/nuget/dt/Konsarpoo)  
 
 The eco friendly set of array pool based and ref struct collections for ``netstandard2.1``. 
 
@@ -39,12 +39,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 5.0.0
+PM> Install-Package Konsarpoo -Version 5.0.1
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 5.0.0
+> dotnet add package Konsarpoo --version 5.0.1
 ```
 
 ### DATA  
