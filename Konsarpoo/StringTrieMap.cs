@@ -513,6 +513,8 @@ namespace Konsarpoo.Collections;
 
             if (Count == other.Count)
             {
+                var equalityComparer = EqualityComparer<TValue>.Default;
+                
                 foreach (var kv in this)
                 {
                     if (!(other.TryGetValue(kv.Key, out var otherValue)))
@@ -520,7 +522,7 @@ namespace Konsarpoo.Collections;
                         return false;
                     }
 
-                    if (!(EqualityComparer<TValue>.Default.Equals(kv.Value, otherValue)))
+                    if (!(equalityComparer.Equals(kv.Value, otherValue)))
                     {
                         return false;
                     }
@@ -529,6 +531,11 @@ namespace Konsarpoo.Collections;
                 foreach (var kv in other)
                 {
                     if (!(TryGetValueCore(kv.Key, out var otherValue)))
+                    {
+                        return false;
+                    }
+                    
+                    if (!(equalityComparer.Equals(kv.Value, otherValue)))
                     {
                         return false;
                     }

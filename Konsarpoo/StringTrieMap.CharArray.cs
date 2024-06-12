@@ -84,11 +84,11 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
 
         var currentNode = m_root;
 
-        if (m_caseSensitive == false)
+        if (m_caseSensitive)
         {
             foreach (var c in word)
             {
-                currentNode = currentNode.GetChildNode(char.ToLower(c));
+                currentNode = currentNode.GetChildNode(c);
                 if (currentNode == null)
                 {
                     return ref s_nullRef;
@@ -99,7 +99,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         {
             foreach (var c in word)
             {
-                currentNode = currentNode.GetChildNode(c);
+                currentNode = currentNode.GetChildNode(char.ToLower(c));
                 if (currentNode == null)
                 {
                     return ref s_nullRef;
@@ -130,9 +130,9 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             throw new ArgumentNullException(nameof(key));
         }
 
-        if (TryGetValueCore(key, out var _))
+        if (add)
         {
-            if (add)
+            if (TryGetValueCore(key, out var _))
             {
                 throw new ArgumentException($"Key '{key}' is already exists.");
             }
@@ -142,16 +142,15 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         var currentNodeParent = m_root;
         var newNodeAdded = (TrieLinkNode<TValue>) null;
 
-        if (m_caseSensitive == false)
+        if (m_caseSensitive)
         {
             foreach (var c in key)
             {
-                var lower = char.ToLower(c);
-
-                var childNode = currentNode.GetChildNode(lower);
+                var childNode = currentNode.GetChildNode(c);
                 if (childNode == null)
                 {
-                    var newNode = new TrieLinkNode<TValue>(lower);
+                    var newNode = new TrieLinkNode<TValue>(c);
+
                     currentNode.AddChild(newNode);
                     currentNodeParent = currentNode;
                     currentNode = newNode;
@@ -168,11 +167,12 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         {
             foreach (var c in key)
             {
-                var childNode = currentNode.GetChildNode(c);
+                var lower = char.ToLower(c);
+
+                var childNode = currentNode.GetChildNode(lower);
                 if (childNode == null)
                 {
-                    var newNode = new TrieLinkNode<TValue>(c);
-
+                    var newNode = new TrieLinkNode<TValue>(lower);
                     currentNode.AddChild(newNode);
                     currentNodeParent = currentNode;
                     currentNode = newNode;
@@ -268,15 +268,15 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         var currentNode = m_root;
         var treeStructure = new Data<TrieLinkNode<TValue>>();
 
-        if (m_caseSensitive == false)
+        if (m_caseSensitive)
         {
             foreach (var c in word)
             {
-                var node = currentNode.GetChildNode(char.ToLower(c));
+                var node = currentNode.GetChildNode(c);
 
                 treeStructure.Push(currentNode);
                 currentNode = node;
-                
+
                 if (currentNode == null)
                 {
                     treeStructure.Dispose();
@@ -288,11 +288,11 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         {
             foreach (var c in word)
             {
-                var node = currentNode.GetChildNode(c);
-                
+                var node = currentNode.GetChildNode(char.ToLower(c));
+
                 treeStructure.Push(currentNode);
                 currentNode = node;
-                
+
                 if (currentNode == null)
                 {
                     treeStructure.Dispose();

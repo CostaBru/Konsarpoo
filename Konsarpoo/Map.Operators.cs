@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
-    public partial class  Map<TKey, TValue>
+    public partial class Map<TKey, TValue>
     {
         /// <summary>
         /// Returns of union of map and readonly dictionary.
@@ -151,6 +150,8 @@ namespace Konsarpoo.Collections
             
             if (m_count == other.Count)
             {
+                var equalityComparer = EqualityComparer<TValue>.Default;
+                
                 foreach (var kv in this)
                 {
                     if(!(other.TryGetValue(kv.Key, out var otherValue)))
@@ -158,7 +159,7 @@ namespace Konsarpoo.Collections
                         return false; 
                     }
                     
-                    if (!(EqualityComparer<TValue>.Default.Equals(kv.Value, otherValue)))
+                    if (!(equalityComparer.Equals(kv.Value, otherValue)))
                     {
                         return false;
                     }
@@ -169,6 +170,11 @@ namespace Konsarpoo.Collections
                     if(!(this.TryGetValue(kv.Key, out var otherValue)))
                     {
                         return false; 
+                    }
+                    
+                    if (!(equalityComparer.Equals(kv.Value, otherValue)))
+                    {
+                        return false;
                     }
                 }
 
