@@ -117,7 +117,7 @@ namespace Konsarpoo.Collections;
                 var copyFrom = otherStack.Pop();
                 var copyTo = thisStack.Pop();
                 
-                foreach (var child in copyFrom.Children)
+                foreach (var child in copyFrom)
                 {
                     var newNode = new TrieNode<TValue>(child.Key)
                     {
@@ -559,7 +559,7 @@ namespace Konsarpoo.Collections;
             {
                 var node = stack.Pop();
 
-                foreach (var child in node.Children)
+                foreach (var child in node)
                 {
                     stack.Push(child.Value);
                 }
@@ -617,7 +617,7 @@ namespace Konsarpoo.Collections;
                 {
                     yield return node.Value;
 
-                    foreach (var child in node.Children)
+                    foreach (var child in node)
                     {
                         stack.Enqueue((child.Value, null));
                     }
@@ -626,14 +626,14 @@ namespace Konsarpoo.Collections;
                 {
                     if (prefix == null)
                     {
-                        foreach (var child in node.Children)
+                        foreach (var child in node)
                         {
                             stack.Enqueue((child.Value, null));
                         }
                     }
                     else
                     {
-                        foreach (var child in node.Children)
+                        foreach (var child in node)
                         {
                             stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
                         }
@@ -686,7 +686,7 @@ namespace Konsarpoo.Collections;
                 }
                 else
                 {
-                    foreach (var child in node.Children)
+                    foreach (var child in node)
                     {
                         stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
                     }
@@ -741,7 +741,7 @@ namespace Konsarpoo.Collections;
                     yield return (prefix, node.Value);
                 }
 
-                foreach (var child in node.Children)
+                foreach (var child in node)
                 {
                     stack.Push((child.Value, prefix + child.Value.KeyChar));
                 }

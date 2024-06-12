@@ -212,7 +212,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
                 yield return (prefix, node.Value);
             }
 
-            foreach (var child in node.Children)
+            foreach (var child in node)
             {
                 stack.Push((child.Value, prefix + child.Value.KeyChar));
             }
@@ -239,7 +239,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
                 yield return node.Value;
             }
 
-            foreach (var child in node.Children)
+            foreach (var child in node)
             {
                 stack.Push(child.Value);
             }
