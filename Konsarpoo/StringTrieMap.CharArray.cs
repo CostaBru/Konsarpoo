@@ -266,8 +266,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         var word = key;
 
         var currentNode = m_root;
-        var data = new Data<TrieLinkNode<TValue>>();
-        var treeStructure = data.AsStack();
+        var treeStructure = new Data<TrieLinkNode<TValue>>();
 
         if (m_caseSensitive == false)
         {
@@ -275,12 +274,12 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             {
                 var node = currentNode.GetChildNode(char.ToLower(c));
 
-                treeStructure.Push(node);
+                treeStructure.Push(currentNode);
                 currentNode = node;
                 
                 if (currentNode == null)
                 {
-                    data.Dispose();
+                    treeStructure.Dispose();
                     return false;
                 }
             }
@@ -291,12 +290,12 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             {
                 var node = currentNode.GetChildNode(c);
                 
-                treeStructure.Push(node);
+                treeStructure.Push(currentNode);
                 currentNode = node;
                 
                 if (currentNode == null)
                 {
-                    data.Dispose();
+                    treeStructure.Dispose();
                     return false;
                 }
             }
@@ -305,7 +304,6 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         if (currentNode is TrieEndNode<TValue> en)
         {
             var currentNodeParent = treeStructure.Pop();
-            currentNodeParent = treeStructure.Pop();
 
             if (currentNode.Any)
             {
@@ -319,7 +317,7 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
 
                 var node = currentNodeParent;
 
-                while (node.Any == false)
+                while ((node is not TrieEndNode<TValue>) && node.Any == false && treeStructure.Any)
                 {
                     var parent = treeStructure.Pop();
 

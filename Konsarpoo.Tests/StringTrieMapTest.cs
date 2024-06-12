@@ -375,6 +375,47 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestRemove()
+        {
+            var map = new StringTrieMap<int>
+            {
+                { "test", 1 },
+                { "te", 2 },
+                { "t", 3 },
+            };
+            
+            Assert.AreEqual(3, map.Count);
+          
+            Assert.True(map.Remove("test"));
+            Assert.AreEqual(2, map.Count);
+            
+            Assert.True(map.Remove("te"));
+            Assert.AreEqual(1, map.Count);
+
+            Assert.True(map.Remove("t"));
+            Assert.AreEqual(0, map.Count);
+            
+            Assert.False(map.Remove("t"));
+            Assert.AreEqual(0, map.Count);
+            
+            map = new StringTrieMap<int>
+            {
+                { "test", 1 },
+                { "te", 2 },
+                { "t", 3 },
+            };
+            
+            Assert.True(map.Remove("t"));
+            Assert.AreEqual(2, map.Count);
+            
+            Assert.True(map.Remove("te"));
+            Assert.AreEqual(1, map.Count);
+            
+            Assert.True(map.Remove("test"));
+            Assert.AreEqual(0, map.Count);
+        }
+
+        [Test]
         public void TestInt()
         {
             var dict = (IDictionary<string, int>)new StringTrieMap<int>
