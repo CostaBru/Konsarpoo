@@ -26,9 +26,29 @@ Some extras built in:
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
 
-Each array pool collection is serializable by default. It has a class destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
+Each collection is serializable by default. All necessary generic collection interfaces are implemented. All collections have copying constructor.
+
+Data<> class interfaces:
+- ``IList<>``
+- ``IReadOnlyList<>``
+- ``ICollection``
+- ``IList``
+
+Set<> class interfaces:
+- ``ICollection<>,`` 
+- ``IReadOnlyCollection<>``
+
+Map<,> StringTrieMap<> LfuCache<,> classes interfaces:
+- ``IDictionary<,>``
+- ``ICollection<KeyValuePair<,>>``
+- ``IEnumerable<KeyValuePair<,>>``
+- ``IReadOnlyDictionary<,>``
+- ``IReadOnlyCollection<KeyValuePair<,>>``
+
+Each class in this package has destructor defined and ``System.IDisposable`` interface implemented to recycle internal storage on demand or by ``GC``. 
 
 Possible use cases of this package:
+- Server side code with minimum GC collection time.
 - Avoiding allocating large arrays in LOH (please call - ``KonsarpooAllocatorGlobalSetup.SetGcAllocatorSetup()``)
 - Managing the available memory by providing custom allocator (please call - ``KonsarpooAllocatorGlobalSetup.SetDefaultAllocatorSetup([your allocator impl])``)
 - Boosting performance if data processing task can be split into a smaller ones and memory allocated per task can fit into the stack.
@@ -39,12 +59,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 5.0.1
+PM> Install-Package Konsarpoo -Version 5.0.2
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 5.0.1
+> dotnet add package Konsarpoo --version 5.0.2
 ```
 
 ### DATA  
@@ -64,7 +84,7 @@ The ``GcArrayPoolMixedAllocator<T>`` instance is the default array allocator. It
 
 ### STACK API / QUEUE API
 
-The ``Konsarpoo.Collections.Data`` class supports ``Stack`` and ``Queue`` API with linear time performance for accessing and modifying methods. To access ``Queue`` API it is required to call ``Data.AsQueue()`` method which returns wrapper class with ``Data<T>`` as internal storage that keeps track of the start of queue.
+The ``Data`` class supports ``Stack`` and ``Queue`` API with linear time performance for accessing and modifying methods. To access ``Queue`` API it is required to call ``Data.AsQueue()`` method which returns wrapper class with ``Data<T>`` as internal storage that keeps track of the start of queue.
 
 ### BITARR
 
@@ -72,15 +92,24 @@ It is a compact array of bit values, which are represented as Booleans. It uses 
 
 ### STRING TRIE MAP
 
-``StringTrieMap<V>`` is generic map collection that supports the built in ``Dictionary`` API and implemented as trie data structure. It is designed to store strings as keys and have O(k) value access time. https://en.wikipedia.org/wiki/Trie. 
+``StringTrieMap<V>`` is generic map collection was designed to store string keys in more space efficient way. It supports the built in ``IDictionary`` API and implemented as trie data structure. It has ``O(k)`` value value access time, where ``k`` is the len of a key. 
+
+``StringTrieMap<V>`` may contain 3 types of node: ``Link``, ``EndLink`` and ``Tail``. All node types have ``System.Char`` key.
+- ``Link`` node may have one or many child nodes.
+- ``EndLink`` node has a value and child nodes. 
+- ``Tail`` has a value and it may contain key suffix as a ``Data<System.Char>``.
+
+In addition to ``IDictionary`` API there are methods for fetching values by prefix and suffix: ``WhereKeyStartsWith``, ``WhereKeyEndsWith``, ``WhereKeyContains``
 
 ### LFU CACHE
 
-A data structure which uses an O(1) algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. 
+A data structure which uses an ``O(1)`` algorithm of implementing LFU cache eviction scheme. It has a map like API and simple cleanup methods to remove a certain number of non-relevant items from the cache. 
 
 In addition to that it can keep track both:
 -  of cached data obsolescence by last accessed timestamp and remove those obsolete items on demand.
 -  of total memory used by cache and remove obsolete and least accessed keys to insert a new item.
+
+User can define which type this cache should use as a collection of keys and set of frequencies.
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
 
