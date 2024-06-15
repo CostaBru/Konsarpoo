@@ -25,6 +25,8 @@ public partial class StringTrieMap<TValue> : IXmlSerializable
         Clear();
 
         m_caseSensitive = bool.Parse(reader.GetAttribute(CaseSensitiveName));
+        m_prepareCharFunc = m_caseSensitive ? c => c : char.ToLower;
+        
         var add = true;
         
         reader.ReadStartElement();
@@ -91,7 +93,8 @@ public partial class StringTrieMap<TValue> : IXmlSerializable
         int count = siInfo.GetInt32(SizeName);
 
         m_caseSensitive = (bool)siInfo.GetValue(CaseSensitiveName, typeof(bool));
-
+        m_prepareCharFunc = m_caseSensitive ? c => c : char.ToLower;
+        
         if (count != 0)
         {
             var data = (Data<KeyValuePair<string, TValue>>)siInfo.GetValue(KeyValuePairsName,

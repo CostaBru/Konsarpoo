@@ -35,6 +35,9 @@ namespace Konsarpoo.Collections.Tests
 
             map.Add("test0", "val0");
             map.Add("test1", "val1");
+            
+            Assert.AreEqual("val0", map["test0"]);
+            Assert.AreEqual("val1", map["test1"]);
 
             Assert.True(map.ContainsValue("val0"));
             Assert.True(map.ContainsValue("val1"));
@@ -61,13 +64,6 @@ namespace Konsarpoo.Collections.Tests
 
             Assert.True(map2["2"] == 2);
             Assert.True(map2["1"] == 1);
-
-            for (int i = 0; i < map2.Count; i++)
-            {
-                var keyAt = map2.KeyAt(i);
-
-                Assert.True(map2[keyAt].ToString() == keyAt);
-            }
 
             Assert.False(((ICollection<KeyValuePair<string, int>>)map2).IsReadOnly);
             Assert.True(map2.CaseSensitive);
@@ -137,6 +133,12 @@ namespace Konsarpoo.Collections.Tests
             for (int i = 0; i < 1000000; i++)
             {
                 testData.Add(i.ToString(), i);
+            }
+            
+            for (int i = 0; i < 1000000; i++)
+            {
+                Assert.True(testData.TryGetValue(i.ToString(), out var val));
+                Assert.AreEqual(i, val);
             }
             
             testData.Dispose();
@@ -377,13 +379,12 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestRemove()
         {
-            var map = new StringTrieMap<int>
-            {
-                { "test", 1 },
-                { "te", 2 },
-                { "t", 3 },
-            };
+            var map = new StringTrieMap<int>();
             
+            map.Add("test", 1);
+            map.Add("te", 2);
+            map.Add("t", 3);
+
             Assert.AreEqual(3, map.Count);
           
             Assert.True(map.Remove("test"));
@@ -524,7 +525,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestAddExc()
         {
             var m3 = new StringTrieMap<int>() { { "1", 1 } };
-
+            
             Assert.Throws<ArgumentException>(() => m3.Add("1", 2));
             
             var m4 = new Map<string, int>() { { "1", 1 } };
@@ -554,14 +555,13 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestStartWith()
         {
-            var m3 = new StringTrieMap<string>()
-            {
-                { "a", "a" },
-                { "abc", "abc" },
-                { "abcd", "abcd" },
-                { "bc", "bc" },
-                { "c", "c" },
-            };
+            var m3 = new StringTrieMap<string>();
+           
+            m3.Add("a", "a");
+            m3.Add("abc", "abc");
+            m3.Add("abcd", "abcd");
+            m3.Add("bc", "bc");
+            m3.Add("c", "c");
 
             var vals = m3.WhereKeyStartsWith("a").OrderBy(a => a).ToArray();
             var expected = new[]{"a", "abc", "abcd"}.OrderBy(a => a).ToArray();

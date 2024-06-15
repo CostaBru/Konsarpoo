@@ -47,7 +47,11 @@ namespace Konsarpoo.Collections;
         [NonSerialized]
         private int m_count;
         
+        [NonSerialized]
         private bool m_caseSensitive = false;
+        
+        [NonSerialized]
+        Func<char, char> m_prepareCharFunc;
 
         /// <summary>
         /// Checks that both map and readonly dictionary has the same keys and values.
@@ -84,21 +88,21 @@ namespace Konsarpoo.Collections;
         /// <param name="caseSensitive"></param>
         public StringTrieMap(bool caseSensitive)
         {
-            this.m_caseSensitive = caseSensitive;
+            m_caseSensitive = caseSensitive;
+            m_prepareCharFunc = m_caseSensitive ? c => c : char.ToLower;
         }
 
         /// <summary>
         /// Copying constructor.
         /// </summary>
         /// <param name="copyFromMap"></param>
-        public StringTrieMap(StringTrieMap<TValue> copyFromMap)
+        public StringTrieMap(StringTrieMap<TValue> copyFromMap) : this(copyFromMap.m_caseSensitive)
         {
             if (copyFromMap == null)
             {
                 throw new ArgumentNullException(nameof(copyFromMap));
             }
 
-            m_caseSensitive = copyFromMap.m_caseSensitive;
             m_missingValueFactory = copyFromMap.m_missingValueFactory;
             m_count = copyFromMap.m_count;
 
@@ -121,9 +125,23 @@ namespace Konsarpoo.Collections;
                 {
                     TrieLinkNode<TValue> newNode;
                     
-                    if (child.Value is TrieEndNode<TValue> en)
+                    if (child.Value is TrieTailNode<TValue> tn)
                     {
-                        newNode = new TrieEndNode<TValue>(child.Key)
+                        var tailNode = new TrieTailNode<TValue>(child.Key)
+                        {
+                            Value = tn.Value,
+                        };
+                        
+                        if(tn.Suffix != null)
+                        {
+                            tailNode.Suffix = new Data<char>(tn.Suffix);
+                        }
+                        
+                        newNode = tailNode;
+                    }
+                    else if (child.Value is TrieEndLinkNode<TValue> en)
+                    {
+                        newNode = new TrieEndLinkNode<TValue>(child.Key)
                         {
                             Value = en.Value
                         };
@@ -201,6 +219,7 @@ namespace Konsarpoo.Collections;
             Add(item.Key, item.Value);
         }
 
+        /// <inheritdoc />
         public bool Contains(KeyValuePair<string, TValue> item)
         {
             if (TryGetValueCore(item.Key, out var value))
@@ -243,7 +262,8 @@ namespace Konsarpoo.Collections;
         /// Values of the map.
         /// </summary>
         public IEnumerable<TValue> Values => GetValues();
-        
+
+        /// <inheritdoc />
         public bool Remove(KeyValuePair<string, TValue> item) => Remove(item.Key);
 
         /// <inheritdoc />
@@ -285,9 +305,8 @@ namespace Konsarpoo.Collections;
                 if (m_missingValueFactory != null)
                 {
                     var newValue = m_missingValueFactory(key);
-                    var set = false;
-                    Insert(key, ref newValue, ref set);
-
+                    var add = false;
+                    Insert(key, ref newValue, ref add);
                     return newValue;
                 }
 
@@ -372,10 +391,8 @@ namespace Konsarpoo.Collections;
             {
                 throw new ArgumentException();
             }
-            
-            var entries = GetKeyValuesString();
 
-            foreach (var entry in entries)
+            foreach (var entry in GetKeyValuesString())
             {
                 destination[index++] = new KeyValuePair<string, TValue>(entry.Key, entry.Value);
             }
@@ -389,9 +406,7 @@ namespace Konsarpoo.Collections;
         {
             var data = new Data<KeyValuePair<string, TValue>>(Count);
 
-            var keyValues = GetKeyValuesString();
-
-            foreach (var kv in keyValues)
+            foreach (var kv in GetKeyValuesString())
             {
                 data.Add(new KeyValuePair<string, TValue>(kv.Key, kv.Value));
             }
@@ -492,14 +507,6 @@ namespace Konsarpoo.Collections;
         public void EnsureValues([CanBeNull] Func<string, TValue> missingValueFactory) => m_missingValueFactory = missingValueFactory;
 
         /// <summary>
-        /// Inefficient way to get key by its index.
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        public string KeyAt(int index) => GetKeys().ElementAt(index);
-
-        /// <summary>
         /// Checks that this map and readonly dictionary has the same keys and values.
         /// </summary>
         /// <param name="other"></param>
@@ -581,6 +588,8 @@ namespace Konsarpoo.Collections;
                 
                 node.Dispose();
             }
+            
+            stack.Dispose();
         }
 
         /// <summary>
@@ -628,7 +637,11 @@ namespace Konsarpoo.Collections;
                 CheckState(ref version);
 
                 //null prefix means that key is already starts with the substring and we provide all sub nodes.
-                if (node is TrieEndNode<TValue> en && (prefix == null || func(prefix, substring)))
+                if (node is TrieTailNode<TValue> tn && (prefix == null || func(tn.BuildString(prefix), substring)))
+                {
+                    yield return tn.Value;
+                }
+                else if (node is TrieEndLinkNode<TValue> en && (prefix == null || func(prefix, substring)))
                 {
                     yield return en.Value;
 
@@ -650,7 +663,7 @@ namespace Konsarpoo.Collections;
                     {
                         foreach (var child in node)
                         {
-                            stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
+                            stack.Enqueue((child.Value, child.Value.BuildString(prefix)));
                         }
                     }
                 }
@@ -695,7 +708,11 @@ namespace Konsarpoo.Collections;
                 CheckState(ref version);
 
                 //IsEndOfWord and key is already ends with the substring we skip all sub nodes.
-                if (node is TrieEndNode<TValue> en && prefix.EndsWith(substring))
+                if (node is TrieTailNode<TValue> tn && (prefix == null || tn.BuildString(prefix).EndsWith(substring)))
+                {
+                    yield return tn.Value;
+                }
+                else if (node is TrieEndLinkNode<TValue> en && prefix.EndsWith(substring))
                 {
                     yield return en.Value;
                 }
@@ -703,7 +720,7 @@ namespace Konsarpoo.Collections;
                 {
                     foreach (var child in node)
                     {
-                        stack.Enqueue((child.Value, prefix + child.Value.KeyChar));
+                        stack.Enqueue((child.Value, child.Value.BuildString(prefix)));
                     }
                 }
             }
@@ -734,34 +751,36 @@ namespace Konsarpoo.Collections;
         {
             if (version != m_version)
             {
-                throw new InvalidOperationException($"Data collection was modified during enumeration.");
+                throw new InvalidOperationException($"StringTrieMap collection was modified during enumeration.");
             }
         }
         
         private IEnumerable<(string Key, TValue Value)> GetKeyValuesString()
         {
             var version = m_version;
+
+            var data = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
             
-            var stack = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
-            stack.Push((m_root, string.Empty));
+            var queue = data.AsQueue();
+            queue.Enqueue((m_root, string.Empty));
          
-            while (stack.Count > 0)
+            while (queue.Any)
             {
-                var (node, prefix) = stack.Pop();
+                var (node, prefix) = queue.Dequeue();
                 
                 CheckState(ref version);
 
-                if (node is TrieEndNode<TValue> en)
+                if (node is TrieEndLinkNode<TValue> en)
                 {
                     yield return (prefix, en.Value);
                 }
 
                 foreach (var child in node)
                 {
-                    stack.Push((child.Value, prefix + child.Value.KeyChar));
+                    queue.Enqueue((child.Value, child.Value.BuildString(prefix)));
                 }
             }
             
-            stack.Dispose();
+            data.Dispose();
         }
     }

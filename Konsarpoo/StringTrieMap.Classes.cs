@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 
 namespace Konsarpoo.Collections;
 
@@ -120,15 +121,15 @@ public partial class StringTrieMap<TValue>
         {
             if (Children is TrieLinkNode<TValue>)
             {
-                Children = new TrieEndNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+                Children = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
                 return;
             }
             
             var map = (Map<char, TrieLinkNode<TValue>>)Children;
-            map[currentNode.KeyChar] = new TrieEndNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+            map[currentNode.KeyChar] = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
         }
 
-        public void MakeChildLinkNode(TrieEndNode<TValue> currentNode)
+        public void MakeChildLinkNode(TrieEndLinkNode<TValue> currentNode)
         {
             if (Children is TrieLinkNode<TValue>)
             {
@@ -138,6 +139,38 @@ public partial class StringTrieMap<TValue>
             
             var map = (Map<char, TrieLinkNode<TValue>>)Children;
             map[currentNode.KeyChar] = new TrieLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children};
+        }
+        
+        public TrieLinkNode<TValue> SplitTailNode(TrieTailNode<TValue> currentNode)
+        {
+            TrieLinkNode<TValue> newLinkNode;
+
+            if (currentNode.Suffix != null && currentNode.Suffix.Count > 0)
+            {
+                newLinkNode = new TrieLinkNode<TValue>(currentNode.KeyChar);
+              
+                var newEndNode = new TrieTailNode<TValue>(currentNode.Suffix[0]) {Value = currentNode.Value};
+                var suffixCount = currentNode.Suffix.Count;
+                for (int i = 1; i < suffixCount; i++)
+                {
+                    newEndNode.AddSuffixChar(currentNode.Suffix[i]);
+                }
+                newLinkNode.AddChild(newEndNode);
+            }
+            else
+            {
+                newLinkNode = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Value = currentNode.Value};
+            }
+
+            if (Children is TrieLinkNode<TValue>)
+            {
+                Children = newLinkNode;
+                return newLinkNode;
+            }
+            
+            var map = (Map<char, TrieLinkNode<TValue>>)Children;
+            map[currentNode.KeyChar] = newLinkNode;
+            return newLinkNode;
         }
 
         public void RemoveNode(TrieLinkNode<TValue> node)
@@ -151,15 +184,70 @@ public partial class StringTrieMap<TValue>
             var map = (Map<char, TrieLinkNode<TValue>>)Children;
             map.Remove(node.KeyChar);
         }
+
+        public virtual string BuildString(string prefix)
+        {
+            return prefix + KeyChar;
+        }
     }
 
     [DebuggerDisplay("'{KeyChar}' {ChildrenCount} True")]
-    internal class TrieEndNode<TValue> : TrieLinkNode<TValue>
+    internal class TrieEndLinkNode<TValue> : TrieLinkNode<TValue>
     {
         public TValue Value;
 
-        public TrieEndNode(char keyChar) : base(keyChar)
+        public TrieEndLinkNode(char keyChar) : base(keyChar)
         {
+        }
+    }
+    
+    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} True")]
+    internal class TrieTailNode<TValue> : TrieEndLinkNode<TValue>
+    {
+        public Data<char> Suffix; 
+        
+        public TrieTailNode(char keyChar) : base(keyChar)
+        {
+        }
+        
+        public void AddSuffixChar(char c)
+        {
+            if (Suffix == null)
+            {
+                Suffix = new Data<char>();
+            }
+            
+            Suffix.Add(c);
+        }
+
+        public bool SuffixMatchAtPos(char c, int position)
+        {
+            if (Suffix == null || Suffix.Count <= position)
+            {
+                return false;
+            }
+
+            return Suffix[position] == c;
+        }
+        
+        public override string BuildString(string prefix)
+        {
+            if (Suffix != null)
+            {
+                var builder = new StringBuilder();
+            
+                builder.Append(prefix);
+                builder.Append(KeyChar);
+                
+                foreach (var c in Suffix)
+                {
+                    builder.Append(c);
+                }
+                
+                return builder.ToString();
+            }
+
+            return prefix + KeyChar;
         }
     }
 }

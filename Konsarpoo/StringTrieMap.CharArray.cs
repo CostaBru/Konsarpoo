@@ -23,7 +23,6 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
         get
         {
             var value = ValueByRef(key, out var found);
-
             if (found)
             {
                 return value;
@@ -31,10 +30,10 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
                 
             if (m_missingValueFactory != null)
             {
-                var newValue = m_missingValueFactory(new string(key.ToArray()));
-                var set = false;
-                Insert(key, ref newValue, ref set);
-
+                var strKey = key as string ?? new string(key.ToArray());
+                var newValue = m_missingValueFactory(strKey);
+                var add = false;
+                Insert(strKey, ref newValue, ref add);
                 return newValue;
             }
 
@@ -79,38 +78,51 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
 
     public ref TValue ValueByRef(IEnumerable<char> key, out bool success)
     {
-        var word = key;
         success = false;
-
         var currentNode = m_root;
 
-        if (m_caseSensitive)
+        TrieTailNode<TValue> tailNode = null;
+        int tailNodeSuffixCursor = 0;
+
+        foreach (var c in key)
         {
-            foreach (var c in word)
+            var charVal = m_prepareCharFunc(c);
+            if (tailNode != null)
             {
-                currentNode = currentNode.GetChildNode(c);
-                if (currentNode == null)
+                if (tailNode.SuffixMatchAtPos(charVal, tailNodeSuffixCursor) == false)
                 {
                     return ref s_nullRef;
                 }
+                tailNodeSuffixCursor++;
+                continue;
             }
-        }
-        else
-        {
-            foreach (var c in word)
+
+            currentNode = currentNode.GetChildNode(charVal);
+            if (currentNode is TrieTailNode<TValue> tn)
             {
-                currentNode = currentNode.GetChildNode(char.ToLower(c));
-                if (currentNode == null)
-                {
-                    return ref s_nullRef;
-                }
+                tailNode = tn;
+                continue;
+            }
+
+            if (currentNode == null)
+            {
+                return ref s_nullRef;
             }
         }
 
-        if (currentNode is TrieEndNode<TValue> en)
+        if (tailNode != null)
+        {
+            if (tailNodeSuffixCursor == (tailNode.Suffix?.Count ?? 0))
+            {
+                success = true;
+                return ref tailNode.Value;
+            }
+            return ref s_nullRef;
+        }
+
+        if (currentNode is TrieEndLinkNode<TValue> en)
         {
             success = true;
-
             return ref en.Value;
         }
 
@@ -130,181 +142,165 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             throw new ArgumentNullException(nameof(key));
         }
 
-        if (add)
-        {
-            if (TryGetValueCore(key, out var _))
-            {
-                throw new ArgumentException($"Key '{key}' is already exists.");
-            }
-        }
-
         var currentNode = m_root;
         var currentNodeParent = m_root;
-        var newNodeAdded = (TrieLinkNode<TValue>) null;
+        TrieTailNode<TValue> tailNode = null;
 
-        if (m_caseSensitive)
+        var valueAdded = false;
+        foreach (var c in key)
         {
-            foreach (var c in key)
+            var charVal = m_prepareCharFunc(c);
+            if (tailNode != null)
             {
-                var childNode = currentNode.GetChildNode(c);
-                if (childNode == null)
-                {
-                    var newNode = new TrieLinkNode<TValue>(c);
-
-                    currentNode.AddChild(newNode);
-                    currentNodeParent = currentNode;
-                    currentNode = newNode;
-                    newNodeAdded = newNode;
-                }
-                else
-                {
-                    currentNodeParent = currentNode;
-                    currentNode = childNode;
-                }
+                tailNode.AddSuffixChar(charVal);
+                continue;
             }
-        }
-        else
-        {
-            foreach (var c in key)
-            {
-                var lower = char.ToLower(c);
 
-                var childNode = currentNode.GetChildNode(lower);
-                if (childNode == null)
+            var childNode = currentNode.GetChildNode(charVal);
+            if (childNode == null)
+            {
+                var newNode = new TrieTailNode<TValue>(charVal);
+
+                currentNode.AddChild(newNode);
+                currentNodeParent = currentNode;
+                currentNode = newNode;
+
+                tailNode = newNode;
+                valueAdded = true;
+            }
+            else
+            {
+                if (childNode is TrieTailNode<TValue> tn)
                 {
-                    var newNode = new TrieLinkNode<TValue>(lower);
-                    currentNode.AddChild(newNode);
-                    currentNodeParent = currentNode;
-                    currentNode = newNode;
-                    newNodeAdded = newNode;
+                    childNode = currentNode.SplitTailNode(tn);
                 }
-                else
-                {
-                    currentNodeParent = currentNode;
-                    currentNode = childNode;
-                }
+
+                currentNodeParent = currentNode;
+                currentNode = childNode;
             }
         }
 
-        if (currentNode is TrieEndNode<TValue> en)
+        if (currentNode is TrieEndLinkNode<TValue> en)
         {
+            if (add && valueAdded == false)
+            {
+                throw new ArgumentException($"Key '{key}' already exists.");
+            }
+
             en.Value = value;
         }
-        else
+        else 
         {
+            valueAdded = true;
             currentNodeParent.MakeChildEndOfWord(currentNode, value);
-
-            if (add || ReferenceEquals(newNodeAdded, currentNode))
-            {
-                m_count++;
-                unchecked
-                {
-                    ++m_version;
-                }
-            }
+        }
+        
+        if (valueAdded)
+        {
+            m_count++;
+            unchecked { ++m_version; }
         }
     }
 
     private IEnumerable<(IEnumerable<char> Key, TValue Value)> GetKeyValues()
     {
         var version = m_version;
-        
-        var stack = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
-        stack.Push((m_root, string.Empty));
 
-        while (stack.Count > 0)
+        var data = new Data<(TrieLinkNode<TValue> Node, string Prefix)>();
+        
+        var queue = data.AsQueue();
+        queue.Enqueue((m_root, string.Empty));
+
+        while (queue.Any)
         {
-            var (node, prefix) = stack.Pop();
+            var (node, prefix) = queue.Dequeue();
             
             CheckState(ref version);
 
-            if (node is TrieEndNode<TValue> en)
+            if (node is TrieEndLinkNode<TValue> en)
             {
                 yield return (prefix, en.Value);
             }
 
             foreach (var child in node)
             {
-                stack.Push((child.Value, prefix + child.Value.KeyChar));
+                queue.Enqueue((child.Value, child.Value.BuildString(prefix)));
             }
         }
         
-        stack.Dispose();
+        data.Dispose();
     }
     
     private IEnumerable<TValue> GetValues()
     {
         var version = m_version;
+        var data = new Data<TrieLinkNode<TValue>>();
+        
+        var queue = data.AsQueue();
+        queue.Enqueue(m_root);
 
-        var stack = new Data<TrieLinkNode<TValue>>();
-        stack.Push(m_root);
-
-        while (stack.Count > 0)
+        while (queue.Any)
         {
-            var node = stack.Pop();
+            var node = queue.Dequeue();
             
             CheckState(ref version);
 
-            if (node is TrieEndNode<TValue> en)
+            if (node is TrieEndLinkNode<TValue> en)
             {
                 yield return en.Value;
             }
 
             foreach (var child in node)
             {
-                stack.Push(child.Value);
+                queue.Enqueue(child.Value);
             }
         }
         
-        stack.Dispose();
+        data.Dispose();
     }
 
     bool IDictionary<IEnumerable<char>, TValue>.Remove(IEnumerable<char> key) => RemoveCore(key);
 
     private bool RemoveCore(IEnumerable<char> key)
     {
-        var word = key;
-
         var currentNode = m_root;
         var treeStructure = new Data<TrieLinkNode<TValue>>();
 
-        if (m_caseSensitive)
+        TrieTailNode<TValue> tailNode = null;
+        int tailNodeSuffixCursor = 0;
+
+        foreach (var c in key)
         {
-            foreach (var c in word)
+            var charVal = m_prepareCharFunc(c);
+            if (tailNode != null)
             {
-                var node = currentNode.GetChildNode(c);
-
-                treeStructure.Push(currentNode);
-                currentNode = node;
-
-                if (currentNode == null)
+                if (tailNode.SuffixMatchAtPos(charVal, tailNodeSuffixCursor) == false)
                 {
                     treeStructure.Dispose();
                     return false;
                 }
+                tailNodeSuffixCursor++;
+                continue;
             }
-        }
-        else
-        {
-            foreach (var c in word)
+
+            treeStructure.Push(currentNode);
+
+            currentNode = currentNode.GetChildNode(charVal);;
+            if (currentNode is TrieTailNode<TValue> tn)
             {
-                var node = currentNode.GetChildNode(char.ToLower(c));
-
-                treeStructure.Push(currentNode);
-                currentNode = node;
-
-                if (currentNode == null)
-                {
-                    treeStructure.Dispose();
-                    return false;
-                }
+                tailNode = tn;
+                continue;
+            }
+            if (currentNode == null)
+            {
+                treeStructure.Dispose();
+                return false;
             }
         }
 
-        if (currentNode is TrieEndNode<TValue> en)
+        if (currentNode is TrieEndLinkNode<TValue> en)
         {
             var currentNodeParent = treeStructure.Pop();
-
             if (currentNode.Any)
             {
                 currentNodeParent.MakeChildLinkNode(en);
@@ -312,40 +308,30 @@ public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TVal
             else
             {
                 currentNodeParent.RemoveNode(currentNode);
-                
                 currentNode.Dispose();
 
                 var node = currentNodeParent;
-
-                while ((node is not TrieEndNode<TValue>) && node.Any == false && treeStructure.Any)
+                while ((node is not TrieEndLinkNode<TValue>) && node.Any == false && treeStructure.Any)
                 {
                     var parent = treeStructure.Pop();
 
                     parent.RemoveNode(node);
                     
                     node.Dispose();
-
                     node = parent;
                 }
             }
 
             m_count--;
-            unchecked
-            {
-                ++m_version;
-            }
-
+            unchecked { ++m_version; }
             return true;
         }
-
         return false;
     }
 
     IEnumerator<KeyValuePair<IEnumerable<char>, TValue>> IEnumerable<KeyValuePair<IEnumerable<char>, TValue>>.GetEnumerator()
     {
-        var keyValues = GetKeyValues();
-
-        foreach (var tuple in keyValues)
+        foreach (var tuple in GetKeyValues())
         {
             yield return new KeyValuePair<IEnumerable<char>, TValue>(tuple.Key, tuple.Value);
         }
