@@ -44,7 +44,6 @@ namespace Konsarpoo.Collections
                  var data = new Data<KeyValuePair<TKey, TValue>>();
                  data.Ensure(Count);
                  CopyTo(data, 0);
-
                  info.AddValue(KeyValuePairsName, data, typeof(Data<KeyValuePair<TKey, TValue>>));
             }
         }

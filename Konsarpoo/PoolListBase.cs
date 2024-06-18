@@ -291,7 +291,7 @@ namespace Konsarpoo.Collections
             return num;
         }
         
-        private void ReturnArray()
+        internal void ReturnArray()
         {
             if (m_items.Length > 0)
             {

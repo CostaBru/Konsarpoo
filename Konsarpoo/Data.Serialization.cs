@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
@@ -48,27 +50,17 @@ namespace Konsarpoo.Collections
             if (m_root is StoreNode st)
             {
                 info.AddValue(ElementsCountName, 1);
-                
-                var array = new T[m_count];
-                Array.Copy(st.m_items, 0, array, 0, m_count);
-                info.AddValue(ElementsName, array, typeof(T[]));
+                info.AddValue(ElementsName, st.m_items, typeof(T[]));
             }
             else
             {
                 var storeNodes = GetStoreNodes(m_root).ToData();
-
                 info.AddValue(ElementsCountName, storeNodes.m_count);
-
                 int i = 0;
-                
                 foreach (var storeNode in storeNodes)
                 {
-                    var array = new T[storeNode.Size];
-                    Array.Copy(storeNode.m_items, 0, array, 0, storeNode.Size);
-                    
                     var elementsName = GetElementName(i);
-                    info.AddValue(elementsName, array, typeof(T[]));
-
+                    info.AddValue(elementsName, storeNode.m_items, typeof(T[]));
                     i++;
                 }
                 
@@ -87,7 +79,8 @@ namespace Konsarpoo.Collections
         }
 
         private static readonly string[] m_predefinedElementsName = Enumerable.Range(0, 100).Select(i => ElementsName + i).ToArray();
-
+        
+       
         private IEnumerable<StoreNode> GetStoreNodes(INode node)
         {
             foreach (var nodeNode in node.Nodes)
@@ -117,9 +110,7 @@ namespace Konsarpoo.Collections
             }
 
             m_maxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
-            
             int capacity = m_siInfo.GetInt32(CapacityName);
-            
             int elementsCount = m_siInfo.GetInt32(ElementsCountName);
 
             if (capacity != 0 && elementsCount != 0)
@@ -133,10 +124,9 @@ namespace Konsarpoo.Collections
                     {
                         throw new SerializationException("Cannot read list values from serialization info.");
                     }
-
                     var storeNode = (StoreNode)m_root;
-
-                    Array.Copy(objArray, 0, storeNode.m_items, 0, objArray.Length);
+                    storeNode.ReturnArray();
+                    storeNode.m_items = objArray;
                 }
                 else
                 {
@@ -146,15 +136,13 @@ namespace Konsarpoo.Collections
                     foreach (var storeNode in storeNodes)
                     {
                         var elementName = GetElementName(i);
-
                         T[] objArray = (T[])m_siInfo.GetValue(elementName, typeof(T[]));
                         if (objArray == null)
                         {
                             throw new SerializationException($"Cannot read list values from serialization info for {i}th array.");
                         }
-
-                        Array.Copy(objArray, 0, storeNode.m_items, 0, objArray.Length);
-                        
+                        storeNode.ReturnArray();
+                        storeNode.m_items = objArray;
                         i++;
                     }
                 }
