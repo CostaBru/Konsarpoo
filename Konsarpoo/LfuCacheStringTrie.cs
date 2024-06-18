@@ -11,7 +11,7 @@ public class LfuCacheStringTrie<TValue> : LfuCache<string, TValue>
 
     public LfuCacheStringTrie(bool caseSensitive, 
         Func<TValue, TValue> copyStrategy = null, 
-        Action<IEnumerable<char>, TValue> disposingStrategy = null) 
+        Action<string, TValue> disposingStrategy = null) 
         : base(new StringTrieMap<DataVal>(caseSensitive), () => new StringTrieSet(caseSensitive), copyStrategy, disposingStrategy)
     {
     }
