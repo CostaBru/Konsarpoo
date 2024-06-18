@@ -25,8 +25,6 @@ public partial class LfuCache<TKey, TValue> :
     IDeserializationCallback,
     IDisposable
 {
-   
-    
     [NonSerialized]
     private TimeSpan m_obsolescenceTimeout;
     public class DataVal
@@ -136,7 +134,8 @@ public partial class LfuCache<TKey, TValue> :
     /// </summary>
     /// <param name="copyStrategy"></param>
     /// <param name="disposingStrategy"></param>
-    public LfuCache(Func<TValue, TValue> copyStrategy, Action<TKey, TValue> disposingStrategy = null): this(0,0,null, copyStrategy, disposingStrategy)
+    public LfuCache(Func<TValue, TValue> copyStrategy, Action<TKey, TValue> disposingStrategy = null) 
+        : this(0,0,null, copyStrategy, disposingStrategy)
     {
     }
 
@@ -184,14 +183,16 @@ public partial class LfuCache<TKey, TValue> :
         m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
     }
-    
+
     /// <summary>
     /// LfuCache constructor with customizable storage.
     /// </summary>
     /// <param name="mapStorage"></param>
     /// <param name="setFactory"></param>
+    /// <param name="copyStrategy"></param>
+    /// <param name="disposingStrategy"></param>
     /// <exception cref="ArgumentNullException"></exception>
-    public LfuCache([NotNull]IDictionary<TKey, DataVal> mapStorage, [NotNull] Func<ICollection<TKey>> setFactory)
+    public LfuCache([NotNull]IDictionary<TKey, DataVal> mapStorage, [NotNull] Func<ICollection<TKey>> setFactory,  Func<TValue, TValue> copyStrategy = null,  Action<TKey, TValue> disposingStrategy = null)
     {
         if (mapStorage == null)
         {
@@ -208,6 +209,8 @@ public partial class LfuCache<TKey, TValue> :
         
         m_root = new(m_setFactory);
         m_mostFreqNode = m_root;
+        m_copyStrategy = copyStrategy;
+        m_disposingStrategy = disposingStrategy;
     }
 
     /// <summary>

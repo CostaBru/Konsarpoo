@@ -1,9 +1,10 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Konsarpoo.Collections;
 
-internal class StringTrieSet : ICollection<IEnumerable<char>>
+internal class StringTrieSet : ICollection<IEnumerable<char>>, ICollection<string>
 {
     private StringTrieMap<byte> m_storage;
     private IDictionary<IEnumerable<char>, byte> Storage => m_storage;
@@ -17,11 +18,41 @@ internal class StringTrieSet : ICollection<IEnumerable<char>>
     {
         m_storage.TryAdd(item, byte.MaxValue);
     }
-    
+
+    public void Add(string item)
+    {
+        Storage[item] = byte.MaxValue;
+    }
+
     public void Clear()
     {
         m_storage.Clear();
     }
+
+    public bool Contains(string item)
+    {
+        return Storage.TryGetValue(item, out var _);
+    }
+
+    public void CopyTo(string[] array, int arrayIndex)
+    {
+        var storage = (IDictionary<string, byte>)Storage;
+        
+        storage.Keys.CopyTo(array, arrayIndex);
+    }
+
+    public bool Remove(string item)
+    {
+        return Storage.Remove(item);
+    }
+
+    IEnumerator<string> IEnumerable<string>.GetEnumerator()
+    {
+        var storage = (IDictionary<string, byte>)Storage;
+
+        return storage.Keys.GetEnumerator();
+    }
+
     public IEnumerator<IEnumerable<char>> GetEnumerator() => Storage.Keys.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     public bool Contains(IEnumerable<char> item) => Storage.ContainsKey(item);

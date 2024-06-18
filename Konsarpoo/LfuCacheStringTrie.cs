@@ -1,14 +1,18 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Konsarpoo.Collections;
 
-public class LfuCacheStringTrie<TValue> : LfuCache<IEnumerable<char>, TValue>
+public class LfuCacheStringTrie<TValue> : LfuCache<string, TValue>
 {
     public LfuCacheStringTrie() : this(true)
     {
     }
 
-    public LfuCacheStringTrie(bool caseSensitive) : base(new StringTrieMap<DataVal>(caseSensitive), () => new StringTrieSet(caseSensitive))
+    public LfuCacheStringTrie(bool caseSensitive, 
+        Func<TValue, TValue> copyStrategy = null, 
+        Action<IEnumerable<char>, TValue> disposingStrategy = null) 
+        : base(new StringTrieMap<DataVal>(caseSensitive), () => new StringTrieSet(caseSensitive), copyStrategy, disposingStrategy)
     {
     }
 
