@@ -31,7 +31,6 @@ namespace Konsarpoo.Collections.Tests
         public void TestSmall()
         {
             var map = new StringTrieMap<string>();
-            var dict = new Dictionary<string, string>();
 
             map.Add("test0", "val0");
             map.Add("test1", "val1");
@@ -48,6 +47,9 @@ namespace Konsarpoo.Collections.Tests
             var dict2 = map.ToMap();
 
             dict2.Add("test3", "123");
+            
+            var dict = new Dictionary<string, string>();
+
             dict.Add("test0", "val0");
             dict.Add("test1", "val1");
 

@@ -61,7 +61,7 @@ namespace Konsarpoo.Collections
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="V"></typeparam>
-    public sealed class TrieMapDebugView<V>
+    public sealed class StringTrieMapDebugView<V>
     {
         private readonly IReadOnlyDictionary<string, V> m_dict;
 
@@ -69,7 +69,7 @@ namespace Konsarpoo.Collections
         /// Constructor.
         /// </summary>
         /// <param name="dict"></param>
-        public TrieMapDebugView(IReadOnlyDictionary<string, V> dict)
+        public StringTrieMapDebugView(IReadOnlyDictionary<string, V> dict)
         {
             m_dict = dict;
         }
@@ -80,4 +80,30 @@ namespace Konsarpoo.Collections
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         public KeyValuePair<string, V>[] Items => this.m_dict.ToArray();
     }
+    
+    /// <summary>
+    /// Debug view for StringTrie class.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="V"></typeparam>
+    public sealed class TrieMapDebugView<T,V>
+    {
+        private readonly IReadOnlyDictionary<T, V> m_dict;
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="dict"></param>
+        public TrieMapDebugView(IReadOnlyDictionary<T, V> dict)
+        {
+            m_dict = dict;
+        }
+        
+        /// <summary>
+        /// Items visible in debugger.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public KeyValuePair<T, V>[] Items => this.m_dict.ToArray();
+    }
+    
 }

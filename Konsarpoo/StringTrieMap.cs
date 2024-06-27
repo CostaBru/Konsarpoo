@@ -13,7 +13,7 @@ namespace Konsarpoo.Collections;
     /// The StringTrieMap&lt;TValue&gt; generic class that provides a mapping from a set of string keys to a set of values. Implemented as String Trie to store keys more efficiently.
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
-    [DebuggerTypeProxy(typeof(TrieMapDebugView<>))]
+    [DebuggerTypeProxy(typeof(StringTrieMapDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
     [Serializable]
     public partial class StringTrieMap<TValue> : 
