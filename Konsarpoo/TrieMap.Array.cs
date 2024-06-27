@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
@@ -173,37 +171,6 @@ public partial class TrieMap<TKey, TValue>
             m_count++;
             unchecked { ++m_version; }
         }
-    }
-
-    private IEnumerable<(IEnumerable<object> Key, TValue Value)> GetKeyValues()
-    {
-        var version = m_version;
-
-        //todo optimize
-        
-        var data = new Data<(TrieLinkNode<TValue> Node, object[] Prefix)>();
-        
-        var queue = data.AsQueue();
-        queue.Enqueue((m_root, null));
-
-        while (queue.Any)
-        {
-            var (node, prefix) = queue.Dequeue();
-            
-            CheckState(ref version);
-
-            if (node is TrieEndLinkNode<TValue> en)
-            {
-                yield return (prefix, en.Value);
-            }
-
-            foreach (var child in node)
-            {
-                queue.Enqueue((child.Value, prefix.Concat(new [] {child.Value.KeyChar}).ToArray()));
-            }
-        }
-        
-        data.Dispose();
     }
     
     private IEnumerable<TValue> GetValues()
