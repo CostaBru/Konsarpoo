@@ -3,59 +3,16 @@ using System.Collections.Generic;
 
 namespace Konsarpoo.Collections;
 
-public partial class TrieMap<TKey, TValue>
+public partial class AbstractTupleTrieMap<TKey, TValue> 
 {
-
-    private bool TryGetValueCore(IEnumerable<object> key, out TValue value)
+    private bool TryGetValueCore(TKey key, out TValue value)
     {
         value = ValueByRef(key, out var success);
 
         return success;
     }
-
-    public TValue this[IEnumerable<object> key]
-    {
-        get
-        {
-            var value = ValueByRef(key, out var found);
-            if (found)
-            {
-                return value;
-            }
-                
-            if (m_missingValueFactory != null)
-            {
-                var newValue = m_missingValueFactory(m_compose(key));
-                var add = false;
-                Insert(key, ref newValue, ref add);
-                return newValue;
-            }
-
-            throw new KeyNotFoundException($"Key '{key}' was not found.");
-        }
-        set
-        {
-            var add = false;
-            Insert(key, ref value, ref add);
-        }
-    }
-
-    ICollection<IEnumerable<object>> KeysObj
-    {
-        get
-        {
-            var data = new Data<IEnumerable<object>>(Count);
-
-            foreach (var key in GetKeys())
-            {
-                data.Add(m_decompose(key));
-            }
-
-            return data;
-        }
-    }
-
-    public ref TValue ValueByRef(IEnumerable<object> key, out bool success)
+   
+    public ref TValue ValueByRef(TKey key, out bool success)
     {
         success = false;
         var currentNode = m_root;
@@ -63,14 +20,16 @@ public partial class TrieMap<TKey, TValue>
         TrieTailNode<TValue> tailNode = null;
         int tailNodeSuffixCursor = 0;
 
-        foreach (var c in key)
+        for (var index = 0; index < key.Length; index++)
         {
+            var c = key[index];
             if (tailNode != null)
             {
                 if (tailNode.SuffixMatchAtPos(c, tailNodeSuffixCursor) == false)
                 {
                     return ref s_nullRef;
                 }
+
                 tailNodeSuffixCursor++;
                 continue;
             }
@@ -107,7 +66,7 @@ public partial class TrieMap<TKey, TValue>
         return ref s_nullRef;
     }
 
-    private void Insert(IEnumerable<object> key, ref TValue value, ref bool add)
+    private void Insert(TKey key, ref TValue value, ref bool add)
     {
         if (key == null)
         {
@@ -119,8 +78,9 @@ public partial class TrieMap<TKey, TValue>
         TrieTailNode<TValue> tailNode = null;
 
         var valueAdded = false;
-        foreach (var c in key)
+        for (var index = 0; index < key.Length; index++)
         {
+            var c = key[index];
             if (tailNode != null)
             {
                 tailNode.AddSuffixChar(c);
@@ -201,7 +161,7 @@ public partial class TrieMap<TKey, TValue>
         data.Dispose();
     }
 
-    private bool RemoveCore(IEnumerable<object> key)
+    private bool RemoveCore(TKey key)
     {
         var currentNode = m_root;
         var treeStructure = new Data<TrieLinkNode<TValue>>();
@@ -209,8 +169,9 @@ public partial class TrieMap<TKey, TValue>
         TrieTailNode<TValue> tailNode = null;
         int tailNodeSuffixCursor = 0;
 
-        foreach (var c in key)
+        for (var index = 0; index < key.Length; index++)
         {
+            var c = key[index];
             if (tailNode != null)
             {
                 if (tailNode.SuffixMatchAtPos(c, tailNodeSuffixCursor) == false)
@@ -218,18 +179,21 @@ public partial class TrieMap<TKey, TValue>
                     treeStructure.Dispose();
                     return false;
                 }
+
                 tailNodeSuffixCursor++;
                 continue;
             }
 
             treeStructure.Push(currentNode);
 
-            currentNode = currentNode.GetChildNode(c);;
+            currentNode = currentNode.GetChildNode(c);
+            ;
             if (currentNode is TrieTailNode<TValue> tn)
             {
                 tailNode = tn;
                 continue;
             }
+
             if (currentNode == null)
             {
                 treeStructure.Dispose();

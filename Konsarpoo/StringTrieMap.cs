@@ -399,7 +399,7 @@ namespace Konsarpoo.Collections;
         }
 
         /// <summary>
-        /// Copies the elements of the map to a data collection, starting at a particular index.
+        /// Copies the elements of the map to a data collection
         /// </summary>
         /// <returns></returns>
         public Data<KeyValuePair<string, TValue>> ToData()

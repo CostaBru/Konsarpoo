@@ -2,13 +2,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 
 namespace Konsarpoo.Collections;
 
-public partial class TrieMap<TKey, TValue> 
+public partial class AbstractTupleTrieMap<TKey, TValue> 
 {
-    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} False")]
+    [DebuggerDisplay("'{Key}' {ChildrenCount} False")]
     internal class TrieLinkNode<TValue> : IEnumerable<KeyValuePair<object, TrieLinkNode<TValue>>>
     {
         protected int ChildrenCount
@@ -33,11 +32,11 @@ public partial class TrieMap<TKey, TValue>
 
         protected object Children;
         
-        public object KeyChar;
+        public object Key;
 
-        public TrieLinkNode(object keyChar)
+        public TrieLinkNode(object key)
         {
-            KeyChar = keyChar;
+            Key = key;
         }
 
         public TrieLinkNode<TValue> GetChildNode(object c)
@@ -54,7 +53,7 @@ public partial class TrieMap<TKey, TValue>
                     return null;
                 }
                 
-                if (EqualityComparer<object>.Default.Equals(c, singleNode.KeyChar))
+                if (EqualityComparer<object>.Default.Equals(c, singleNode.Key))
                 {
                     return singleNode;
                 }
@@ -77,7 +76,7 @@ public partial class TrieMap<TKey, TValue>
             
             if(map != null)
             {
-                map[newNode.KeyChar] = newNode;
+                map[newNode.Key] = newNode;
                 return;
             }
             
@@ -85,8 +84,8 @@ public partial class TrieMap<TKey, TValue>
 
             Children = new Map<object, TrieLinkNode<TValue>>
             {
-                { singleNode.KeyChar, singleNode },
-                { newNode.KeyChar, newNode }
+                { singleNode.Key, singleNode },
+                { newNode.Key, newNode }
             };
         }
 
@@ -116,7 +115,7 @@ public partial class TrieMap<TKey, TValue>
             }
             else
             {
-                yield return new KeyValuePair<object, TrieLinkNode<TValue>>(singleNode.KeyChar, singleNode);
+                yield return new KeyValuePair<object, TrieLinkNode<TValue>>(singleNode.Key, singleNode);
             }
         }
 
@@ -126,24 +125,24 @@ public partial class TrieMap<TKey, TValue>
         {
             if (Children is TrieLinkNode<TValue>)
             {
-                Children = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+                Children = new TrieEndLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children, Value = value};
                 return;
             }
             
             var map = (Map<object, TrieLinkNode<TValue>>)Children;
-            map[currentNode.KeyChar] = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children, Value = value};
+            map[currentNode.Key] = new TrieEndLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children, Value = value};
         }
 
         public void MakeChildLinkNode(TrieEndLinkNode<TValue> currentNode)
         {
             if (Children is TrieLinkNode<TValue>)
             {
-                Children = new TrieLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children};
+                Children = new TrieLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children};
                 return;
             }
             
             var map = (Map<object, TrieLinkNode< TValue>>)Children;
-            map[currentNode.KeyChar] = new TrieLinkNode<TValue>(currentNode.KeyChar) {Children = currentNode.Children};
+            map[currentNode.Key] = new TrieLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children};
         }
         
         public TrieLinkNode<TValue> SplitTailNode(TrieTailNode< TValue> currentNode)
@@ -152,7 +151,7 @@ public partial class TrieMap<TKey, TValue>
 
             if (currentNode.Suffix != null && currentNode.Suffix.Count > 0)
             {
-                newLinkNode = new TrieLinkNode<TValue>(currentNode.KeyChar);
+                newLinkNode = new TrieLinkNode<TValue>(currentNode.Key);
               
                 var newEndNode = new TrieTailNode<TValue>(currentNode.Suffix[0]) {Value = currentNode.Value};
                 var suffixCount = currentNode.Suffix.Count;
@@ -164,7 +163,7 @@ public partial class TrieMap<TKey, TValue>
             }
             else
             {
-                newLinkNode = new TrieEndLinkNode<TValue>(currentNode.KeyChar) {Value = currentNode.Value};
+                newLinkNode = new TrieEndLinkNode<TValue>(currentNode.Key) {Value = currentNode.Value};
             }
 
             if (Children is TrieLinkNode<TValue>)
@@ -174,7 +173,7 @@ public partial class TrieMap<TKey, TValue>
             }
             
             var map = (Map<object, TrieLinkNode<TValue>>)Children;
-            map[currentNode.KeyChar] = newLinkNode;
+            map[currentNode.Key] = newLinkNode;
             return newLinkNode;
         }
 
@@ -187,31 +186,31 @@ public partial class TrieMap<TKey, TValue>
             }
             
             var map = (Map<object, TrieLinkNode<TValue>>)Children;
-            map.Remove(node.KeyChar);
+            map.Remove(node.Key);
         }
 
-        public virtual TKey BuildString<TKey>(TKey prefix, Func<TKey, object, TKey> compose)
+        public virtual TKey BuildString<TKey>(TKey prefix, int pos, Func<TKey, object, int, TKey> compose) 
         {
-            return compose(prefix, KeyChar);
+            return compose(prefix, Key, pos);
         }
     }
 
-    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} True")]
+    [DebuggerDisplay("'{Key}' {ChildrenCount} True")]
     internal class TrieEndLinkNode<TValue> : TrieLinkNode<TValue>
     {
         public TValue Value;
 
-        public TrieEndLinkNode(object keyChar) : base(keyChar)
+        public TrieEndLinkNode(object key) : base(key)
         {
         }
     }
 
-    [DebuggerDisplay("'{KeyChar}' {ChildrenCount} True")]
+    [DebuggerDisplay("'{Key}' {ChildrenCount} True")]
     internal class TrieTailNode<TValue> : TrieEndLinkNode<TValue>
     {
         public Data<object> Suffix;
 
-        public TrieTailNode(object keyChar) : base(keyChar)
+        public TrieTailNode(object key) : base(key)
         {
         }
 
@@ -235,21 +234,24 @@ public partial class TrieMap<TKey, TValue>
             return EqualityComparer<object>.Default.Equals(Suffix[position], c);
         }
         
-        public override TKey BuildString<TKey>(TKey prefix, Func<TKey, object, TKey> compose)
+        public override TKey BuildString<TKey>(TKey prefix, int pos, Func<TKey, object, int, TKey> compose)
         {
             if (Suffix != null)
             {
-                var builder = compose(prefix, KeyChar);
+                var builder = compose(prefix, Key, pos);
                 
+                var i = pos + 1;
+
                 foreach (var c in Suffix)
                 {
-                    builder = compose(builder, c);
+                    builder = compose(builder, c, i);
+                    i++;
                 }
                 
                 return builder;
             }
 
-            return compose(prefix, KeyChar);
+            return compose(prefix, Key, pos);
         }
     }
 }

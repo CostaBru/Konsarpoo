@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Xml;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests;
@@ -20,7 +24,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestStringStringInt()
     {
-        var map = CreateMap<string>();
+        var map = new TupleTrieMap<string, string, int, string>();
 
         var valueTuple = ("1", "2", 3);
         
@@ -33,7 +37,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestRemoveIfEmpty()
     {
-        var map = CreateMap<string>();
+        var map = new TupleTrieMap<string, string, int, string>();
 
         Assert.False(map.Remove(("", "", 0)));
     }
@@ -41,7 +45,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestSmall()
     {
-        var map = CreateMap<string>();
+        var map =  new TupleTrieMap<string, string, int, string>();
 
         map.Add(("test0", "t0", 0), "val0");
         map.Add(("test1", "t1", 1), "val1");
@@ -68,7 +72,7 @@ public class TrieMapTest : BaseTest
         Assert.AreEqual("val0", map[("test0", "t0", 0)]);
         Assert.AreEqual("val1", map[("test1", "t1", 1)]);
 
-        var map2 = CreateMap<string>();
+        var map2 =  new TupleTrieMap<string, string, int, string>();
 
         map2.Add(("test10", "t0", 0), "0");
         map2.Append(new KeyValuePair<(string, string, int), string>(("test1", "t1", 1), "1"));
@@ -82,7 +86,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestAddHuge()
     {
-        var testData = CreateMap<int>();
+        var testData =  new TupleTrieMap<string, string, int, int>();
             
         for (int i = 0; i < 1000000; i++)
         {
@@ -101,7 +105,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestDefaultDict()
     {
-        var map = CreateMap<Data<string>>();
+        var map =  new TupleTrieMap<string, string, int, Data<string>>();
             
         map.EnsureValues((k) => new Data<string>());
             
@@ -123,15 +127,55 @@ public class TrieMapTest : BaseTest
     }
     
     [Test]
+    public void TestGetOrCreate()
+    {
+        var map = new TupleTrieMap<int, int, Data<int>>();
+
+        var ints = map.GetOrAdd((1, 1), () => new Data<int>());
+            
+        Assert.AreEqual(0,  map.GetOrDefault((1, 1)).Count);
+
+        var nullMap = (TupleTrieMap<int, int, Data<int>>)null;
+
+        Assert.Throws<ArgumentNullException>(() => nullMap.GetOrAdd((1, 1), () => new Data<int>()));
+            
+        Assert.AreEqual(0, ints.Count);
+            
+        map.GetOrAdd((1, 1), () => new Data<int>()).Add(1);
+
+        Assert.AreEqual(1, map[(1, 1)].Count);
+    }
+    
+    [Test]
+    public void TestRInt()
+    {
+        var dict = (IReadOnlyDictionary<(string, int), int>)new TupleTrieMap<string, int, int>
+        {
+            { ("test1", 1), 1 },
+            { ("test2", 2), 2 },
+            { ("test3", 3), 3 },
+        };
+
+        var keys = dict.Keys.ToData();
+        var vals = dict.Values.ToData();
+        
+        Assert.True(dict.ContainsKey(("test1", 1)));
+        Assert.False(dict.ContainsKey(("1", 1)));
+
+        Assert.AreEqual(3, keys.Count);
+        Assert.AreEqual(3, vals.Count);
+    }
+    
+    [Test]
     public void TestCopyCtr()
     {
-        var map1 = CreateMap<int>();
+        var map1 = new TupleTrieMap<string, string, int, int>();
         
         map1.Add(("1", "1", 1), 1);
         map1.Add(("2", "2", 2), 2);
         map1.Add(("3", "3", 3), 3);
        
-        var map2 = new TrieMap<(string key, string type, int id), int>(map1);
+        var map2 =  new TupleTrieMap<string, string, int, int>(map1);
             
         Assert.True(map1 == map2);
     }
@@ -139,13 +183,13 @@ public class TrieMapTest : BaseTest
     [Test]
     public void ValueByRefTest()
     {
-        var map1 = CreateMap<int>();
+        var map1 = new TupleTrieMap<string, string, int, int>();
         
         map1.Add(("1", "1", 1), 1);
         map1.Add(("2", "2", 2), 2);
         map1.Add(("3", "3", 3), 3);
 
-        ref var v = ref map1.ValueByRef(new object[] {"1", "1", 1}, out var success);
+        ref var v = ref map1.ValueByRef(("1", "1", 1), out var success);
 
         v = 20;
 
@@ -153,7 +197,7 @@ public class TrieMapTest : BaseTest
         Assert.AreEqual(2, map1[("2", "2", 2)]);
         Assert.AreEqual(3, map1[("3", "3", 3)]);
 
-        map1.ValueByRef(new object[] {"", "", 1}, out var fail);
+        map1.ValueByRef(("", "", 1), out var fail);
 
         Assert.False(fail);
     }
@@ -161,7 +205,7 @@ public class TrieMapTest : BaseTest
     [Test]
     public void TestRemove()
     {
-        var map = CreateMap<int>();
+        var map = new TupleTrieMap<string, string, int, int>();
             
         map.Add(("1", "1", 1), 1);
         map.Add(("1", "2", 2), 2);
@@ -181,7 +225,7 @@ public class TrieMapTest : BaseTest
         Assert.False(map.Remove(("1", "2", 3)));
         Assert.AreEqual(0, map.Count);
             
-        map = CreateMap<int>();
+        map = new TupleTrieMap<string, string, int, int>();
             
         map.Add(("1", "1", 1), 1);
         map.Add(("1", "2", 2), 2);
@@ -196,31 +240,269 @@ public class TrieMapTest : BaseTest
         Assert.True(map.Remove(("1", "1", 1)));
         Assert.AreEqual(0, map.Count);
     }
-
-    private static TrieMap<(string key, string type, int id), T> CreateMap<T>()
+    
+    [Test]
+    public void TestSerialization2()
     {
-        Func<IEnumerable<object>, (string key, string type, int id)> comp;
-        comp = (coll) => ((string)coll.ElementAt(0), (string)coll.ElementAt(1), (int)coll.ElementAt(2));
+        var map =new TupleTrieMap<string, int, int>();
 
-        Func<(string key, string type, int id), object, (string key, string type, int id)> concat;
-        concat = (key, obj) =>
+        map.Add(("1", 1), 1);
+        map.Add(("1", 2), 2);
+        map.Add(("1", 3), 3);
+
+        var serializeWithDcs = SerializeHelper.SerializeWithDcs(map);
+
+        var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<TupleTrieMap<string, int, int>>(serializeWithDcs);
+
+        Assert.True(deserializeWithDcs == map);
+    }
+      
+    [Test]
+    public void TestSerializationClone2()
+    {
+        var map = new TupleTrieMap<string, int, int>();
+
+        foreach (var i in Enumerable.Range(1, 1024))
         {
-            if (obj is string str)
-            {
-                if (key.key == null)
-                {
-                    return (str, (string)null, 0);
-                }
+            map.Add((i.ToString(), i), i);
+        }
 
-                return (key.key, str, 0);
-            }
+        TupleTrieMap<string, int, int> clone1 = SerializeHelper.Clone<TupleTrieMap<string, int, int>>(map);
 
-            return (key.key, key.type, (int)obj);
-        };
+        Assert.True(clone1 == map);
+    }
+    
+    [Test]
+    public void TestSerialization3()
+    {
+        var map =new TupleTrieMap<string, string, int, int>();
 
-        Func<(string key, string type, int id), IEnumerable<object>> decompose;
-        decompose = (key) => new object[] { key.key, key.type, key.id };
+        map.Add(("1", "1", 1), 1);
+        map.Add(("1", "2", 2), 2);
+        map.Add(("1", "2", 3), 3);
 
-        return new TrieMap<(string key, string type, int id), T>(comp, concat, decompose);
+        var serializeWithDcs = SerializeHelper.SerializeWithDcs(map);
+
+        var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<TupleTrieMap<string, string, int, int>>(serializeWithDcs);
+
+        Assert.True(deserializeWithDcs == map);
+    }
+      
+    [Test]
+    public void TestSerializationClone3()
+    {
+        var map = new TupleTrieMap<string, string, int, int>();
+
+        foreach (var i in Enumerable.Range(1, 1024))
+        {
+            map.Add((i.ToString(), i.ToString(), i), i);
+        }
+
+        TupleTrieMap<string, string, int, int> clone1 = SerializeHelper.Clone<TupleTrieMap<string, string, int, int>>(map);
+
+        Assert.True(clone1 == map);
+    }
+    
+    [Test]
+    public void TestSerialization4()
+    {
+        var map =new TupleTrieMap<string, string, bool, int, int>();
+
+        map.Add(("1", "1", true,  1), 1);
+        map.Add(("1", "2", true, 2), 2);
+        map.Add(("1", "2", true, 3), 3);
+
+        var serializeWithDcs = SerializeHelper.SerializeWithDcs(map);
+
+        var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<TupleTrieMap<string, string, bool, int, int>>(serializeWithDcs);
+
+        Assert.True(deserializeWithDcs == map);
+    }
+      
+    [Test]
+    public void TestSerializationClone4()
+    {
+        var map = new TupleTrieMap<string, string, bool, int, int>();
+
+        foreach (var i in Enumerable.Range(1, 1024))
+        {
+            map.Add((i.ToString(), i.ToString(), true, i), i);
+        }
+
+        TupleTrieMap<string, string,  bool, int, int> clone1 = SerializeHelper.Clone<TupleTrieMap<string, string, bool, int, int>>(map);
+
+        Assert.True(clone1 == map);
+    }
+    
+    [Test]
+    public void TestSerialization5()
+    {
+        var map =new TupleTrieMap<string, string, bool, TimeSpan, int, int>();
+
+        map.Add(("1", "1", true, TimeSpan.FromSeconds(1),  1), 1);
+        map.Add(("1", "2", true, TimeSpan.FromSeconds(2), 2), 2);
+        map.Add(("1", "2", true, TimeSpan.FromSeconds(3), 3), 3);
+
+        var serializeWithDcs = SerializeHelper.SerializeWithDcs(map);
+
+        var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<TupleTrieMap<string, string, bool, TimeSpan, int, int>>(serializeWithDcs);
+
+        Assert.True(deserializeWithDcs == map);
+    }
+      
+    [Test]
+    public void TestSerializationClone5()
+    {
+        var map = new TupleTrieMap<string, string, bool, TimeSpan, int, int>();
+
+        foreach (var i in Enumerable.Range(1, 1024))
+        {
+            map.Add((i.ToString(), i.ToString(), true, TimeSpan.FromMilliseconds(i), i), i);
+        }
+
+        TupleTrieMap<string, string,  bool, TimeSpan, int, int> clone1 = SerializeHelper.Clone<TupleTrieMap<string, string, bool, TimeSpan, int, int>>(map);
+
+        Assert.True(clone1 == map);
+    }
+    
+    
+    [Test]
+    public void TestStartWith()
+    {
+        var map = new TupleTrieMap<int, int, int, int>();
+           
+        map.Add((1, 1, 1), 1);
+        map.Add((1, 2, 2), 2);
+        map.Add((1, 2, 3), 3);
+        map.Add((2, 2, 2), 4);
+        map.Add((2, 3, 3), 5);
+        map.Add((2, 3, 4), 6);
+       
+        var vals = map.WhereKeyStartsWith((1, 0, 0), 1).OrderBy(a => a).ToArray();
+        var expected = map
+            .Where(kv => kv.Key.Item1 == 1)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+        
+        Assert.AreEqual(expected, vals);
+
+         
+          vals = map.WhereKeyStartsWith((1, 1, 0), 2).OrderBy(a => a).ToArray();
+          expected = map
+             .Where(kv => kv.Key.Item1 == 1 && kv.Key.Item2 == 1)
+             .Select(v => v.Value)
+             .OrderBy(r => r)
+             .ToArray();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith((2, 3, 4), 3).OrderBy(a => a).ToArray();
+        expected = map
+            .Where(kv => kv.Key.Item1 == 2 && kv.Key.Item2 == 3 && kv.Key.Item3 == 4)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith((1, 1, 10), 3).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+       
+        vals = map.WhereKeyStartsWith((1, 10, 0), 2).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith((10, 0, 0), 1).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+    }
+    
+    [Test]
+    public void TestStartWithArr()
+    {
+        var map = new TupleTrieMap<int, int, int, int>();
+           
+        map.Add((1, 1, 1), 1);
+        map.Add((1, 2, 2), 2);
+        map.Add((1, 2, 3), 3);
+        map.Add((2, 2, 2), 4);
+        map.Add((2, 3, 3), 5);
+        map.Add((2, 3, 4), 6);
+       
+        var vals = map.WhereKeyStartsWith(new object[] {1, 0, 0}, 1).OrderBy(a => a).ToArray();
+        var expected = map
+            .Where(kv => kv.Key.Item1 == 1)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+        
+        Assert.AreEqual(expected, vals);
+
+         
+        vals = map.WhereKeyStartsWith(new object[] {1, 1, 0}, 2).OrderBy(a => a).ToArray();
+        expected = map
+            .Where(kv => kv.Key.Item1 == 1 && kv.Key.Item2 == 1)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith(new object[] {2, 3, 4}, 3).OrderBy(a => a).ToArray();
+        expected = map
+            .Where(kv => kv.Key.Item1 == 2 && kv.Key.Item2 == 3 && kv.Key.Item3 == 4)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith(new object[] {1, 1, 10}, 3).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+       
+        vals = map.WhereKeyStartsWith(new object[] {1, 10, 0}, 2).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+        
+        vals = map.WhereKeyStartsWith(new object[] { 10, 0, 0}, 1).OrderBy(a => a).ToArray();
+        expected = Array.Empty<int>();
+
+        Assert.AreEqual(expected, vals);
+    }
+    
+    [Test]
+    public void TestExtraApi()
+    {
+        var m3 = new TupleTrieMap<string, string, string>() { { ("1", "1"), "1" } };
+            
+        m3.Put(("2", "2"), "2");
+            
+        Assert.AreEqual("2", m3.GetSet(("2", "2"), (v, m) => v.Item1));
+            
+        Assert.False(m3.ContainsKey(("3", "3")));
+            
+        Assert.AreEqual("3", m3.GetSet(("3", "3"), (v, m) => m[v] = v.Item1));
+        Assert.AreEqual("3", m3[("3", "3")]);
+    }
+    
+    [Test]
+    public void TestExceptionThrown()
+    {
+        var m3 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
+            
+        Assert.Throws<ArgumentException>(() => m3.Add(("1", "1"), 2));
+        Assert.Throws<ArgumentException>(() => m3.WhereKeyStartsWith(("1", "1"), 3).ToArray());
+            
+        var m4 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
+
+        Assert.Throws<ArgumentNullException>(() => m4.Add((null, null), 2));
     }
 }

@@ -10,16 +10,15 @@ namespace Konsarpoo.Collections;
 
 [DebuggerTypeProxy(typeof(TrieMapDebugView<,>))]
 [DebuggerDisplay("Count = {Count}")]
-public partial class TrieMap<TKey, TValue> :
+public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
     IDictionary<TKey, TValue>,
-    IReadOnlyDictionary<TKey, TValue>,  
+    IReadOnlyDictionary<TKey, TValue>,
     IAppender<KeyValuePair<TKey, TValue>>,
     IDisposable
+    where TKey : ITuple
 {
-    private readonly Func<TKey, IEnumerable<object>> m_decompose;
-    private readonly Func<TKey, object, TKey> m_concat;
-    private readonly Func<IEnumerable<object>, TKey> m_compose;
-    
+    protected abstract TKey ConcatKeyWith(TKey key, object obj, int pos);
+
     [NonSerialized] private TrieLinkNode<TValue> m_root = new(null);
 
     [NonSerialized] private ushort m_version;
@@ -38,7 +37,8 @@ public partial class TrieMap<TKey, TValue> :
     /// <param name="a"></param>
     /// <param name="b"></param>
     /// <returns></returns>
-    public static bool operator ==([CanBeNull] TrieMap<TKey, TValue> a, [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
+    public static bool operator ==([CanBeNull] AbstractTupleTrieMap<TKey, TValue> a,
+        [CanBeNull] IReadOnlyDictionary<TKey, TValue> b)
     {
         if (ReferenceEquals(a, null) && ReferenceEquals(b, null)) return true;
         if (RuntimeHelpers.Equals(a, b)) return true;
@@ -52,23 +52,20 @@ public partial class TrieMap<TKey, TValue> :
     /// <param name="a"></param>
     /// <param name="b"></param>
     /// <returns></returns>
-    public static bool operator !=(TrieMap<TKey, TValue> a, IReadOnlyDictionary<TKey, TValue> b) => !(a == b);
+    public static bool operator !=(AbstractTupleTrieMap<TKey, TValue> a, IReadOnlyDictionary<TKey, TValue> b) => !(a == b);
 
     /// <summary>
-    /// Default StringTrieMap constructor. Case sensitive by default.
+    /// Default TupleTrieMap constructor. Case sensitive by default.
     /// </summary>
-    public TrieMap(Func<IEnumerable<object>, TKey> compose, [NotNull] Func<TKey, object, TKey> concat, [NotNull] Func<TKey, IEnumerable<object>> decompose)
+    public AbstractTupleTrieMap()
     {
-        m_decompose = decompose ?? throw new ArgumentNullException(nameof(decompose));
-        m_concat = concat ?? throw new ArgumentNullException(nameof(concat));
-        m_compose = compose ?? throw new ArgumentNullException(nameof(compose));
     }
 
     /// <summary>
     /// Copying constructor.
     /// </summary>
     /// <param name="copyFromMap"></param>
-    public TrieMap(TrieMap<TKey, TValue> copyFromMap) : this(copyFromMap.m_compose, copyFromMap.m_concat, copyFromMap.m_decompose)
+    public AbstractTupleTrieMap(AbstractTupleTrieMap<TKey, TValue> copyFromMap)
     {
         if (copyFromMap == null)
         {
@@ -136,7 +133,7 @@ public partial class TrieMap<TKey, TValue> :
     /// </summary>
     /// <param name="info"></param>
     /// <param name="context"></param>
-    protected TrieMap(SerializationInfo info, StreamingContext context)
+    protected AbstractTupleTrieMap(SerializationInfo info, StreamingContext context)
     {
         m_sInfo = info;
     }
@@ -162,11 +159,13 @@ public partial class TrieMap<TKey, TValue> :
     /// </summary>
     public int Length => Count;
 
+    /// <inheritdoc />
     public bool Remove(KeyValuePair<TKey, TValue> item)
     {
-        return item.Key != null && RemoveCore(m_decompose(item.Key));
+        return item.Key != null && RemoveCore(item.Key);
     }
 
+    /// <inheritdoc />
     public void Append(KeyValuePair<TKey, TValue> value)
     {
         Add(value.Key, value.Value);
@@ -185,25 +184,25 @@ public partial class TrieMap<TKey, TValue> :
     /// <returns></returns>
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
     {
-        foreach (var tuple in GetKeyValuesString())
+        foreach (var tuple in GetKeyValues())
         {
             yield return new KeyValuePair<TKey, TValue>(tuple.Key, tuple.Value);
         }
     }
 
-    private IEnumerable<(TKey Key, TValue Value)> GetKeyValuesString()
+    private IEnumerable<(TKey Key, TValue Value)> GetKeyValues()
     {
         var version = m_version;
 
-        var data = new Data<(TrieLinkNode<TValue> Node, TKey Prefix)>();
-            
+        var data = new Data<(TrieLinkNode<TValue> Node, TKey Prefix, int pos)>();
+
         var queue = data.AsQueue();
-        queue.Enqueue((m_root, default(TKey)));
-         
+        queue.Enqueue((m_root, default(TKey), 0));
+
         while (queue.Any)
         {
-            var (node, prefix) = queue.Dequeue();
-                
+            var (node, prefix, pos) = queue.Dequeue();
+
             CheckState(ref version);
 
             if (node is TrieEndLinkNode<TValue> en)
@@ -213,58 +212,62 @@ public partial class TrieMap<TKey, TValue> :
 
             foreach (var child in node)
             {
-                queue.Enqueue((child.Value, child.Value.BuildString(prefix, m_concat)));
+                queue.Enqueue((child.Value, child.Value.BuildString(prefix, pos, ConcatKeyWith), pos + 1));
             }
         }
-            
+
         data.Dispose();
     }
 
+    IEnumerator IEnumerable.GetEnumerator() => GetKeyValues().GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator() => GetKeyValuesString().GetEnumerator();
-
+    /// <inheritdoc />
     public void Add([NotNull] TKey key, TValue value)
     {
         if (key == null) throw new ArgumentNullException(nameof(key));
         var add = true;
-        Insert(m_decompose(key), ref value, ref add);
+        Insert(key, ref value, ref add);
     }
 
+    /// <inheritdoc />
     public bool ContainsKey([NotNull] TKey key)
     {
         if (key == null) throw new ArgumentNullException(nameof(key));
-        return this.TryGetValueCore(m_decompose(key), out var _);
+        return this.TryGetValueCore(key, out var _);
     }
 
+    /// <inheritdoc />
     public bool Remove([NotNull] TKey key)
     {
         if (key == null) throw new ArgumentNullException(nameof(key));
-        return RemoveCore(m_decompose(key));
+        return RemoveCore(key);
     }
 
+    /// <inheritdoc />
     public bool TryGetValue([NotNull] TKey key, out TValue value)
     {
         if (key == null) throw new ArgumentNullException(nameof(key));
-        return this.TryGetValueCore(m_decompose(key), out value);
+        return this.TryGetValueCore(key, out value);
     }
 
+    /// <inheritdoc />
     public TValue this[[NotNull] TKey key]
     {
         get
         {
             if (key == null) throw new ArgumentNullException(nameof(key));
-            var value = ValueByRef(m_decompose(key), out var found);
+            var value = ValueByRef(key, out var found);
 
             if (found)
             {
                 return value;
             }
-                
+
             if (m_missingValueFactory != null)
             {
                 var newValue = m_missingValueFactory(key);
                 var add = false;
-                Insert(m_decompose(key), ref newValue, ref add);
+                Insert(key, ref newValue, ref add);
                 return newValue;
             }
 
@@ -274,7 +277,7 @@ public partial class TrieMap<TKey, TValue> :
         {
             if (key == null) throw new ArgumentNullException(nameof(key));
             var add = false;
-            Insert(m_decompose(key), ref value, ref add);
+            Insert(key, ref value, ref add);
         }
     }
 
@@ -286,7 +289,7 @@ public partial class TrieMap<TKey, TValue> :
         get
         {
             var data = new Data<TValue>(Count);
-                
+
             data.AddRange(Values);
 
             return data;
@@ -298,7 +301,7 @@ public partial class TrieMap<TKey, TValue> :
         get
         {
             var data = new Data<TKey>(Count);
-                
+
             data.AddRange(GetKeys());
 
             return data;
@@ -349,7 +352,7 @@ public partial class TrieMap<TKey, TValue> :
 
             foreach (var kv in other)
             {
-                if (!(TryGetValueCore(m_decompose(kv.Key), out var otherValue)))
+                if (!(TryGetValueCore(kv.Key, out var otherValue)))
                 {
                     return false;
                 }
@@ -374,12 +377,12 @@ public partial class TrieMap<TKey, TValue> :
         if (ReferenceEquals(null, obj)) return false;
         if (ReferenceEquals(this, obj)) return true;
         if (obj.GetType() != this.GetType()) return false;
-        return EqualsDict((TrieMap<TKey, TValue>)obj);
+        return EqualsDict((AbstractTupleTrieMap<TKey, TValue>)obj);
     }
-    
+
     private IEnumerable<TKey> GetKeys()
     {
-        foreach (var kv in GetKeyValuesString())
+        foreach (var kv in GetKeyValues())
         {
             yield return kv.Key;
         }
@@ -390,7 +393,7 @@ public partial class TrieMap<TKey, TValue> :
     {
         var add = true;
         var value = item.Value;
-        Insert(m_decompose(item.Key), ref value, ref add);
+        Insert(item.Key, ref value, ref add);
     }
 
     /// <inheritdoc />
@@ -423,16 +426,18 @@ public partial class TrieMap<TKey, TValue> :
         stack.Dispose();
     }
 
+    /// <inheritdoc />
     public bool Contains(KeyValuePair<TKey, TValue> item)
     {
-        if (TryGetValueCore(m_decompose(item.Key), out var value))
+        if (TryGetValueCore(item.Key, out var value))
         {
-            return EqualityComparer<TValue>.Default.Equals(value ,item.Value);
+            return EqualityComparer<TValue>.Default.Equals(value, item.Value);
         }
 
         return false;
     }
 
+    /// <inheritdoc />
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
         if (array == null)
@@ -451,7 +456,7 @@ public partial class TrieMap<TKey, TValue> :
                 "The number of elements in the source collection is greater than the available space from arrayIndex to the end of the destination array.");
         }
 
-        foreach (var pair in GetKeyValuesString())
+        foreach (var pair in GetKeyValues())
         {
             array[arrayIndex++] = new KeyValuePair<TKey, TValue>(pair.Key, pair.Value);
         }
@@ -473,6 +478,232 @@ public partial class TrieMap<TKey, TValue> :
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Copies the elements of the map to a data collection
+    /// </summary>
+    /// <returns></returns>
+    public Data<KeyValuePair<TKey, TValue>> ToData()
+    {
+        var data = new Data<KeyValuePair<TKey, TValue>>(Count);
+
+        foreach (var kv in GetKeyValues())
+        {
+            data.Add(new KeyValuePair<TKey, TValue>(kv.Key, kv.Value));
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// Converts the map to an array.
+    /// </summary>
+    /// <returns></returns>
+    public KeyValuePair<TKey, TValue>[] ToArray()
+    {
+        var keyValuePairs = new KeyValuePair<TKey, TValue>[Count];
+
+        int index = 0;
+        foreach (var kv in GetKeyValues())
+        {
+            keyValuePairs[index] = new KeyValuePair<TKey, TValue>(kv.Key, kv.Value);
+
+            index++;
+        }
+
+        return keyValuePairs;
+    }
+
+    /// <summary>
+    /// Adds the specified key and value to the map.
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
+    public void Put(TKey key, TValue value)
+    {
+        var add = true;
+        Insert(key, ref value, ref add);
+    }
+
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet([NotNull] TKey key, Func<TKey, AbstractTupleTrieMap<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValueCore(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(key, this);
+    }
+
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam>([NotNull] TKey key, TParam p1, Func<TParam, TKey, AbstractTupleTrieMap<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValueCore(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, key, this);
+    }
+
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam1, TParam2>([NotNull] TKey key, TParam1 p1, TParam2 p2, Func<TParam1, TParam2, TKey, AbstractTupleTrieMap<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValueCore(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, p2, key, this);
+    }
+
+    /// <summary>
+    /// Attempts to get the value associated with the specified key in a map if value missing call missingValue delegate.
+    /// </summary>
+    /// <returns></returns>
+    public TValue GetSet<TParam1, TParam2, TParam3>([NotNull] TKey key, TParam1 p1, TParam2 p2, TParam3 p3, Func<TParam1, TParam2, TParam3, TKey, AbstractTupleTrieMap<TKey, TValue>, TValue> missingValue)
+    {
+        if (TryGetValueCore(key, out var value))
+        {
+            return value;
+        }
+
+        return missingValue(p1, p2, p3, key, this);
+    }
+
+    /// <summary>
+    /// Returns values where key starts with a given key part.
+    /// </summary>
+    /// <param name="key">key storage</param>
+    /// <param name="count">key parts count to use</param>
+    /// <returns></returns>
+    public IEnumerable<TValue> WhereKeyStartsWith(TKey key, int count)
+    {
+        if (count > key.Length)
+        {
+            throw new ArgumentException($"given count param cannot be greater than key length. ({count} > {key.Length})");
+        }
+        
+        var version = m_version;
+
+        var node = m_root;
+
+        for (int i = 0; i < count && i < key.Length; i++)
+        {
+            CheckState(ref version);
+            
+            var keyPart = key[i];
+
+            var childNode = node.GetChildNode(keyPart);
+
+            if (childNode == null)
+            {
+                yield break;
+            }
+
+            node = childNode;
+        }
+        
+        var data = new Data<TrieLinkNode<TValue>>();
+        
+        var stack = data.AsQueue();
+        stack.Enqueue(node);
+
+        while (stack.Any)
+        {
+            var cn = stack.Dequeue();
+            
+            CheckState(ref version);
+            
+            if (cn is TrieTailNode<TValue> tn)
+            {
+                yield return tn.Value;
+            }
+            else if (cn is TrieEndLinkNode<TValue> en)
+            {
+                yield return en.Value;
+            }
+            else
+            {
+                foreach (var child in cn)
+                {
+                    stack.Enqueue(child.Value);
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Returns values where key starts with a given key part.
+    /// </summary>
+    /// <param name="key">key storage</param>
+    /// <param name="count">key parts count to use</param>
+    /// <returns></returns>
+    public IEnumerable<TValue> WhereKeyStartsWith(object[] key, int count)
+    {
+        if (count > key.Length)
+        {
+            throw new ArgumentException($"given count param cannot be greater than key length. ({count} > {key.Length})");
+        }
+        
+        var version = m_version;
+
+        var node = m_root;
+
+        for (int i = 0; i < count && i < key.Length; i++)
+        {
+            CheckState(ref version);
+            
+            var keyPart = key[i];
+
+            var childNode = node.GetChildNode(keyPart);
+
+            if (childNode == null)
+            {
+                yield break;
+            }
+
+            node = childNode;
+        }
+        
+        var data = new Data<TrieLinkNode<TValue>>();
+        
+        var stack = data.AsQueue();
+        stack.Enqueue(node);
+
+        while (stack.Any)
+        {
+            var cn = stack.Dequeue();
+            
+            CheckState(ref version);
+            
+            if (cn is TrieTailNode<TValue> tn)
+            {
+                yield return tn.Value;
+            }
+            else if (cn is TrieEndLinkNode<TValue> en)
+            {
+                yield return en.Value;
+            }
+            else
+            {
+                foreach (var child in cn)
+                {
+                    stack.Enqueue(child.Value);
+                }
+            }
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
