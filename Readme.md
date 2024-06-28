@@ -20,13 +20,14 @@ List of generic collections and APIs supported:
 Some extras built in:
 - ``BitArr``
 - ``String Trie Map``
+- ``Tuple Trie Map``
 - ``Lfu Cache``
 - ``Lfu Cache String Trie``
 - std::vector api
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
 
-Each collection is serializable by default. All necessary generic collection interfaces are implemented. All collections have copying constructor.
+Each collection is serializable by default. All necessary generic collection interfaces are implemented. All collections have a copying constructor.
 
 Data<> class interfaces:
 - ``IList<>``
@@ -38,7 +39,7 @@ Set<> class interfaces:
 - ``ICollection<>,`` 
 - ``IReadOnlyCollection<>``
 
-Map<,> StringTrieMap<> LfuCache<,> classes interfaces:
+Map<,> StringTrieMap<> TupleTrieMap<,,> LfuCache<,> classes interfaces:
 - ``IDictionary<,>``
 - ``ICollection<KeyValuePair<,>>``
 - ``IEnumerable<KeyValuePair<,>>``
@@ -59,12 +60,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 5.0.2
+PM> Install-Package Konsarpoo -Version 5.0.5
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 5.0.2
+> dotnet add package Konsarpoo --version 5.0.5
 ```
 
 ### DATA  
@@ -99,7 +100,20 @@ It is a compact array of bit values, which are represented as Booleans. It uses 
 - ``EndLink`` node has a value and child nodes. 
 - ``Tail`` has a value and it may contain key suffix as a ``Data<System.Char>``.
 
-In addition to ``IDictionary`` API there are methods for fetching values by prefix and suffix: ``WhereKeyStartsWith``, ``WhereKeyEndsWith``, ``WhereKeyContains``
+In addition to ``IDictionary`` API, there are methods for fetching values by prefix and suffix: ``WhereKeyStartsWith``, ``WhereKeyEndsWith``, ``WhereKeyContains``
+
+### TUPLE TRIE MAP
+
+``TupleTrieMap<T1..T5, TValue>`` is generic map collection was designed to store tuple keys in more space efficient way. It supports the built in ``IDictionary`` API and implemented as trie data structure. It has ``O(k)`` value value access time, where ``k`` is the length of a tuple.
+
+``TupleTrieMap<T1..T5, TValue>`` may contain 3 types of node: ``Link``, ``EndLink`` and ``Tail``. All node types have ``System.object`` key taken from the tuple.
+- ``Link`` node may have one or many child nodes.
+- ``EndLink`` node has a value and child nodes.
+- ``Tail`` has a value and it may contain key tuple suffix as a ``Data<System.object>``.
+
+It is a good alternative to ``Map`` of tuples. It works in the same way as ``StringTrieMap<V>`` with the following difference. Each node contains a whole tuple key part. So for instance, if you have defined a ``TupleTrieMap`` to store the following key type ``(int, bool, string, TimeSpan, string)`` then the width of node's chain will be equal to 5 (+1). To find the value for this key  ``StringTrieMap<V>`` iterates tuple items in the given key and traverses nodes sequentially: root -> int ``O(1)`` -> bool ``O(1)`` -> string ``O(1)``-> TimeSpan ``O(1)``-> string ``O(1)``
+
+In addition to ``IDictionary`` API, there is a method for fetching values by a part of the tuple: ``WhereKeyStartsWith``
 
 ### LFU CACHE
 
@@ -115,7 +129,7 @@ https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-al
 
 ### LFU CACHE STRING TRIE
 
-A LFU CACHE data structure where string keys stored in STRING TRIE MAP.
+A LFU CACHE data structure where string keys stored in ``StringTrieMap<V>``.
 
 # Stackalloc and ref struct 
 

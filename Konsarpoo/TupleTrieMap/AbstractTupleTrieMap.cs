@@ -55,7 +55,7 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
     public static bool operator !=(AbstractTupleTrieMap<TKey, TValue> a, IReadOnlyDictionary<TKey, TValue> b) => !(a == b);
 
     /// <summary>
-    /// Default TupleTrieMap constructor. Case sensitive by default.
+    /// Default AbstractTupleTrieMap constructor. 
     /// </summary>
     public AbstractTupleTrieMap()
     {
