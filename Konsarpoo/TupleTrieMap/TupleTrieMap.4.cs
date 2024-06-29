@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Xml;
 using System.Xml.Schema;
@@ -6,7 +9,22 @@ using System.Xml.Serialization;
 
 namespace Konsarpoo.Collections;
 
+public sealed class TupleTrieMapDebugView<T1, T2, T3, T4, V>
+{
+    private readonly IReadOnlyDictionary<(T1,T2,T3,T4), V> m_dict;
+
+    public TupleTrieMapDebugView(IReadOnlyDictionary<(T1,T2,T3,T4), V> dict)
+    {
+        m_dict = dict;
+    }
+ 
+    [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+    public KeyValuePair<(T1,T2,T3,T4), V>[] Items => this.m_dict.ToArray();
+}
+
 [Serializable]
+[DebuggerTypeProxy(typeof(TupleTrieMapDebugView<,,,,>))]
+[DebuggerDisplay("Count = {Count}")]
 public class TupleTrieMap<T1, T2, T3, T4, TVal> : AbstractTupleTrieMap<(T1, T2, T3, T4), TVal>, IXmlSerializable, ISerializable, IDeserializationCallback
 {
     protected override (T1, T2, T3, T4) ConcatKeyWith((T1, T2, T3, T4) key, object val, int pos)
@@ -19,6 +37,11 @@ public class TupleTrieMap<T1, T2, T3, T4, TVal> : AbstractTupleTrieMap<(T1, T2, 
             3 => (key.Item1, key.Item2, key.Item3, (T4)val),
             _ => key
         };
+    }
+    
+    protected override (T1, T2, T3, T4) CreateKey(object[] obj)
+    {
+        return ((T1)obj[0], (T2)obj[1], (T3)obj[2], (T4)obj[3]);
     }
 
     public TupleTrieMap() : base()

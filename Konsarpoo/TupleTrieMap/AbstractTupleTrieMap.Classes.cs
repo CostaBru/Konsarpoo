@@ -193,6 +193,14 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
         {
             return compose(prefix, Key, pos);
         }
+        
+        public virtual object[] BuildString(object[] prefix) 
+        {
+            var newArray = new object[prefix.Length + 1];
+            Array.Copy(prefix, newArray, prefix.Length);
+            newArray[prefix.Length] = Key;
+            return newArray;
+        }
     }
 
     [DebuggerDisplay("'{Key}' {ChildrenCount} True")]
@@ -233,7 +241,30 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
             return EqualityComparer<object>.Default.Equals(Suffix[position], c);
         }
-        
+
+        public override object[] BuildString(object[] prefix)
+        {
+            if (Suffix != null)
+            {
+                var suffixLength = Suffix.Length;
+                
+                var newArray = new object[prefix.Length + 1 + suffixLength];
+                
+                Array.Copy(prefix, newArray, prefix.Length);
+                
+                newArray[prefix.Length] = Key;
+
+                for (int i = 0; i < suffixLength; i++)
+                {
+                    newArray[prefix.Length + i + 1] = Suffix[i];
+                }
+                
+                return newArray;
+            }
+
+            return base.BuildString(prefix);
+        }
+
         public override TKey BuildString<TKey>(TKey prefix, int pos, Func<TKey, object, int, TKey> compose)
         {
             if (Suffix != null)

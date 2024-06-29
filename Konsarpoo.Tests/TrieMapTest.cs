@@ -364,39 +364,39 @@ public class TrieMapTest : BaseTest
 
         Assert.True(clone1 == map);
     }
-    
-    
+
+
     [Test]
     public void TestStartWith()
     {
         var map = new TupleTrieMap<int, int, int, int>();
-           
+
         map.Add((1, 1, 1), 1);
         map.Add((1, 2, 2), 2);
         map.Add((1, 2, 3), 3);
         map.Add((2, 2, 2), 4);
         map.Add((2, 3, 3), 5);
         map.Add((2, 3, 4), 6);
-       
+
         var vals = map.WhereKeyStartsWith((1, 0, 0), 1).OrderBy(a => a).ToArray();
         var expected = map
             .Where(kv => kv.Key.Item1 == 1)
             .Select(v => v.Value)
             .OrderBy(r => r)
             .ToArray();
-        
-        Assert.AreEqual(expected, vals);
-
-         
-          vals = map.WhereKeyStartsWith((1, 1, 0), 2).OrderBy(a => a).ToArray();
-          expected = map
-             .Where(kv => kv.Key.Item1 == 1 && kv.Key.Item2 == 1)
-             .Select(v => v.Value)
-             .OrderBy(r => r)
-             .ToArray();
 
         Assert.AreEqual(expected, vals);
-        
+
+
+        vals = map.WhereKeyStartsWith((1, 1, 0), 2).OrderBy(a => a).ToArray();
+        expected = map
+            .Where(kv => kv.Key.Item1 == 1 && kv.Key.Item2 == 1)
+            .Select(v => v.Value)
+            .OrderBy(r => r)
+            .ToArray();
+
+        Assert.AreEqual(expected, vals);
+
         vals = map.WhereKeyStartsWith((2, 3, 4), 3).OrderBy(a => a).ToArray();
         expected = map
             .Where(kv => kv.Key.Item1 == 2 && kv.Key.Item2 == 3 && kv.Key.Item3 == 4)
@@ -405,23 +405,23 @@ public class TrieMapTest : BaseTest
             .ToArray();
 
         Assert.AreEqual(expected, vals);
-        
+
         vals = map.WhereKeyStartsWith((1, 1, 10), 3).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
-       
+
         vals = map.WhereKeyStartsWith((1, 10, 0), 2).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
-        
+
         vals = map.WhereKeyStartsWith((10, 0, 0), 1).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
     }
-    
+
     [Test]
     public void TestStartWithArr()
     {
@@ -433,8 +433,10 @@ public class TrieMapTest : BaseTest
         map.Add((2, 2, 2), 4);
         map.Add((2, 3, 3), 5);
         map.Add((2, 3, 4), 6);
+        
+        var testMap = (IObjectKeyTupleTrieMap<int>)map; 
        
-        var vals = map.WhereKeyStartsWith(new object[] {1, 0, 0}, 1).OrderBy(a => a).ToArray();
+        var vals = testMap.WhereKeyStartsWith(new object[] {1, 0, 0}, 1).OrderBy(a => a).ToArray();
         var expected = map
             .Where(kv => kv.Key.Item1 == 1)
             .Select(v => v.Value)
@@ -444,7 +446,7 @@ public class TrieMapTest : BaseTest
         Assert.AreEqual(expected, vals);
 
          
-        vals = map.WhereKeyStartsWith(new object[] {1, 1, 0}, 2).OrderBy(a => a).ToArray();
+        vals = testMap.WhereKeyStartsWith(new object[] {1, 1, 0}, 2).OrderBy(a => a).ToArray();
         expected = map
             .Where(kv => kv.Key.Item1 == 1 && kv.Key.Item2 == 1)
             .Select(v => v.Value)
@@ -453,7 +455,7 @@ public class TrieMapTest : BaseTest
 
         Assert.AreEqual(expected, vals);
         
-        vals = map.WhereKeyStartsWith(new object[] {2, 3, 4}, 3).OrderBy(a => a).ToArray();
+        vals = testMap.WhereKeyStartsWith(new object[] {2, 3, 4}, 3).OrderBy(a => a).ToArray();
         expected = map
             .Where(kv => kv.Key.Item1 == 2 && kv.Key.Item2 == 3 && kv.Key.Item3 == 4)
             .Select(v => v.Value)
@@ -462,22 +464,36 @@ public class TrieMapTest : BaseTest
 
         Assert.AreEqual(expected, vals);
         
-        vals = map.WhereKeyStartsWith(new object[] {1, 1, 10}, 3).OrderBy(a => a).ToArray();
+        vals = testMap.WhereKeyStartsWith(new object[] {1, 1, 10}, 3).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
        
-        vals = map.WhereKeyStartsWith(new object[] {1, 10, 0}, 2).OrderBy(a => a).ToArray();
+        vals = testMap.WhereKeyStartsWith(new object[] {1, 10, 0}, 2).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
         
-        vals = map.WhereKeyStartsWith(new object[] { 10, 0, 0}, 1).OrderBy(a => a).ToArray();
+        vals = testMap.WhereKeyStartsWith(new object[] { 10, 0, 0}, 1).OrderBy(a => a).ToArray();
         expected = Array.Empty<int>();
 
         Assert.AreEqual(expected, vals);
     }
-    
+
+    [Test]
+    public void TestStartWithArrSingle()
+    {
+        var map = new TupleTrieMap<int, int, int, int, int, int>();
+           
+        map.Add((1, 1, 1, 1, 1), 1);
+        
+        var testMap = (IObjectKeyTupleTrieMap<int>)map; 
+
+        var vals = testMap.WhereKeyStartsWith(new object[] { 1, 1 }, 2).OrderBy(a => a).First();
+        
+        Assert.AreEqual(1, vals);
+    }
+
     [Test]
     public void TestExtraApi()
     {
@@ -504,5 +520,152 @@ public class TrieMapTest : BaseTest
         var m4 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
 
         Assert.Throws<ArgumentNullException>(() => m4.Add((null, null), 2));
+        Assert.Throws<ArgumentNullException>(() => m4[(null, null)] = 2);
+    }
+    
+    [Test]
+    public void TestArrayKeys()
+    {
+        var m3 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
+        
+        var testMap = (IObjectKeyTupleTrieMap<int>)m3; 
+
+        var valueTuples = testMap.GetObjKeyValues().ToArray();
+        
+        Assert.AreEqual(new[] {(new[] {"1", "1"}, 1)}, valueTuples);
+    }
+    
+    [Test]
+    public void TestArrayAccess()
+    {
+        var m3 = new TupleTrieMap<string, string, int>();
+
+        var testMap = (IObjectKeyTupleTrieMap<int>)m3; 
+        
+        testMap.Add(new[] { "1", "1" }, 1);
+        
+        Assert.AreEqual(1, testMap.Count);
+        
+        Assert.AreEqual(1, testMap[new[] { "1", "1" }]);
+        
+        Assert.True(testMap.TryGetValue(new[] { "1", "1" }, out var _));
+        
+        Assert.True(testMap.ContainsKey(new[] { "1", "1" }));
+        
+        Assert.False(testMap.ContainsKey(Enumerable.Range(0, 100).Select(i => "1").ToArray()));
+    }
+    
+    [Test]
+    public void TestArrayRemove()
+    {
+        var m3 = new TupleTrieMap<string, string, int>();
+        
+        var testMap = (IObjectKeyTupleTrieMap<int>)m3; 
+        
+        testMap.Add(new[] { "1", "1" }, 1);
+        
+        Assert.False(testMap.Remove(Enumerable.Range(0, 100).Select(i => "1").ToArray()));
+        
+        Assert.True(testMap.Remove(new[] { "1", "1" }));
+        
+        Assert.AreEqual(0, m3.Count);
+    }
+    
+    [Test]
+    public void TestExceptionThrownArray()
+    {
+        var m3 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
+            
+        var testMap = (IObjectKeyTupleTrieMap<int>)m3; 
+        
+        Assert.Throws<ArgumentException>(() => testMap.Add(new[] {"1", "1"}, 2));
+        Assert.Throws<ArgumentException>(() => testMap.WhereKeyStartsWith(new[] {"1", "1"}, 3).ToArray());
+            
+        var m4 = new TupleTrieMap<string, string, int>() { { ("1", "1"), 1 } };
+
+        Assert.Throws<ArgumentNullException>(() => testMap.Add(null, 2));
+        Assert.Throws<ArgumentNullException>(() => testMap.Add(new string[] {null, null}, 2));
+        Assert.Throws<ArgumentNullException>(() => testMap[new string[] {null, null}] = 2);
+        Assert.Throws<ArgumentNullException>(() => testMap[null] = 2);
+    }
+    
+    [Test]
+    public void TestDefaultDictArr5()
+    {
+        var map =  new TupleTrieMap<string, string, string, string, string, Data<string>>();
+            
+        map.EnsureValues((k) => new Data<string>());
+
+        var key = new object[] {"0", "1", "2", "3", "5"};
+
+        var testMap = (IObjectKeyTupleTrieMap<Data<string>>)map; 
+        
+        testMap[key].Add("val0");
+            
+        Assert.True(testMap.ContainsKey(key));
+        
+        var keyValuePairs = new TupleTrieMapDebugView<string, string, string, string,  string, Data<string>>(map).Items;
+        
+        Assert.AreEqual(1, keyValuePairs.Length);
+    }
+    
+    [Test]
+    public void TestDefaultDictArr4()
+    {
+        var map =  new TupleTrieMap<string, string, string, string, Data<string>>();
+            
+        map.EnsureValues((k) => new Data<string>());
+
+        var key = new object[] {"0", "1", "2", "3"};
+
+        var testMap = (IObjectKeyTupleTrieMap<Data<string>>)map; 
+        
+        testMap[key].Add("val0");
+            
+        Assert.True(testMap.ContainsKey(key));
+        
+        var keyValuePairs = new TupleTrieMapDebugView<string, string, string, string, Data<string>>(map).Items;
+        
+        Assert.AreEqual(1, keyValuePairs.Length);
+    }
+    
+    [Test]
+    public void TestDefaultDictArr3()
+    {
+        var map =  new TupleTrieMap<string, string, string, Data<string>>();
+            
+        map.EnsureValues((k) => new Data<string>());
+
+        var key = new object[] {"0", "1", "2"};
+
+        var testMap = (IObjectKeyTupleTrieMap<Data<string>>)map; 
+        
+        testMap[key].Add("val0");
+            
+        Assert.True(testMap.ContainsKey(key));
+        
+        var keyValuePairs = new TupleTrieMapDebugView<string, string, string, Data<string>>(map).Items;
+        
+        Assert.AreEqual(1, keyValuePairs.Length);
+    }
+    
+    [Test]
+    public void TestDefaultDictArr2()
+    {
+        var map =  new TupleTrieMap<string, string, Data<string>>();
+            
+        map.EnsureValues((k) => new Data<string>());
+
+        var key = new object[] {"0", "1"};
+
+        var testMap = (IObjectKeyTupleTrieMap<Data<string>>)map; 
+        
+        testMap[key].Add("val0");
+
+        Assert.True(testMap.ContainsKey(key));
+        
+        var keyValuePairs = new TupleTrieMapDebugView<string, string, Data<string>>(map).Items;
+        
+        Assert.AreEqual(1, keyValuePairs.Length);
     }
 }
