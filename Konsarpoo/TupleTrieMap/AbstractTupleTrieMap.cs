@@ -30,6 +30,8 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
     [NonSerialized] [CanBeNull] private Func<TKey, TValue> m_missingValueFactory;
 
     [NonSerialized] private int m_count;
+    
+    [NonSerialized] [CanBeNull] private Func<Type,IDictionary<object, TrieLinkNode<TValue>>> m_nodesMapFactory;
 
     /// <summary>
     /// Checks that both map and readonly dictionary has the same keys and values.
@@ -120,7 +122,7 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
                     newNode = new TrieLinkNode<TValue>(child.Key);
                 }
 
-                copyTo.AddChild(newNode);
+                copyTo.AddChild(newNode, copyFromMap.m_nodesMapFactory);
 
                 otherStack.Push(child.Value);
                 thisStack.Push(newNode);
@@ -318,8 +320,28 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
     /// Sets a missing value factory delegate up which would be called instead of throwing the KeyNotFound exception.
     /// </summary>
     /// <param name="missingValueFactory"></param>
-    public void EnsureValues([CanBeNull] Func<TKey, TValue> missingValueFactory) =>
-        m_missingValueFactory = missingValueFactory;
+    public void EnsureValues([CanBeNull] Func<TKey, TValue> missingValueFactory) => m_missingValueFactory = missingValueFactory;
+
+    /// <summary>
+    /// Sets up a nodes map factory delegate which will be called to creat a storage for a particular type. Delegate must be static. 
+    /// </summary>
+    /// <param name="staticFunc"></param>
+    /// <exception cref="ArgumentException">If given factory func is not a static delegate.</exception>
+    public void SetStorageFactory([CanBeNull] Func<Type, IDictionary<object, TrieLinkNode<TValue>>> staticFunc)
+    {
+        if (staticFunc != null)
+        {
+            bool isStatic = staticFunc.Method.IsStatic;
+
+            if (isStatic == false)
+            {
+                throw new ArgumentException("Factory function can be static only.");
+            }
+        }
+       
+        m_nodesMapFactory = staticFunc;
+    }
+
 
     /// <summary>
     /// Checks that this map and readonly dictionary has the same keys and values.
@@ -848,7 +870,7 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
             {
                 var newNode = new TrieTailNode<TValue>(c);
 
-                currentNode.AddChild(newNode);
+                currentNode.AddChild(newNode, m_nodesMapFactory);
                 currentNodeParent = currentNode;
                 currentNode = newNode;
 
@@ -859,7 +881,7 @@ public abstract partial class AbstractTupleTrieMap<TKey, TValue> :
             {
                 if (childNode is TrieTailNode<TValue> tn)
                 {
-                    childNode = currentNode.SplitTailNode(tn);
+                    childNode = currentNode.SplitTailNode(tn, m_nodesMapFactory);
                 }
 
                 currentNodeParent = currentNode;

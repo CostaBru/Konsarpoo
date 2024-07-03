@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
 using System.Xml;
@@ -12,6 +13,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
     private const string VersionName = "Version";
     private const string SizeName = "Size";
     private const string KeyValuePairsName = "KeyValuePairs";
+    private const string MapFactoryName = "MapFactory";
 
     protected XmlSchema GetSchemaCore() => null;
 
@@ -24,9 +26,18 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
         var add = true;
         
         reader.ReadStartElement();
+        
         while (reader.NodeType != XmlNodeType.EndElement)
         {
-            reader.ReadStartElement("Item");
+            reader.ReadStartElement();
+            if(m_nodesMapFactory == null && reader.Name.Contains(nameof(DelegateSerializationHelper)))
+            {
+                var delegateSerializer = new DataContractSerializer(typeof(DelegateSerializationHelper));
+                var helper = (DelegateSerializationHelper)delegateSerializer.ReadObject(reader);
+                m_nodesMapFactory = helper.GetDelegate<Func<Type,IDictionary<object, TrieLinkNode<TValue>>>>();
+                reader.ReadEndElement();
+                continue;
+            }
             var keyValue = (KeyValuePair<TKey, TValue>)dataContractSerializer.ReadObject(reader);
             reader.ReadEndElement();
             var value = keyValue.Value;
@@ -37,12 +48,21 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
     protected void WriteXmlCore(XmlWriter writer)
     {
-        var dataContractSerializer = new DataContractSerializer(typeof(KeyValuePair<TKey, TValue>));
+        var itemSerializer = new DataContractSerializer(typeof(KeyValuePair<TKey, TValue>));
+        
+        if (m_nodesMapFactory != null)
+        {
+            var delegateSerializer = new DataContractSerializer(typeof(DelegateSerializationHelper));
+
+            writer.WriteStartElement(MapFactoryName);
+            delegateSerializer.WriteObject(writer, new DelegateSerializationHelper(m_nodesMapFactory));
+            writer.WriteEndElement();
+        }
 
         foreach (var item in GetKeyValues())
         {
             writer.WriteStartElement("Item");
-            dataContractSerializer.WriteObject(writer, new KeyValuePair<TKey, TValue>(item.Key, item.Value));
+            itemSerializer.WriteObject(writer, new KeyValuePair<TKey, TValue>(item.Key, item.Value));
             writer.WriteEndElement();
         }
     }
@@ -59,10 +79,42 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
         info.AddValue(SizeName, Count);
         info.AddValue(VersionName, Version);
+       
+        if (m_nodesMapFactory != null)
+        {
+            info.AddValue(MapFactoryName, new DelegateSerializationHelper(m_nodesMapFactory));
+        }
+        else
+        {
+            info.AddValue(MapFactoryName, null);
+        }
 
         if (Count > 0)
         {
             info.AddValue(KeyValuePairsName, ToData());
+        }
+    }
+    
+    [Serializable]
+    public class DelegateSerializationHelper
+    {
+        public string MethodName { get; set; }
+        public string TargetType { get; set; }
+
+        public DelegateSerializationHelper() { }
+
+        public DelegateSerializationHelper(Delegate del)
+        {
+            MethodName = del.Method.Name;
+            TargetType = del.Method.DeclaringType.AssemblyQualifiedName;
+        }
+
+        public T GetDelegate<T>()
+        {
+            var targetType = Type.GetType(TargetType);
+            var method = targetType.GetMethod(MethodName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+            return (T)(object)Delegate.CreateDelegate(typeof(T), method);
         }
     }
 
@@ -81,6 +133,12 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
         int realVersion = siInfo.GetInt32(VersionName);
         int count = siInfo.GetInt32(SizeName);
+        var helper = (DelegateSerializationHelper)siInfo.GetValue(MapFactoryName, typeof(DelegateSerializationHelper));
+
+        if (helper != null)
+        {
+            m_nodesMapFactory = helper.GetDelegate<Func<Type,IDictionary<object, TrieLinkNode<TValue>>>>();
+        }
         
         if (count != 0)
         {

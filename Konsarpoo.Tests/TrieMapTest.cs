@@ -240,11 +240,27 @@ public class TrieMapTest : BaseTest
         Assert.True(map.Remove(("1", "1", 1)));
         Assert.AreEqual(0, map.Count);
     }
-    
+
+    [Test]
+    public void TestThrowsIfStorageFactoryIsNotStatic()
+    {
+        var map = new TupleTrieMap<string, int, int>();
+
+        int i = 0;
+
+        Assert.Throws<ArgumentException>(() => map.SetStorageFactory(t =>
+        {
+            i++;
+            return null;
+        }));
+    }
+
     [Test]
     public void TestSerialization2()
     {
-        var map =new TupleTrieMap<string, int, int>();
+        var map = new TupleTrieMap<string, int, int>();
+        
+        map.SetStorageFactory(NodesMapFactory);
 
         map.Add(("1", 1), 1);
         map.Add(("1", 2), 2);
@@ -256,11 +272,23 @@ public class TrieMapTest : BaseTest
 
         Assert.True(deserializeWithDcs == map);
     }
+    
+    public static  IDictionary<object, AbstractTupleTrieMap<(string, int), int>.TrieLinkNode<int>> NodesMapFactory(Type type)
+    {
+        if (type == typeof(string))
+        {
+            return new StringTrieKeyAsObjectMapAdapter<AbstractTupleTrieMap<(string, int), int>.TrieLinkNode<int>>();
+        }
+
+        return null;
+    }
       
     [Test]
     public void TestSerializationClone2()
     {
         var map = new TupleTrieMap<string, int, int>();
+        
+        map.SetStorageFactory(NodesMapFactory);
 
         foreach (var i in Enumerable.Range(1, 1024))
         {
@@ -498,6 +526,8 @@ public class TrieMapTest : BaseTest
     public void TestExtraApi()
     {
         var m3 = new TupleTrieMap<string, string, string>() { { ("1", "1"), "1" } };
+        
+        m3.SetStorageFactory(MapFactory);
             
         m3.Put(("2", "2"), "2");
             
@@ -508,7 +538,12 @@ public class TrieMapTest : BaseTest
         Assert.AreEqual("3", m3.GetSet(("3", "3"), (v, m) => m[v] = v.Item1));
         Assert.AreEqual("3", m3[("3", "3")]);
     }
-    
+
+    private static IDictionary<object, AbstractTupleTrieMap<(string, string), string>.TrieLinkNode<string>> MapFactory(Type type)
+    {
+        return  new StringTrieKeyAsObjectMapAdapter<AbstractTupleTrieMap<(string, string), string>.TrieLinkNode<string>>();
+    }
+
     [Test]
     public void TestExceptionThrown()
     {

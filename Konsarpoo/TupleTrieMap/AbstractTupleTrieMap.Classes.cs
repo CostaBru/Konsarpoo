@@ -2,13 +2,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
 public partial class AbstractTupleTrieMap<TKey, TValue> 
 {
     [DebuggerDisplay("'{Key}' {ChildrenCount} False")]
-    internal class TrieLinkNode<TValue> : IEnumerable<KeyValuePair<object, TrieLinkNode<TValue>>>
+    public class TrieLinkNode<TValue> : IEnumerable<KeyValuePair<object, TrieLinkNode<TValue>>>
     {
         protected int ChildrenCount
         {
@@ -24,7 +25,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                     return 1;
                 }
 
-                return ((Map<object, TrieLinkNode<TValue>>)Children).Count;
+                return ((IDictionary<object, TrieLinkNode<TValue>>)Children).Count;
             }
         }
 
@@ -48,11 +49,6 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
             if (Children is TrieLinkNode<TValue> singleNode)
             {
-                if (singleNode == null)
-                {
-                    return null;
-                }
-                
                 if (EqualityComparer<object>.Default.Equals(c, singleNode.Key))
                 {
                     return singleNode;
@@ -61,10 +57,17 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return null;
             }
 
-            return ((Map<object, TrieLinkNode<TValue>>)Children).GetOrDefault(c);
+            var dictionary = (IDictionary<object, TrieLinkNode<TValue>>)Children;
+
+            if (dictionary.TryGetValue(c, out var val))
+            {
+                return val;
+            }
+            
+            return null;
         }
 
-        public void AddChild(TrieLinkNode<TValue> newNode)
+        public void AddChild(TrieLinkNode<TValue> newNode, [CanBeNull] Func<Type, IDictionary<object,TrieLinkNode<TValue>>> mapFactory)
         {
             if (Children == null)
             {
@@ -72,7 +75,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return;
             }
             
-            var map = Children as Map<object, TrieLinkNode<TValue>>;
+            var map = Children as IDictionary<object, TrieLinkNode<TValue>>;
             
             if(map != null)
             {
@@ -82,11 +85,22 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
             
             var singleNode = (TrieLinkNode<TValue>)Children;
 
-            Children = new Map<object, TrieLinkNode<TValue>>
+            IDictionary<object, TrieLinkNode<TValue>> children = null;
+
+            if (mapFactory != null)
             {
-                { singleNode.Key, singleNode },
-                { newNode.Key, newNode }
-            };
+                children = mapFactory.Invoke(newNode.Key.GetType());
+            }
+            
+            if (children == null)
+            {
+                children = new Map<object, TrieLinkNode<TValue>>();
+            }
+
+            children.Add(singleNode.Key, singleNode);
+            children.Add(newNode.Key, newNode);
+
+            Children = children;
         }
 
         public void Dispose()
@@ -106,7 +120,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                     yield break;
                 }
 
-                var map = (Map<object, TrieLinkNode<TValue>>)Children;
+                var map = (IDictionary<object, TrieLinkNode<TValue>>)Children;
                 
                 foreach (var child in map)
                 {
@@ -129,7 +143,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return;
             }
             
-            var map = (Map<object, TrieLinkNode<TValue>>)Children;
+            var map = (IDictionary<object, TrieLinkNode<TValue>>)Children;
             map[currentNode.Key] = new TrieEndLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children, Value = value};
         }
 
@@ -141,11 +155,11 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return;
             }
             
-            var map = (Map<object, TrieLinkNode< TValue>>)Children;
+            var map = (IDictionary<object, TrieLinkNode<TValue>>)Children;
             map[currentNode.Key] = new TrieLinkNode<TValue>(currentNode.Key) {Children = currentNode.Children};
         }
         
-        public TrieLinkNode<TValue> SplitTailNode(TrieTailNode< TValue> currentNode)
+        public TrieLinkNode<TValue> SplitTailNode(TrieTailNode< TValue> currentNode,  [CanBeNull] Func<Type, IDictionary<object,TrieLinkNode<TValue>>> mapFactory)
         {
             TrieLinkNode<TValue> newLinkNode;
 
@@ -159,7 +173,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 {
                     newEndNode.AddSuffixChar(currentNode.Suffix[i]);
                 }
-                newLinkNode.AddChild(newEndNode);
+                newLinkNode.AddChild(newEndNode, mapFactory);
             }
             else
             {
@@ -172,7 +186,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return newLinkNode;
             }
             
-            var map = (Map<object, TrieLinkNode<TValue>>)Children;
+            var map = (IDictionary<object, TrieLinkNode<TValue>>)Children;
             map[currentNode.Key] = newLinkNode;
             return newLinkNode;
         }
@@ -185,7 +199,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
                 return;
             }
             
-            var map = (Map<object, TrieLinkNode<TValue>>)Children;
+            var map = (IDictionary<object, TrieLinkNode<TValue>>)Children;
             map.Remove(node.Key);
         }
 
@@ -204,7 +218,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
     }
 
     [DebuggerDisplay("'{Key}' {ChildrenCount} True")]
-    internal class TrieEndLinkNode<TValue> : TrieLinkNode<TValue>
+    public class TrieEndLinkNode<TValue> : TrieLinkNode<TValue>
     {
         public TValue Value;
 
@@ -214,7 +228,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
     }
 
     [DebuggerDisplay("'{Key}' {ChildrenCount} True")]
-    internal class TrieTailNode<TValue> : TrieEndLinkNode<TValue>
+    public class TrieTailNode<TValue> : TrieEndLinkNode<TValue>
     {
         public Data<object> Suffix;
 

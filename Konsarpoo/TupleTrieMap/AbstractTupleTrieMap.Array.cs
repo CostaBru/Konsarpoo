@@ -19,6 +19,7 @@ public interface IObjectKeyTupleTrieMap<TValue>
     IEnumerable<(object[] Key, TValue Value)> GetObjKeyValues();
     IEnumerable<TValue> WhereKeyStartsWith([NotNull] object[] key, int count);
     int Count { get; }
+    void Clear();
 }
 
 public partial class AbstractTupleTrieMap<TKey, TValue> : IObjectKeyTupleTrieMap<TValue>
@@ -165,7 +166,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue> : IObjectKeyTupleTrieMap
             {
                 var newNode = new TrieTailNode<TValue>(c);
 
-                currentNode.AddChild(newNode);
+                currentNode.AddChild(newNode, m_nodesMapFactory);
                 currentNodeParent = currentNode;
                 currentNode = newNode;
 
@@ -176,7 +177,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue> : IObjectKeyTupleTrieMap
             {
                 if (childNode is TrieTailNode<TValue> tn)
                 {
-                    childNode = currentNode.SplitTailNode(tn);
+                    childNode = currentNode.SplitTailNode(tn, m_nodesMapFactory);
                 }
 
                 currentNodeParent = currentNode;
