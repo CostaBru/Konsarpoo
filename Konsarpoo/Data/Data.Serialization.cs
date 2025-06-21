@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
@@ -11,12 +8,6 @@ namespace Konsarpoo.Collections
 {
     public partial class Data<T>
     {
-        private const string CapacityName = "Capacity";
-        private const string NodeCapacityName = "NodeCapacity";
-        private const string ElementsCountName = "ElementsCount";
-        private const string ElementsName = "Elements";
-        private const string VersionName = "Version";
-        
         [NonSerialized]
         private SerializationInfo m_siInfo;
         
@@ -42,25 +33,40 @@ namespace Konsarpoo.Collections
             {
                 throw new ArgumentNullException(nameof(info));
             }
-            
-            info.AddValue(NodeCapacityName, m_maxSizeOfArray);
-            info.AddValue(CapacityName, m_count);
-            info.AddValue(VersionName, m_version);
 
+            SerializeTo(new DataMemorySerializationInfo(info));
+        }
+        
+        /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
+        /// <param name="sender">The source of the deserialization event.</param>
+        public virtual void OnDeserialization(object sender)
+        {
+            if (m_siInfo == null)
+            {
+                return;
+            }
+
+            DeserializeFrom(new DataMemorySerializationInfo(m_siInfo));
+
+            m_siInfo = null;
+        }
+        
+        public void SerializeTo(IDataSerializationInfo info)
+        {
             if (m_root is StoreNode st)
             {
-                info.AddValue(ElementsCountName, 1);
-                info.AddValue(ElementsName, st.m_items, typeof(T[]));
+                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
+                info.WriteSingleArray(st.m_items);
             }
             else
             {
                 var storeNodes = GetStoreNodes(m_root).ToData();
-                info.AddValue(ElementsCountName, storeNodes.m_count);
+                
+                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.m_count));
                 int i = 0;
                 foreach (var storeNode in storeNodes)
                 {
-                    var elementsName = GetElementName(i);
-                    info.AddValue(elementsName, storeNode.m_items, typeof(T[]));
+                    info.WriteArray(i, storeNode.m_items);
                     i++;
                 }
                 
@@ -68,19 +74,52 @@ namespace Konsarpoo.Collections
             }
         }
 
-        private string GetElementName(int index)
+        public void DeserializeFrom(IDataSerializationInfo info)
         {
-            if (index < m_predefinedElementsName.Length)
+            var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetaData();
+            
+            m_maxSizeOfArray = maxSizeOfArray;
+
+            if (dataCount != 0 && elementsCount != 0)
             {
-                return m_predefinedElementsName[index];
+                Ensure(dataCount);
+                
+                if (elementsCount == 1)
+                {
+                    T[] objArray = info.ReadSingleArray<T>();
+                    if (objArray == null)
+                    {
+                        throw new SerializationException("Cannot read list values from serialization info.");
+                    }
+                    var storeNode = (StoreNode)m_root;
+                    storeNode.ReturnArray();
+                    storeNode.m_items = objArray;
+                }
+                else
+                {
+                    var storeNodes = GetStoreNodes(m_root);
+
+                    int i = 0;
+                    foreach (var storeNode in storeNodes)
+                    {
+                        T[] objArray = info.ReadArray<T>(i);
+                        if (objArray == null)
+                        {
+                            throw new SerializationException($"Cannot read list values from serialization info for {i}th array.");
+                        }
+                        storeNode.ReturnArray();
+                        storeNode.m_items = objArray;
+                        i++;
+                    }
+                }
             }
 
-            return ElementsName + index;
+            unchecked
+            {
+                m_version = (byte)version;
+            }
         }
 
-        private static readonly string[] m_predefinedElementsName = Enumerable.Range(0, 100).Select(i => ElementsName + i).ToArray();
-        
-       
         private IEnumerable<StoreNode> GetStoreNodes(INode node)
         {
             foreach (var nodeNode in node.Nodes)
@@ -98,62 +137,5 @@ namespace Konsarpoo.Collections
                 }
             }
         } 
-            
-        
-        /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
-        /// <param name="sender">The source of the deserialization event.</param>
-        public virtual void OnDeserialization(object sender)
-        {
-            if (m_siInfo == null)
-            {
-                return;
-            }
-
-            m_maxSizeOfArray = m_siInfo.GetInt32(NodeCapacityName);
-            int capacity = m_siInfo.GetInt32(CapacityName);
-            int elementsCount = m_siInfo.GetInt32(ElementsCountName);
-
-            if (capacity != 0 && elementsCount != 0)
-            {
-                Ensure(capacity);
-                
-                if (elementsCount == 1)
-                {
-                    T[] objArray = (T[])m_siInfo.GetValue(ElementsName, typeof(T[]));
-                    if (objArray == null)
-                    {
-                        throw new SerializationException("Cannot read list values from serialization info.");
-                    }
-                    var storeNode = (StoreNode)m_root;
-                    storeNode.ReturnArray();
-                    storeNode.m_items = objArray;
-                }
-                else
-                {
-                    var storeNodes = GetStoreNodes(m_root);
-
-                    int i = 0;
-                    foreach (var storeNode in storeNodes)
-                    {
-                        var elementName = GetElementName(i);
-                        T[] objArray = (T[])m_siInfo.GetValue(elementName, typeof(T[]));
-                        if (objArray == null)
-                        {
-                            throw new SerializationException($"Cannot read list values from serialization info for {i}th array.");
-                        }
-                        storeNode.ReturnArray();
-                        storeNode.m_items = objArray;
-                        i++;
-                    }
-                }
-            }
-
-            unchecked
-            {
-                m_version = (byte)m_siInfo.GetInt32(VersionName);
-            }
-
-            m_siInfo = null;
-        }
     }
 }

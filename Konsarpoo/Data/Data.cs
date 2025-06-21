@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
@@ -47,6 +48,17 @@ namespace Konsarpoo.Collections
         [NonSerialized] private readonly IArrayAllocator<INode> m_nodesAllocator;
         
         private int m_maxSizeOfArray;
+
+        internal int MaxSizeOfArray => m_maxSizeOfArray;
+        internal int GetStoreNodesCount()
+        {
+            if (m_root is StoreNode st)
+            {
+                return 1;
+            }
+            
+            return GetStoreNodes(m_root).Count();
+        }
 
         /// <summary>
         /// Gets access to allocator.

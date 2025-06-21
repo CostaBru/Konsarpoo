@@ -1,7 +1,4 @@
 ﻿using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Exporters;
-using BenchmarkDotNet.Exporters.Json;
-using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 using Konsarpoo.Collections.Tests.Benchmarks;
 
@@ -12,7 +9,7 @@ namespace Brudixy.Tests
         public static void Main(string[] args)
         {
             BenchmarkRunner
-                .Run<MapLookup>(
+                .Run<TupleTreePerf>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));

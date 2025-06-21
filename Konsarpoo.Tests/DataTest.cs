@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Xml.Linq;
 using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
@@ -1809,6 +1808,77 @@ namespace Konsarpoo.Collections.Tests
             var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<Data<int>>(serializeWithDcs);
 
             Assert.AreEqual(deserializeWithDcs, set);
+        }
+
+        [Test]
+        public void TestSetMMapSerialization()
+        {
+            var set = new Data<int>();
+
+            set.AddRange(Enumerable.Range(0, 10000));
+
+            string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
+
+            var estimateSerializedSize = MemoryMappedDataSerializationInfo.EstimateSerializedSize(0);
+
+            var memoryMappedDataSerializationInfo =
+                new MemoryMappedDataSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimateSerializedSize);
+
+            try
+            {
+                set.SerializeTo(memoryMappedDataSerializationInfo);
+
+                var result = new Data<int>();
+                result.DeserializeFrom(memoryMappedDataSerializationInfo);
+
+                Assert.AreEqual(set, result);
+            }
+            finally
+            {
+                memoryMappedDataSerializationInfo.Dispose();
+                File.Delete(tempFileName);
+            }
+        }
+        
+        [Test]
+        public void TestSetMMapSerializationFileReopen()
+        {
+            var set = new Data<int>();
+
+            set.AddRange(Enumerable.Range(0, 10000));
+
+            string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
+
+            var estimateSerializedSize = MemoryMappedDataSerializationInfo.EstimateSerializedSize(0);
+
+     
+            try
+            {
+                var memoryMappedDataSerializationInfo =
+                    new MemoryMappedDataSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimateSerializedSize);
+
+                set.SerializeTo(memoryMappedDataSerializationInfo);
+                
+                memoryMappedDataSerializationInfo.Dispose();
+
+                var serializationInfo = MemoryMappedDataSerializationInfo.Open(tempFileName, estimateSerializedSize);
+
+                try
+                {
+                    var result = new Data<int>();
+                    result.DeserializeFrom(serializationInfo);
+
+                    Assert.AreEqual(set, result);
+                }
+                finally
+                {
+                    serializationInfo.Dispose();
+                }
+            }
+            finally
+            {
+                File.Delete(tempFileName);
+            }
         }
 
         [Test]
