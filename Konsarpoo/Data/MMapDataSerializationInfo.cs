@@ -6,63 +6,52 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Konsarpoo.Collections;
 
-public class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDisposable
+public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDisposable
 {
-    private readonly MemoryMappedFile m_mmf;
-    private readonly int m_maxSizeOfArray;
-    private long m_capacity;
-    private int m_arraysCount;
-    private long[] m_offsetTable;
+    protected readonly MemoryMappedFile m_mmf;
+    protected readonly int m_maxSizeOfArray;
+    protected long m_capacity;
+    protected int m_arraysCount;
+    protected readonly long m_estimatedSizeOfArray;
 
-    private static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
+    protected static readonly long m_metaSize = sizeof(int) * Marshal.SizeOf<int>(); // maxSizeOfArray, dataCount, version, arraysCount
 
-    private long GetMmapArrayOffset(int arrayIndex)
-    {
-        return m_metaSize + Marshal.SizeOf<long>() * m_offsetTable.Length + m_offsetTable[arrayIndex];
-    }
+    protected abstract long GetMmapArrayOffset(int arrayIndex);
 
-    private void UpdateOffsetTable(int arrayIndex, long offset, long size)
-    {
-        var baseOffset = m_metaSize + Marshal.SizeOf<long>() * m_offsetTable.Length;
-        var l = offset - baseOffset;
-        m_offsetTable[arrayIndex] = l + size;
-        WriteOffsetTableInfo(m_offsetTable);
-    }
 
-    public MemoryMappedDataSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfT)
+    public MemoryMappedDataSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray)
     {
         m_maxSizeOfArray = maxSizeOfArray;
-
         m_arraysCount = arraysCount;
-        m_capacity = arraysCount * maxSizeOfArray * estimatedSizeOfT + m_metaSize;
-        m_offsetTable = new long[arraysCount];
+        m_estimatedSizeOfArray = estimatedSizeOfArray;
+        m_capacity = arraysCount * estimatedSizeOfArray + m_metaSize;
       
         using var fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
         m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
     }
 
-    public static MemoryMappedDataSerializationInfo Open(string file, long estimatedSizeOfT)
-    {
-        return new MemoryMappedDataSerializationInfo(file, estimatedSizeOfT);
-    }
+    protected abstract long GetEstimatedSizeOfArrayCore(long estimatedSizeOfT, int maxSizeOfArray);
 
-    private MemoryMappedDataSerializationInfo(string path, long estimatedSizeOfT)
+    protected MemoryMappedDataSerializationInfo(string path, long estimatedSizeOfT)
     {
         m_mmf = MemoryMappedFile.CreateFromFile(path, FileMode.Open, null);
 
         var readMetaData = ReadMetaData();
 
+        var estimatedSizeOfArray = GetEstimatedSizeOfArrayCore(estimatedSizeOfT, readMetaData.maxSizeOfArray);
+
         m_maxSizeOfArray = readMetaData.maxSizeOfArray;
         m_arraysCount = readMetaData.arraysCount;
-        m_capacity = m_arraysCount * m_maxSizeOfArray * estimatedSizeOfT + m_metaSize;
+        m_capacity = m_arraysCount * estimatedSizeOfArray + m_metaSize;
+        m_estimatedSizeOfArray = estimatedSizeOfArray;
     }
 
-    public static int EstimateSerializedSize<T>(T element)
+    public static int EstimateSerializedEmptyArraySize<T>()
     {
         using var ms = new MemoryStream();
 #pragma warning disable SYSLIB0011
-        new BinaryFormatter().Serialize(ms, element);
+        new BinaryFormatter().Serialize(ms, Array.Empty<T>());
 #pragma warning restore SYSLIB0011
         return (int)ms.Length; 
     }
@@ -78,64 +67,23 @@ public class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDispos
         accessor.Flush();
     }
 
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
+    public virtual (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
     {
         using var accessor = m_mmf.CreateViewAccessor(0, m_metaSize, MemoryMappedFileAccess.Read);
         int maxSize = accessor.ReadInt32(0);
         int count = accessor.ReadInt32(sizeof(int));
         int version = accessor.ReadInt32(sizeof(int) * 2);
         int arrayCount = accessor.ReadInt32(sizeof(int) * 3);
-
-        m_offsetTable = ReadOffsetTableInfo(arrayCount);
-        m_arraysCount = arrayCount;
         
         return (maxSize, count, version, arrayCount);
     }
 
-    private long[] ReadOffsetTableInfo(int arrayCount)
-    {
-        var offsetTableByteSize = arrayCount * Marshal.SizeOf<long>();
-        
-        using var offsetAccessor = m_mmf.CreateViewAccessor(m_metaSize, offsetTableByteSize, MemoryMappedFileAccess.Read);
-        
-        byte[] data = new byte[offsetTableByteSize];
-        
-        offsetAccessor.ReadArray(0, data, 0, offsetTableByteSize);
-
-        var offsetTable = new long[arrayCount];
-        
-        using var ms = new MemoryStream(data);
-        using var br = new BinaryReader(ms);
-        for (var index = 0; index < offsetTable.Length; index++)
-        {
-            offsetTable[index] = br.ReadInt64();
-        }
-        
-        return offsetTable;
-    }
-    
-    private void WriteOffsetTableInfo(long[] offsetTable)
-    {
-        var offsetTableByteSize = offsetTable.Length * Marshal.SizeOf<long>();
-        
-        using var offsetAccessor = m_mmf.CreateViewAccessor(m_metaSize, offsetTableByteSize, MemoryMappedFileAccess.Write);
-        
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        for (var index = 0; index < offsetTable.Length; index++)
-        {
-            var val = offsetTable[index];
-            bw.Write(val);
-        }
-
-        byte[] rawData = ms.ToArray(); 
-        
-        offsetAccessor.WriteArray(0, rawData, 0, rawData.Length);
-        
-        offsetAccessor.Flush();
-    }
-
     public void WriteArray<T>(int i, T[] array)
+    {
+        var (data, offset) = WriteArrayCore(i, array);
+    }
+
+    protected virtual (byte[] data, long offset) WriteArrayCore<T>(int i, T[] array)
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
@@ -143,18 +91,15 @@ public class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDispos
 
         long offset = GetMmapArrayOffset(i);
 
-        using (var accessor = m_mmf.CreateViewAccessor(offset, data.Length + 4, MemoryMappedFileAccess.Write))
+        using (var accessor = m_mmf.CreateViewAccessor(offset, data.Length + Marshal.SizeOf<int>(), MemoryMappedFileAccess.Write))
         {
             accessor.Write(0, data.Length); // prefix with length
-            accessor.WriteArray(4, data, 0, data.Length);
+            accessor.WriteArray(Marshal.SizeOf<int>(), data, 0, data.Length);
             
             accessor.Flush();
         }
 
-        if (i + 1 < m_arraysCount)
-        {
-            UpdateOffsetTable(i + 1, offset, data.Length + 4);
-        }
+        return (data, offset);
     }
 
     public T[] ReadArray<T>(int index) 
@@ -165,7 +110,7 @@ public class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDispos
         int length = accessor.ReadInt32(0);
         byte[] data = new byte[length];
         
-        using var dataAccessor = m_mmf.CreateViewAccessor(offset + 4, length);
+        using var dataAccessor = m_mmf.CreateViewAccessor(offset + Marshal.SizeOf<int>(), length);
         dataAccessor.ReadArray(0, data, 0, length);
 
         using var ms = new MemoryStream(data);

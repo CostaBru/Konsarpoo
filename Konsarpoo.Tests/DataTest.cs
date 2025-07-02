@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Konsarpoo.Collections.Allocators;
 using NUnit.Framework;
 
@@ -1811,7 +1812,7 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestSetMMapSerialization()
+        public void TestSetMMapSerializationVar()
         {
             var set = new Data<int>();
 
@@ -1819,10 +1820,10 @@ namespace Konsarpoo.Collections.Tests
 
             string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
 
-            var estimateSerializedSize = MemoryMappedDataSerializationInfo.EstimateSerializedSize(0);
+            var estimatedSizeOfArray = MemoryMappedDataSerializationInfo.EstimateSerializedEmptyArraySize<int>();
 
             var memoryMappedDataSerializationInfo =
-                new MemoryMappedDataSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimateSerializedSize);
+                new MemoryMappedDataVariableSizeSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimatedSizeOfArray);
 
             try
             {
@@ -1841,7 +1842,7 @@ namespace Konsarpoo.Collections.Tests
         }
         
         [Test]
-        public void TestSetMMapSerializationFileReopen()
+        public void TestSetMMapSerializationFixed()
         {
             var set = new Data<int>();
 
@@ -1849,19 +1850,86 @@ namespace Konsarpoo.Collections.Tests
 
             string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
 
-            var estimateSerializedSize = MemoryMappedDataSerializationInfo.EstimateSerializedSize(0);
+            var estimateSerializedSize = Marshal.SizeOf<int>();
 
+            var memoryMappedDataSerializationInfo =
+                new MemoryMappedDataFixedSizeSerializationInfo<int>(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimateSerializedSize);
+
+            try
+            {
+                set.SerializeTo(memoryMappedDataSerializationInfo);
+
+                var result = new Data<int>();
+                result.DeserializeFrom(memoryMappedDataSerializationInfo);
+
+                Assert.AreEqual(set, result);
+            }
+            finally
+            {
+                memoryMappedDataSerializationInfo.Dispose();
+                File.Delete(tempFileName);
+            }
+        }
+        
+        [Test]
+        public void TestSetMMapSerializationVarFileReopen()
+        {
+            var set = new Data<int>();
+
+            set.AddRange(Enumerable.Range(0, 10000));
+
+            string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
+
+            var estimatedSizeOfArray = MemoryMappedDataSerializationInfo.EstimateSerializedEmptyArraySize<int>();
      
             try
             {
                 var memoryMappedDataSerializationInfo =
-                    new MemoryMappedDataSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimateSerializedSize);
+                    new MemoryMappedDataVariableSizeSerializationInfo(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), estimatedSizeOfArray);
 
                 set.SerializeTo(memoryMappedDataSerializationInfo);
                 
                 memoryMappedDataSerializationInfo.Dispose();
 
-                var serializationInfo = MemoryMappedDataSerializationInfo.Open(tempFileName, estimateSerializedSize);
+                var serializationInfo = MemoryMappedDataVariableSizeSerializationInfo.Open(tempFileName, estimatedSizeOfArray);
+
+                try
+                {
+                    var result = new Data<int>();
+                    result.DeserializeFrom(serializationInfo);
+
+                    Assert.AreEqual(set, result);
+                }
+                finally
+                {
+                    serializationInfo.Dispose();
+                }
+            }
+            finally
+            {
+                File.Delete(tempFileName);
+            }
+        }
+        
+        [Test]
+        public void TestSetMMapSerializationFixedFileReopen()
+        {
+            var set = new Data<int>();
+
+            set.AddRange(Enumerable.Range(0, 10000));
+
+            string tempFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".bin");
+
+            try
+            {
+                var memoryMappedDataSerializationInfo =
+                    new MemoryMappedDataFixedSizeSerializationInfo<int>(tempFileName, set.MaxSizeOfArray, set.GetStoreNodesCount(), Marshal.SizeOf<int>());
+
+                set.SerializeTo(memoryMappedDataSerializationInfo);
+                
+                memoryMappedDataSerializationInfo.Dispose();
+
+                var serializationInfo = MemoryMappedDataFixedSizeSerializationInfo<int>.Open(tempFileName, Marshal.SizeOf<int>());
 
                 try
                 {

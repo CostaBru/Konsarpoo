@@ -40,10 +40,10 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
 
     public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
     {
-        var maxSizeOfArray = (int)info.GetInt32(NodeCapacityName);
-        var dataCount = (int)info.GetInt32(CapacityName);
-        var version = (int)info.GetInt32(VersionName);
-        var elementsCount = (int)info.GetInt32(ElementsCountName);
+        var maxSizeOfArray = info.GetInt32(NodeCapacityName);
+        var dataCount = info.GetInt32(CapacityName);
+        var version = info.GetInt32(VersionName);
+        var elementsCount = info.GetInt32(ElementsCountName);
         
         return (maxSizeOfArray, dataCount, version, elementsCount);
     }
