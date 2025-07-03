@@ -8,7 +8,7 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
 {
     private long[] m_offsetTable;
     
-    public MemoryMappedDataVariableSizeSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray) : base(path, maxSizeOfArray, arraysCount, estimatedSizeOfArray * maxSizeOfArray)
+    public MemoryMappedDataVariableSizeSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray, long maxSizeOfFile = 0) : base(path, maxSizeOfArray, arraysCount, estimatedSizeOfArray * maxSizeOfArray, maxSizeOfFile)
     {
         m_offsetTable = new long[arraysCount];
     }

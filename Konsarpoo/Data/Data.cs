@@ -52,6 +52,11 @@ namespace Konsarpoo.Collections
         internal int MaxSizeOfArray => m_maxSizeOfArray;
         internal int GetStoreNodesCount()
         {
+            if (m_root == null)
+            {
+                return 0;
+            }
+            
             if (m_root is StoreNode st)
             {
                 return 1;

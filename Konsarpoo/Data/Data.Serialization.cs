@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
@@ -53,6 +54,13 @@ namespace Konsarpoo.Collections
         
         public void SerializeTo(IDataSerializationInfo info)
         {
+            if (m_root is null)
+            {
+                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
+                info.WriteSingleArray(Array.Empty<T>());
+                return;
+            }
+            
             if (m_root is StoreNode st)
             {
                 info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
@@ -62,10 +70,16 @@ namespace Konsarpoo.Collections
             {
                 var storeNodes = GetStoreNodes(m_root).ToData();
                 
-                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.m_count));
+                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.Count));
                 int i = 0;
                 foreach (var storeNode in storeNodes)
                 {
+                    if (i == storeNodes.Count - 1)
+                    {
+                        System.Console.Write(" ");
+                        //123123
+                    }
+                    
                     info.WriteArray(i, storeNode.m_items);
                     i++;
                 }
@@ -97,11 +111,19 @@ namespace Konsarpoo.Collections
                 }
                 else
                 {
-                    var storeNodes = GetStoreNodes(m_root);
+                    var storeNodes = GetStoreNodes(m_root).ToArray();
+
+                    var storeNodesLength = storeNodes.Length;
 
                     int i = 0;
                     foreach (var storeNode in storeNodes)
                     {
+                        if (i == storeNodesLength - 1)
+                        {
+                            System.Console.Write(" ");
+                            //123123
+                        }
+                        
                         T[] objArray = info.ReadArray<T>(i);
                         if (objArray == null)
                         {
