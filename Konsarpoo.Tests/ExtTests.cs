@@ -23,7 +23,24 @@ namespace Konsarpoo.Collections.Tests
                 data.Dispose();
             }
         }
-        
+
+        [Test]
+        public void TestCreateFromArrays()
+        {
+            var test = Enumerable.Range(1, 100).Select(i => Enumerable.Range(1, 16).ToArray()).ToArray();
+
+            var expected = test.SelectMany(i => i).ToData();
+
+            var data = new Data<int>(test, 100 * 16);
+
+            for (int i = 0; i < expected.Count; i++)
+            {
+                var l = data[i];
+                
+                Assert.AreEqual(expected[i], l);
+            }
+        }
+
         [Test]
         public void TestAny()
         {

@@ -52,6 +52,15 @@ namespace Konsarpoo.Collections
 
             m_items = ArrayAllocator.Rent(Math.Min(capacity, maxCapacity));
         }
+        
+        public PoolListBase(IArrayAllocator<T> allocator, int maxCapacity, T[] items)
+        {
+            m_maxCapacity = maxCapacity;
+            
+            ArrayAllocator = allocator;
+
+            m_items = items;
+        }
 
         public PoolListBase(PoolListBase<T> poolList)
         {

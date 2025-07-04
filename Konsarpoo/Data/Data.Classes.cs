@@ -114,6 +114,15 @@ namespace Konsarpoo.Collections
             /// </summary>
             [CanBeNull]
             INode Parent { get; internal set; }
+
+            /// <summary>
+            /// Tries to insert array into existing node. Returns true if node can fit new item. Returns false if lastItem is required to push into next index.
+            /// </summary>
+            /// <param name="array"></param>
+            /// <param name="size"></param>
+            /// <param name="node"></param>
+            /// <returns></returns>
+            bool AddArray(T[] array, int size, out INode node);
         }
 
         /// <summary>
@@ -329,6 +338,21 @@ namespace Konsarpoo.Collections
             }
 
             public IEnumerable<INode> Nodes => m_nodes;
+            
+            public bool AddArray(T[] array, int size, out INode node)
+            {
+                if (m_nodes[m_nodes.m_size - 1].AddArray(array, size, out var node1) == false)
+                {
+                    if (m_nodes.m_size == c_linkNodeCapacity)
+                    {
+                        node = new LinkNode(m_parent, m_level, m_leafCapacity, node1, m_nodesAllocator);
+                        return false;
+                    }
+                    m_nodes.Add(node1);
+                }
+                node = this;
+                return true;
+            }
 
             public bool Ensure(ref int size, ref T defaultValue, out INode node)
             {
@@ -416,9 +440,21 @@ namespace Konsarpoo.Collections
                 set => m_parent = value;
             }
 
+            public bool AddArray(T[] array, int size, out INode node)
+            {
+                node = new StoreNode(m_parent, base.ArrayAllocator, array, size);
+                return false;
+            }
+
             public StoreNode(INode parent, IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
             {
                 m_parent = parent;
+            }
+            
+            public StoreNode(INode parent, IArrayAllocator<T> allocator, T[] items, int size) : base(allocator, items.Length, items)
+            {
+                m_parent = parent;
+                m_size = size;
             }
 
             public StoreNode(INode parent, StoreNode poolList) : base(poolList)
@@ -426,7 +462,7 @@ namespace Konsarpoo.Collections
                 m_parent = parent;
             }
 
-            public StoreNode(INode parent, IArrayAllocator<T> allocator,int maxCapacity, int capacity, T item)
+            public StoreNode(INode parent, IArrayAllocator<T> allocator, int maxCapacity, int capacity, T item)
               : base(allocator, maxCapacity, capacity)
             {
                 m_parent = parent;

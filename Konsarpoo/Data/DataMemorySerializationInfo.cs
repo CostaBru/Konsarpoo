@@ -12,6 +12,7 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
     private const string VersionName = "Version";
     
     private readonly SerializationInfo info;
+    private int m_count;
 
     public DataMemorySerializationInfo(SerializationInfo inf)
     {
@@ -48,10 +49,14 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
         return (maxSizeOfArray, dataCount, version, elementsCount);
     }
 
-    public void WriteArray<T>(int i, T[] array)
+    public void AppendArray<T>(T[] array)
     {
+        var i = m_count;
+
         var elementsName = GetElementName(i);
         info.AddValue(elementsName, array, typeof(T[]));
+
+        m_count++;
     }
 
     public void WriteSingleArray<T>(T[] st)
@@ -70,15 +75,5 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
     {
         T[] objArray = (T[])info.GetValue(ElementsName, typeof(T[]));
         return objArray;
-    }
-
-    public void WriteArraysCount(int count)
-    {
-        info.AddValue(ElementsCountName, count);
-    }
-
-    public int ReadArraysCount()
-    {
-        return info.GetInt32(ElementsCountName);
     }
 }

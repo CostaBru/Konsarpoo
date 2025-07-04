@@ -131,6 +131,19 @@ namespace Konsarpoo.Collections
             m_maxSizeOfArray = alignedSize;
         }
         
+        /// <summary> Data&lt;T&gt; constructor accepting array storage and total items count.</summary>
+        public Data(IEnumerable<T[]> arrays, int totalCount)
+        {
+            var dataStorageAllocator = new DefaultGcAllocatorSetup(arrays.First().Length);
+
+            var dataAllocatorSetup = dataStorageAllocator.GetDataStorageAllocator<T>();
+            
+            m_arrayAllocator = dataAllocatorSetup.GetDataArrayAllocator();
+            m_nodesAllocator = dataAllocatorSetup.GetNodesArrayAllocator();
+
+            CreateFromArrays(arrays, totalCount);
+        }
+        
         /// <summary>
         /// Data class constructor that allows setup default capacity.
         /// </summary>

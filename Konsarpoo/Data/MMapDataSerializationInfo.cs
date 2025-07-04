@@ -13,6 +13,7 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     protected int m_arraysCount;
     protected readonly long m_estimatedSizeOfArray;
     private string m_path;
+    private int m_count;
 
     protected static readonly long m_metaSize = sizeof(int) * Marshal.SizeOf<int>(); // maxSizeOfArray, dataCount, version, arraysCount
 
@@ -87,9 +88,11 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         return (maxSize, count, version, arrayCount);
     }
 
-    public void WriteArray<T>(int i, T[] array)
+    public void AppendArray<T>(T[] array)
     {
+        var i = m_count;
         var (data, offset) = WriteArrayCore(i, array);
+        m_count++;
     }
 
     protected virtual (byte[] data, long offset) WriteArrayCore<T>(int i, T[] array)
@@ -146,7 +149,7 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     public void WriteSingleArray<T>(T[] array)
     {
-        WriteArray(0, array);
+        AppendArray(array);
     }
 
     public T[] ReadSingleArray<T>() 

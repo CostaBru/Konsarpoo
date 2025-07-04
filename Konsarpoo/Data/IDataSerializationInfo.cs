@@ -6,7 +6,7 @@ public interface IDataSerializationInfo
 
     (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData();
     
-    void WriteArray<T>(int i, T[] array);
+    void AppendArray<T>(T[] array);
 
     void WriteSingleArray<T>(T[] st);
 

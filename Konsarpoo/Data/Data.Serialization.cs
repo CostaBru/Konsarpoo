@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
@@ -71,21 +72,66 @@ namespace Konsarpoo.Collections
                 var storeNodes = GetStoreNodes(m_root).ToData();
                 
                 info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.Count));
-                int i = 0;
                 foreach (var storeNode in storeNodes)
                 {
-                    if (i == storeNodes.Count - 1)
-                    {
-                        System.Console.Write(" ");
-                        //123123
-                    }
-                    
-                    info.WriteArray(i, storeNode.m_items);
-                    i++;
+                    info.AppendArray(storeNode.m_items);
                 }
                 
                 storeNodes.Dispose();
             }
+        }
+
+        private void CreateFromArrays([NotNull] IEnumerable<T[]> arrays, int totalCount)
+        {
+            if (arrays == null) throw new ArgumentNullException(nameof(arrays));
+            if (totalCount < 0) throw new ArgumentOutOfRangeException(nameof(totalCount));
+            
+            int rest = totalCount;
+
+            int prevArrayLen = int.MaxValue;
+            
+            foreach (var array in arrays)
+            {
+                var nodeSize = Math.Min(array.Length, rest);
+
+                var closestValidArrayLen = 1 << (int)Math.Round(Math.Log(array.Length, 2));
+                
+                if (closestValidArrayLen != array.Length)
+                {
+                    throw new ArgumentException($"Array len:{array.Length} must be power of 2, but was not.");
+                }
+                
+                if (m_root == null)
+                {
+                    m_maxSizeOfArray = array.Length;
+                    prevArrayLen = array.Length;
+                    
+                    rest -= nodeSize;
+
+                    m_root = new StoreNode(null, m_arrayAllocator, array, nodeSize);
+                    continue;
+                }
+
+                if (prevArrayLen < array.Length)
+                {
+                    throw new ArgumentException($"The following array len:{array.Length} must be greater than or equal to former array length: {prevArrayLen}.");
+                }
+
+                INode node1 = m_root;
+                INode node2;
+                if (node1.AddArray(array, nodeSize, out node2) == false)
+                {
+                    m_root = new LinkNode(null, node1.Level + 1, array.Length, node1, m_nodesAllocator, node2);
+
+                    node1.Parent = m_root;
+                    node2.Parent = m_root;
+                }
+                
+                prevArrayLen = array.Length;
+                rest -= nodeSize;
+            }
+
+            m_count = totalCount;
         }
 
         public void DeserializeFrom(IDataSerializationInfo info)
@@ -96,7 +142,7 @@ namespace Konsarpoo.Collections
 
             if (dataCount != 0 && elementsCount != 0)
             {
-                Ensure(dataCount);
+                IEnumerable<T[]> arrays;
                 
                 if (elementsCount == 1)
                 {
@@ -105,40 +151,35 @@ namespace Konsarpoo.Collections
                     {
                         throw new SerializationException("Cannot read list values from serialization info.");
                     }
-                    var storeNode = (StoreNode)m_root;
-                    storeNode.ReturnArray();
-                    storeNode.m_items = objArray;
+
+                    arrays = new[] { objArray };
                 }
                 else
                 {
-                    var storeNodes = GetStoreNodes(m_root).ToArray();
-
-                    var storeNodesLength = storeNodes.Length;
-
-                    int i = 0;
-                    foreach (var storeNode in storeNodes)
-                    {
-                        if (i == storeNodesLength - 1)
-                        {
-                            System.Console.Write(" ");
-                            //123123
-                        }
-                        
-                        T[] objArray = info.ReadArray<T>(i);
-                        if (objArray == null)
-                        {
-                            throw new SerializationException($"Cannot read list values from serialization info for {i}th array.");
-                        }
-                        storeNode.ReturnArray();
-                        storeNode.m_items = objArray;
-                        i++;
-                    }
+                    arrays = ReadArrays(info, elementsCount);
                 }
+                
+                CreateFromArrays(arrays, dataCount);
             }
 
             unchecked
             {
                 m_version = (byte)version;
+            }
+        }
+
+        private IEnumerable<T[]> ReadArrays(IDataSerializationInfo info, int count)
+        {
+            for (int j = 0; j < count; j++)
+            {
+                var array = info.ReadArray<T>(j);
+                
+                if (array == null)
+                {
+                    throw new SerializationException("Cannot read list values from serialization info.");
+                }
+                
+                yield return array;
             }
         }
 
