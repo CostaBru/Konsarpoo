@@ -287,11 +287,11 @@ namespace Konsarpoo.Collections
 
             int storageIndex = hashCode % m_buckets.m_count;
 
-            var slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
+            var slotArr = m_slots.m_root?.Storage;
 
             if (slotArr != null)
             {
-                var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+                var bucketsArray = m_buckets.m_root.Storage;
 
                 var start = bucketsArray[storageIndex];
 
@@ -337,11 +337,11 @@ namespace Konsarpoo.Collections
                 ++m_lastIndex;
             }
             
-            slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
+            slotArr = m_slots.m_root?.Storage;
 
             if (slotArr != null)
             {
-                var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+                var bucketsArray = m_buckets.m_root?.Storage;
                 
                 var bucket = bucketsArray[storageIndex];
 
@@ -416,7 +416,7 @@ namespace Konsarpoo.Collections
                 return false;
             }
             
-            var slotArray = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
+            var slotArray = m_slots.m_root?.Storage;
 
             if (slotArray != null)
             {
@@ -430,7 +430,7 @@ namespace Konsarpoo.Collections
             
             int start;
             
-            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var bucketsArray = m_buckets.m_root?.Storage;
 
             if (bucketsArray != null)
             {
@@ -572,7 +572,7 @@ namespace Konsarpoo.Collections
         {
             var version = m_version;
             
-            var slotArr = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
+            var slotArr =m_slots.m_root?.Storage;
             
             if (slotArr != null)
             {
@@ -829,8 +829,8 @@ namespace Konsarpoo.Collections
             m_buckets.Ensure(newSize);
             m_slots.Ensure(newSize);
 
-            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
-            var slotsArray = (m_slots.m_root as Data<KeyEntry<T>>.StoreNode)?.Storage;
+            var bucketsArray = m_buckets.m_root?.Storage;
+            var slotsArray = m_slots.m_root?.Storage;
             
             if (bucketsArray != null && slotsArray != null)
             {

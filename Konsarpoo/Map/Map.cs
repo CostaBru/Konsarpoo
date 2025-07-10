@@ -470,7 +470,7 @@ namespace Konsarpoo.Collections
             
             if (m_buckets.m_count > 0)
             {
-                Entry<TKey, TValue>[] keys = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
+                Entry<TKey, TValue>[] keys = m_entries.m_root.Storage;
                 
                 if (keys != null)
                 {
@@ -561,7 +561,7 @@ namespace Konsarpoo.Collections
 
             int index = hashCode % m_buckets.m_count;
             
-            var keys = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
+            var keys = m_entries.m_root?.Storage;
 
             var bucket = m_buckets[index] - 1;
 
@@ -627,7 +627,7 @@ namespace Konsarpoo.Collections
                 m_count++;
             }
 
-            var entriesArray = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
+            var entriesArray = m_entries.m_root?.Storage;
 
             if (entriesArray != null)
             {
@@ -648,7 +648,7 @@ namespace Konsarpoo.Collections
                 valueByRef.Value = value;
             }
             
-            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var bucketsArray = m_buckets.m_root?.Storage;
             
             if (bucketsArray != null)
             {
@@ -750,7 +750,7 @@ namespace Konsarpoo.Collections
 
             m_entries.Ensure(prime);
 
-            var bucketsArray = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var bucketsArray = m_buckets.m_root?.Storage;
 
             if (bucketsArray != null)
             {
@@ -763,8 +763,8 @@ namespace Konsarpoo.Collections
             
             m_buckets.Ensure(prime);
 
-            var entries = (m_entries.m_root as Data<Entry<TKey, TValue>>.StoreNode)?.Storage;
-            var bucketsValues = (m_buckets.m_root as Data<int>.StoreNode)?.Storage;
+            var entries = m_entries.m_root?.Storage;
+            var bucketsValues = m_buckets.m_root?.Storage;
 
             if (entries != null && bucketsValues != null)
             {

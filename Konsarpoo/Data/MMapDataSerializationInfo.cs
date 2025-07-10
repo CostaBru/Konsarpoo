@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
@@ -91,17 +93,97 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     public void AppendArray<T>(T[] array)
     {
         var i = m_count;
-        var (data, offset) = WriteArrayCore(i, array);
+        var (data, dataCount, offset) = WriteArrayCore(i, array);
         m_count++;
     }
 
-    protected virtual (byte[] data, long offset) WriteArrayCore<T>(int i, T[] array)
+    public virtual (byte[] data, int dataCount, long offset) WriteArray<T>(int i, T[] array)
+    {
+        if (i == m_count - 1)
+        {
+            return WriteArrayCore(i, array);
+        }
+        else
+        {
+            var capacity = m_capacity;
+
+            long nextArrayOffset = GetMmapArrayOffset(i + 1);
+
+            var copySize = capacity - nextArrayOffset;
+
+            var pool = ArrayPool<byte>.Shared;
+
+            var chunks = CopyMemory<T>(nextArrayOffset, copySize, pool);
+
+            (byte[] data, int dataCount, long offset) = WriteArrayCoreCore(i, array);
+
+            WriteMemory<T>(offset + dataCount, copySize, chunks, pool);
+
+            return (data, dataCount, offset);
+        }
+    }
+
+    private void WriteMemory<T>(long offset, long size, List<(byte[] chunk, int size)> chunks, ArrayPool<byte> pool)
+    {
+        using (var writeMemAccessor = m_mmf.CreateViewAccessor(offset , size, MemoryMappedFileAccess.Write))
+        {
+            int position = 0;
+            
+            foreach (var chunk in chunks)
+            {
+                writeMemAccessor.WriteArray(position, chunk.chunk, 0, chunk.size);
+                
+                position += chunk.size;
+                
+                pool.Return(chunk.chunk);
+            }
+
+            writeMemAccessor.Flush();
+        }
+    }
+
+    private List<(byte[] chunk, int size)> CopyMemory<T>(long offset, long copySize, ArrayPool<byte> pool)
+    {
+        using (var copyMemAccessor = m_mmf.CreateViewAccessor(offset, copySize, MemoryMappedFileAccess.Read))
+        {
+            var chunks = new List<(byte[] chunk, int size)>();
+
+            var rest = copySize;
+
+            int position = 0;
+
+            while (rest > 0)
+            {
+                var minChunkSize = (int)Math.Min(1024, rest);
+
+                var chunk = pool.Rent(minChunkSize);
+
+                var chunkCopySize = (int)Math.Min(rest, chunk.Length);
+
+                copyMemAccessor.ReadArray(position, chunk, 0, chunkCopySize);
+
+                chunks.Add((chunk, chunkCopySize));
+
+                rest -= chunkCopySize;
+
+                position += chunkCopySize;
+            }
+            return chunks;
+        }
+    }
+
+    protected virtual (byte[] data, int dataCount, long offset) WriteArrayCore<T>(int i, T[] array)
+    {
+        return WriteArrayCoreCore(i, array);
+    }
+
+    private (byte[] data, int count, long offset) WriteArrayCoreCore<T>(int i, T[] array)
     {
         var data = GetBytes(array);
 
         long offset = GetMmapArrayOffset(i);
 
-        var dataLength = data.Length + Marshal.SizeOf<int>();
+        var dataLength = data.count + Marshal.SizeOf<int>();
 
         if (dataLength + offset > m_capacity)
         {
@@ -110,21 +192,21 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         
         using (var accessor = m_mmf.CreateViewAccessor(offset, dataLength, MemoryMappedFileAccess.Write))
         {
-            accessor.Write(0, data.Length); // prefix with length
-            accessor.WriteArray(Marshal.SizeOf<int>(), data, 0, data.Length);
+            accessor.Write(0, data.count); // prefix with length
+            accessor.WriteArray(Marshal.SizeOf<int>(), data.data, 0, data.count);
             
             accessor.Flush();
         }
 
-        return (data, offset);
+        return (data.data, data.count, offset);
     }
 
-    protected virtual byte[] GetBytes<T>(T[] array)
+    protected virtual (byte[] data, int count) GetBytes<T>(T[] array)
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
         byte[] data = ms.ToArray();
-        return data;
+        return (data, data.Length);
     }
 
     public T[] ReadArray<T>(int index) 
@@ -133,17 +215,28 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         using var accessor = m_mmf.CreateViewAccessor(offset, 4);
 
         int length = accessor.ReadInt32(0);
-        byte[] data = new byte[length];
-        
-        using var dataAccessor = m_mmf.CreateViewAccessor(offset + Marshal.SizeOf<int>(), length);
-        dataAccessor.ReadArray(0, data, 0, length);
 
-        return GetData<T>(data);
+        var pool = ArrayPool<byte>.Shared;
+        var data = pool.Rent(length);
+
+        try
+        {
+            using var dataAccessor = m_mmf.CreateViewAccessor(offset + Marshal.SizeOf<int>(), length);
+            dataAccessor.ReadArray(0, data, 0, length);
+
+            var array = GetData<T>(data, length);
+
+            return array;
+        }
+        finally
+        {
+            pool.Return(data);
+        }
     }
 
-    protected virtual T[] GetData<T>(byte[] data)
+    protected virtual T[] GetData<T>(byte[] data, int length)
     {
-        using var ms = new MemoryStream(data);
+        using var ms = new MemoryStream(data, 0, length);
         return (T[])new BinaryFormatter().Deserialize(ms);
     }
 

@@ -102,7 +102,7 @@ namespace Konsarpoo.Collections
 
             internal ArrayEnumerator(Map<TKey, TValue> dictionary)
             {
-                m_entries = ((Data<Entry<TKey,TValue>>.StoreNode) dictionary.m_entries.m_root).m_items;
+                m_entries = dictionary.m_entries.m_root.Storage;
                 m_dictionary = dictionary;
                 m_version = dictionary.m_version;
                 m_index = 0;
@@ -251,7 +251,7 @@ namespace Konsarpoo.Collections
 
             public IEnumerator<TKey> GetEnumerator()
             {
-                if (m_dictionary.m_entries?.m_root is Data<Entry<TKey,TValue>>.StoreNode)
+                if (m_dictionary.m_entries?.m_root.Storage != null)
                 {
                     return new ArrayEnumerator(m_dictionary);
                 }
@@ -378,7 +378,7 @@ namespace Konsarpoo.Collections
 
                 internal ArrayEnumerator(Map<TKey, TValue> dictionary)
                 {
-                    m_entries = ((Data<Entry<TKey,TValue>>.StoreNode)dictionary.m_entries.m_root).m_items;
+                    m_entries = dictionary.m_entries.m_root.Storage;
                     m_dictionary = dictionary;
                     m_version = dictionary.m_version;
                     m_index = 0;
@@ -634,7 +634,7 @@ namespace Konsarpoo.Collections
 
                 internal ArrayEnumerator(Map<TKey, TValue> dictionary)
                 {
-                    m_entries = ((Data<Entry<TKey,TValue>>.StoreNode)dictionary.m_entries.m_root).m_items;
+                    m_entries = dictionary.m_entries.m_root.Storage;
                     m_dictionary = dictionary;
                     m_version = dictionary.m_version;
                     m_index = 0;

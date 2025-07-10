@@ -50,6 +50,7 @@ namespace Konsarpoo.Collections
         private int m_maxSizeOfArray;
 
         internal int MaxSizeOfArray => m_maxSizeOfArray;
+        
         internal int GetStoreNodesCount()
         {
             if (m_root == null)
@@ -57,7 +58,7 @@ namespace Konsarpoo.Collections
                 return 0;
             }
             
-            if (m_root is StoreNode st)
+            if (m_root.Storage != null)
             {
                 return 1;
             }
@@ -733,8 +734,6 @@ namespace Konsarpoo.Collections
         {
             Add(item);
         }
-
-        private Action<T, StoreNode, Data<T>> m_addAction;
 
         /// <summary>
         /// List API. Adds an object to the end of the Data&lt;T&gt;.
@@ -1592,7 +1591,7 @@ namespace Konsarpoo.Collections
         
         private void CreateFromList(Data<T> source)
         {
-            if (source.m_root != null)
+            if (source.m_root != null && (source.m_root is StoreNode || source.m_root is LinkNode))
             {
                 if (source.m_root is StoreNode simpleNode)
                 {
@@ -1606,6 +1605,10 @@ namespace Konsarpoo.Collections
 
                     m_count = source.m_count;
                 }
+            }
+            else
+            {
+                AddRange(source);
             }
         }
     }

@@ -61,23 +61,23 @@ namespace Konsarpoo.Collections
                 info.WriteSingleArray(Array.Empty<T>());
                 return;
             }
+
+            var storage = m_root.Storage;
             
-            if (m_root is StoreNode st)
+            if (storage != null)
             {
                 info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
-                info.WriteSingleArray(st.m_items);
+                info.WriteSingleArray(storage);
             }
             else
             {
-                var storeNodes = GetStoreNodes(m_root).ToData();
+                var storeNodes = GetStoreNodes(m_root).ToArray();
                 
-                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.Count));
+                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.Length));
                 foreach (var storeNode in storeNodes)
                 {
-                    info.AppendArray(storeNode.m_items);
+                    info.AppendArray(storeNode);
                 }
-                
-                storeNodes.Dispose();
             }
         }
 
@@ -183,13 +183,15 @@ namespace Konsarpoo.Collections
             }
         }
 
-        private IEnumerable<StoreNode> GetStoreNodes(INode node)
+        private IEnumerable<T[]> GetStoreNodes(INode node)
         {
             foreach (var nodeNode in node.Nodes)
             {
-                if (nodeNode is StoreNode sn)
+                var storage = nodeNode.Storage;
+
+                if (storage != null)
                 {
-                    yield return sn;
+                    yield return storage;
                 }
                 else
                 {

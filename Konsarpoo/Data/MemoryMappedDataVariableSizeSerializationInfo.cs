@@ -54,13 +54,25 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
         return readMetaData;
     }
 
-    protected override (byte[] data, long offset) WriteArrayCore<T>(int i, T[] array)
+    public override (byte[] data, int dataCount, long offset) WriteArray<T>(int i, T[] array)
+    {
+        var rez = base.WriteArray(i, array);
+        
+        if (i + 1 < m_arraysCount)
+        {
+            UpdateOffsetTable(i + 1, rez.offset, rez.data.Length + Marshal.SizeOf<int>());
+        }
+        
+        return rez;
+    }
+
+    protected override (byte[] data, int dataCount, long offset) WriteArrayCore<T>(int i, T[] array)
     {
         var rez = base.WriteArrayCore(i, array);
         
         if (i + 1 < m_arraysCount)
         {
-            UpdateOffsetTable(i + 1, rez.offset, rez.data.Length + Marshal.SizeOf<int>());
+            UpdateOffsetTable(i + 1, rez.offset, rez.dataCount + Marshal.SizeOf<int>());
         }
         
         return rez;
