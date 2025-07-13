@@ -11,8 +11,7 @@ namespace Konsarpoo.Collections;
 public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDisposable
 {
     protected readonly int m_maxSizeOfArray;
-    protected long m_capacity;
-    protected int m_arraysCount;
+    protected long m_bytesCapacity;
     protected readonly long m_estimatedSizeOfArray;
     private string m_path;
     private int m_count;
@@ -23,17 +22,17 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     protected MemoryMappedFile m_mmf;
 
-    public MemoryMappedDataSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray, long maxSizeOfFile = 0)
+    public MemoryMappedDataSerializationInfo(string path, int maxSizeOfArray, int arrayCapacity, long estimatedSizeOfArray, long maxSizeOfFile = 0)
     {
         m_path = path;
         m_maxSizeOfArray = maxSizeOfArray;
-        m_arraysCount = arraysCount;
         m_estimatedSizeOfArray = estimatedSizeOfArray;
-        m_capacity = maxSizeOfFile == 0 ? arraysCount * estimatedSizeOfArray + m_metaSize : maxSizeOfFile;
-      
+        m_bytesCapacity = maxSizeOfFile == 0 ? arrayCapacity * estimatedSizeOfArray + m_metaSize : maxSizeOfFile;
+        m_count = 0;
+        
         using var fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
-        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
     }
 
     protected abstract long GetEstimatedSizeOfArrayCore(long estimatedSizeOfT, int maxSizeOfArray);
@@ -48,8 +47,8 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         var estimatedSizeOfArray = GetEstimatedSizeOfArrayCore(estimatedSizeOfT, readMetaData.maxSizeOfArray);
 
         m_maxSizeOfArray = readMetaData.maxSizeOfArray;
-        m_arraysCount = readMetaData.arraysCount;
-        m_capacity = m_arraysCount * estimatedSizeOfArray + m_metaSize;
+        m_count = readMetaData.arraysCount;
+        m_bytesCapacity = readMetaData.arraysCount * estimatedSizeOfArray + m_metaSize;
         m_estimatedSizeOfArray = estimatedSizeOfArray;
     }
 
@@ -57,20 +56,21 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     {
         m_mmf.Dispose();
 
-        m_capacity += m_capacity / 2;
+        m_bytesCapacity += m_bytesCapacity / 2;
 
-        m_capacity = Math.Max(dataLength, m_capacity);
+        m_bytesCapacity = Math.Max(dataLength, m_bytesCapacity);
         
         using var fs = new FileStream(m_path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         
-        fs.SetLength(m_capacity);
+        fs.SetLength(m_bytesCapacity);
 
-        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
     }
   
     public void WriteMetaData((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
         using var accessor = m_mmf.CreateViewAccessor(0, m_metaSize, MemoryMappedFileAccess.Write);
+        
         accessor.Write(0, metaData.maxSizeOfArray);
         accessor.Write(sizeof(int), metaData.dataCount);
         accessor.Write(sizeof(int) * 2, metaData.version);
@@ -82,6 +82,7 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     public virtual (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
     {
         using var accessor = m_mmf.CreateViewAccessor(0, m_metaSize, MemoryMappedFileAccess.Read);
+        
         int maxSize = accessor.ReadInt32(0);
         int count = accessor.ReadInt32(sizeof(int));
         int version = accessor.ReadInt32(sizeof(int) * 2);
@@ -93,34 +94,39 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     public void AppendArray<T>(T[] array)
     {
         var i = m_count;
-        var (data, dataCount, offset) = WriteArrayCore(i, array);
+        var (_, __, ___) = WriteArrayCore(i, array);
         m_count++;
     }
 
-    public virtual (byte[] data, int dataCount, long offset) WriteArray<T>(int i, T[] array)
+    public void WriteArray<T>(int i, T[] array)
     {
-        if (i == m_count - 1)
+        WriteArrayCore(i, array);
+    }
+
+    protected int ArrayCount => m_count;
+
+    protected virtual (byte[] bytes, int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
+    {
+        if (i >= m_count - 1)
         {
-            return WriteArrayCore(i, array);
+            return WriteArrayToMem(i, array);
         }
-        else
-        {
-            var capacity = m_capacity;
 
-            long nextArrayOffset = GetMmapArrayOffset(i + 1);
+        var capacity = m_bytesCapacity;
 
-            var copySize = capacity - nextArrayOffset;
+        long nextArrayOffset = GetMmapArrayOffset(i + 1);
 
-            var pool = ArrayPool<byte>.Shared;
+        var copySize = capacity - nextArrayOffset;
 
-            var chunks = CopyMemory<T>(nextArrayOffset, copySize, pool);
+        var pool = ArrayPool<byte>.Shared;
 
-            (byte[] data, int dataCount, long offset) = WriteArrayCoreCore(i, array);
+        var chunks = CopyMemory<T>(nextArrayOffset, copySize, pool);
 
-            WriteMemory<T>(offset + dataCount, copySize, chunks, pool);
+        (byte[] bytes, int bytesWritten, long offset) = WriteArrayToMem(i, array);
 
-            return (data, dataCount, offset);
-        }
+        WriteMemory<T>(offset + bytesWritten, copySize, chunks, pool);
+
+        return (bytes, bytesWritten, offset);
     }
 
     private void WriteMemory<T>(long offset, long size, List<(byte[] chunk, int size)> chunks, ArrayPool<byte> pool)
@@ -172,33 +178,28 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         }
     }
 
-    protected virtual (byte[] data, int dataCount, long offset) WriteArrayCore<T>(int i, T[] array)
+    private (byte[] data, int byteSize, long offset) WriteArrayToMem<T>(int i, T[] array)
     {
-        return WriteArrayCoreCore(i, array);
-    }
-
-    private (byte[] data, int count, long offset) WriteArrayCoreCore<T>(int i, T[] array)
-    {
-        var data = GetBytes(array);
+        var bytes = GetBytes(array);
 
         long offset = GetMmapArrayOffset(i);
 
-        var dataLength = data.count + Marshal.SizeOf<int>();
+        var bytesSize = bytes.count + Marshal.SizeOf<int>();
 
-        if (dataLength + offset > m_capacity)
+        if (bytesSize + offset > m_bytesCapacity)
         {
-            Resize(dataLength + offset);
+            Resize(bytesSize + offset);
         }
         
-        using (var accessor = m_mmf.CreateViewAccessor(offset, dataLength, MemoryMappedFileAccess.Write))
+        using (var accessor = m_mmf.CreateViewAccessor(offset, bytesSize, MemoryMappedFileAccess.Write))
         {
-            accessor.Write(0, data.count); // prefix with length
-            accessor.WriteArray(Marshal.SizeOf<int>(), data.data, 0, data.count);
+            accessor.Write(0, bytes.count); // prefix with length
+            accessor.WriteArray(Marshal.SizeOf<int>(), bytes.data, 0, bytes.count);
             
             accessor.Flush();
         }
 
-        return (data.data, data.count, offset);
+        return (bytes.data, bytesSize, offset);
     }
 
     protected virtual (byte[] data, int count) GetBytes<T>(T[] array)

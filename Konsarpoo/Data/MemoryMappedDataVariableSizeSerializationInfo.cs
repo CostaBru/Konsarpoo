@@ -22,11 +22,26 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
         return new MemoryMappedDataVariableSizeSerializationInfo(file, estimatedSizeOfArray);
     }
     
-    private void UpdateOffsetTable(int arrayIndex, long offset, long size)
+    private void AppendNextArrayOffset(int arrayIndex, long offset, long bytesWritten)
     {
         var baseOffset = GetBaseOffset();
         var l = offset - baseOffset;
-        m_offsetTable[arrayIndex] = l + size;
+        m_offsetTable[arrayIndex + 1] = l + bytesWritten;
+        WriteOffsetTableInfo(m_offsetTable);
+    }
+    
+    private void UpdateOffsetTable(int arrayIndex, long offset, long bytesWritten, long delta)
+    {
+        var baseOffset = GetBaseOffset();
+        
+        var l = offset - baseOffset;
+        m_offsetTable[arrayIndex] = l + bytesWritten;
+
+        for (int i = arrayIndex + 1; i < arrayIndex + bytesWritten; i++)
+        {
+            m_offsetTable[i] += delta;
+        }
+        
         WriteOffsetTableInfo(m_offsetTable);
     }
 
@@ -54,28 +69,29 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
         return readMetaData;
     }
 
-    public override (byte[] data, int dataCount, long offset) WriteArray<T>(int i, T[] array)
+    protected override (byte[] bytes, int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
     {
-        var rez = base.WriteArray(i, array);
-        
-        if (i + 1 < m_arraysCount)
-        {
-            UpdateOffsetTable(i + 1, rez.offset, rez.data.Length + Marshal.SizeOf<int>());
-        }
-        
-        return rez;
-    }
+        var (bytes, bytesWritten, offset) = base.WriteArrayCore(i, array);
 
-    protected override (byte[] data, int dataCount, long offset) WriteArrayCore<T>(int i, T[] array)
-    {
-        var rez = base.WriteArrayCore(i, array);
-        
-        if (i + 1 < m_arraysCount)
+        var arrayCount = ArrayCount;
+
+        if (i + 1 < m_offsetTable.Length)
         {
-            UpdateOffsetTable(i + 1, rez.offset, rez.dataCount + Marshal.SizeOf<int>());
+            if (i >= arrayCount - 1)
+            {
+                AppendNextArrayOffset(i, offset, bytesWritten);
+            }
+            else
+            {
+                var oldSize = m_offsetTable[i + 1] - m_offsetTable[i];
+
+                var delta = bytesWritten - oldSize;
+
+                UpdateOffsetTable(i, offset, bytesWritten, delta);
+            }
         }
-        
-        return rez;
+
+        return (bytes, bytesWritten, offset);
     }
 
     private long[] ReadOffsetTableInfo(int arrayCount)
