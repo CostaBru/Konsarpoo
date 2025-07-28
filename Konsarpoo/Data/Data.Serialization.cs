@@ -101,6 +101,11 @@ namespace Konsarpoo.Collections
                     throw new ArgumentException($"Array len:{array.Length} must be power of 2, but was not.");
                 }
                 
+                if (array.Length > ushort.MaxValue)
+                {
+                    throw new ArgumentException($"Array len:{array.Length} must not be greater than {ushort.MaxValue}.");
+                }
+                
                 if (m_root == null)
                 {
                     m_maxSizeOfArray = array.Length;
@@ -108,7 +113,11 @@ namespace Konsarpoo.Collections
                     
                     rest -= nodeSize;
 
-                    m_root = new StoreNode(null, m_arrayAllocator, array, nodeSize);
+                    var storeNode = new StoreNode(array, nodeSize);
+                    
+                    m_root = storeNode;
+                    m_tailStoreNode = storeNode;
+                    
                     continue;
                 }
 
@@ -119,26 +128,26 @@ namespace Konsarpoo.Collections
 
                 INode node1 = m_root;
                 INode node2;
-                if (node1.AddArray(array, nodeSize, out node2) == false)
+                if (node1.AddArray(array, nodeSize, out node2, m_allocator) == false)
                 {
-                    m_root = new LinkNode(null, node1.Level + 1, array.Length, node1, m_nodesAllocator, node2);
-
-                    node1.Parent = m_root;
-                    node2.Parent = m_root;
+                    m_root = new LinkNode((ushort)(node1.Level + 1),array.Length, node1, m_allocator, node2);
                 }
+
                 
                 prevArrayLen = array.Length;
                 rest -= nodeSize;
             }
 
             m_count = totalCount;
+
+            UpdateLastNode();
         }
 
         public void DeserializeFrom(IDataSerializationInfo info)
         {
             var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetaData();
             
-            m_maxSizeOfArray = maxSizeOfArray;
+            m_maxSizeOfArray = (ushort)maxSizeOfArray;
 
             if (dataCount != 0 && elementsCount != 0)
             {

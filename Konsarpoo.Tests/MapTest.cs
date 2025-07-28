@@ -15,7 +15,7 @@ namespace Konsarpoo.Collections.Tests
     [TestFixture(1024, AllocatorType.Pool, 0)]
     public class MapTest : BaseTest
     {
-        public MapTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, gcLen)
+        public MapTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, (int)gcLen)
         {
         }
         

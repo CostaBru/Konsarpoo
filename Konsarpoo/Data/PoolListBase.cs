@@ -16,9 +16,6 @@ namespace Konsarpoo.Collections
     internal class PoolListBase<T> : IEnumerable, IEnumerable<T>
     {
         public static readonly T Default = default(T);
-        
-        [NotNull] 
-        protected readonly IArrayAllocator<T> ArrayAllocator;
 
         internal readonly int m_maxCapacity;
         
@@ -47,26 +44,20 @@ namespace Konsarpoo.Collections
         public PoolListBase(IArrayAllocator<T> allocator, int maxCapacity, int capacity)
         {
             m_maxCapacity = maxCapacity;
-            
-            ArrayAllocator = allocator;
 
-            m_items = ArrayAllocator.Rent(Math.Min(capacity, maxCapacity));
+            m_items = allocator.Rent(Math.Min(capacity, m_maxCapacity));
         }
         
-        public PoolListBase(IArrayAllocator<T> allocator, int maxCapacity, T[] items)
+        public PoolListBase(int maxCapacity, T[] items)
         {
             m_maxCapacity = maxCapacity;
-            
-            ArrayAllocator = allocator;
 
             m_items = items;
         }
 
-        public PoolListBase(PoolListBase<T> poolList)
+        public PoolListBase(PoolListBase<T> poolList, IArrayAllocator<T> allocator)
         {
-            ArrayAllocator = poolList.ArrayAllocator;
-
-            var newArr = ArrayAllocator.Rent(poolList.m_items.Length);
+            var newArr = allocator.Rent(poolList.m_items.Length);
 
             Array.Copy(poolList.m_items, 0, newArr, 0, poolList.m_size);
 
@@ -75,38 +66,32 @@ namespace Konsarpoo.Collections
             m_maxCapacity = poolList.m_maxCapacity;
         }
 
-        public bool Add(T item)
+        public bool Add(T item, IArrayAllocator<T> arrayAllocator)
         {
-            AddItem(item);
+            AddItem(item, arrayAllocator);
          
             return true;
         }
 
-        public void AddItem(T item)
+        public void AddItem(T item, IArrayAllocator<T> arrayAllocator)
         {
-            if (m_size + 1 > m_maxCapacity)
+            if (m_size + 1 > (m_maxCapacity ))
             {
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached.");
             }
-            
-            if (m_items.Length == 0)
-            {
-                T[] vals = ArrayAllocator.Rent(2);
 
-                m_items = vals;
-            }
-            else if (m_size == m_items.Length)
+            if (m_size == m_items.Length)
             {
-                int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
+                var newCapacity = Math.Min(Math.Max(m_items.Length * 2, 2), m_maxCapacity);
 
-                T[] vals = ArrayAllocator.Rent(newCapacity);
+                T[] vals = arrayAllocator.Rent(newCapacity);
 
                 if (m_size > 0)
                 {
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -116,14 +101,14 @@ namespace Konsarpoo.Collections
             m_size++;
         }
 
-        public void Clear()
+        public void Clear(IArrayAllocator<T> arrayAllocator)
         {
-            ReturnArray();
+            ReturnArray(arrayAllocator);
 
             m_size = 0;
         }
 
-        public bool RemoveLast()
+        public bool RemoveLast(IArrayAllocator<T> arrayAllocator)
         {
             if (m_size > 0)
             {
@@ -134,7 +119,7 @@ namespace Konsarpoo.Collections
 
             if (m_size == 0)
             {
-                ReturnArray();
+                ReturnArray(arrayAllocator);
 
                 return true;
             }
@@ -142,7 +127,7 @@ namespace Konsarpoo.Collections
             return false;
         }
 
-        public void RemoveAt(int index)
+        public void RemoveAt(int index, IArrayAllocator<T> arrayAllocator)
         {
             if (m_size > 0)
             {
@@ -153,43 +138,34 @@ namespace Konsarpoo.Collections
                     Array.Copy(m_items, index + 1, m_items, index, m_size - index);
                 }
 
-                if (m_size >= 0)
-                {
-                    m_items[m_size] = Default;
-                }
+                m_items[m_size] = Default;
 
                 if (m_size == 0)
                 {
-                    ReturnArray();
+                    ReturnArray(arrayAllocator);
                 }
             }
         }
 
-        public void Insert(int index, T item)
+        public void Insert(int index, T item, IArrayAllocator<T> arrayAllocator)
         {
-            if (m_size + 1 > m_maxCapacity)
+            if (m_size + 1 > (m_maxCapacity))
             {
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached");
             }
             
-            if (m_items.Length == 0)
+            if (m_size == m_items.Length)
             {
-                T[] vals = ArrayAllocator.Rent(2);
+                var newCapacity = Math.Min(Math.Max(m_items.Length * 2, 2), m_maxCapacity);
 
-                m_items = vals;
-            }
-            else if (m_size == m_items.Length)
-            {
-                int newCapacity = Math.Min(m_items.Length * 2, m_maxCapacity);
-
-                T[] vals = ArrayAllocator.Rent(newCapacity);
+                T[] vals = arrayAllocator.Rent(newCapacity);
 
                 if (m_size > 0)
                 {
                     Array.Copy(m_items, 0, vals, 0, m_size);
                 }
 
-                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
 
                 m_items = vals;
             }
@@ -203,7 +179,7 @@ namespace Konsarpoo.Collections
             m_size += 1;
         }
 
-        public int RemoveAll(Func<T, bool> match)
+        public int RemoveAll(Func<T, bool> match, IArrayAllocator<T> arrayAllocator)
         {
             int index1 = 0;
             while (index1 < m_size && !match(m_items[index1]))
@@ -236,7 +212,7 @@ namespace Konsarpoo.Collections
             
             if (m_size == 0)
             {
-                ReturnArray();
+                ReturnArray(arrayAllocator);
             }
 
             return num;
@@ -261,7 +237,7 @@ namespace Konsarpoo.Collections
             return GetEnumerator();
         }
 
-        internal int RemoveAll(T item, IComparer<T> comparer)
+        internal int RemoveAll(T item, IComparer<T> comparer, IArrayAllocator<T> arrayAllocator)
         {
             int index1 = 0;
             while (index1 < m_size && comparer.Compare(m_items[index1], item) != 0)
@@ -294,17 +270,17 @@ namespace Konsarpoo.Collections
 
             if (m_size == 0)
             {
-                ReturnArray();
+                ReturnArray(arrayAllocator);
             }
 
             return num;
         }
         
-        internal void ReturnArray()
+        internal void ReturnArray(IArrayAllocator<T> arrayAllocator)
         {
             if (m_items.Length > 0)
             {
-                ArrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
             }
 
             m_items = Array.Empty<T>();

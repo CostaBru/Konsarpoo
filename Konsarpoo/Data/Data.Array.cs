@@ -49,17 +49,20 @@ namespace Konsarpoo.Collections
             if (m_root == null)
             {
                 //common case
-                var storeNode = new StoreNode(null, m_arrayAllocator, maxSizeOfArray, size);
+                var arrayAllocator = m_allocator.GetDataArrayAllocator();
+                
+                var storeNode = new StoreNode(arrayAllocator, maxSizeOfArray, Math.Min(maxSizeOfArray, size));
 
                 int startIndex = 0;
 
                 m_count = storeNode.m_size;
 
                 m_root = storeNode;
+                m_tailStoreNode = storeNode;
 
                 var setupDefaultValueForArray = EqualityComparer<T>.Default.Equals(defaultValue, Default) == false;
 
-                if (setupDefaultValueForArray || m_arrayAllocator.CleanArrayReturn == false)
+                if (setupDefaultValueForArray || arrayAllocator.CleanArrayReturn == false)
                 {
                     Array.Fill(storeNode.m_items, defaultValue, startIndex, m_count - startIndex);
                 }
@@ -70,16 +73,15 @@ namespace Konsarpoo.Collections
                 {
                     INode node1 = m_root;
                     INode node2;
-                    if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
+                    if (node1.Ensure(ref restSize, ref defaultValue, out node2, m_allocator) == false)
                     {
-                        m_root = new LinkNode(null, node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
-
-                        node1.Parent = m_root;
-                        node2.Parent = m_root;
+                        m_root = new LinkNode((ushort)(node1.Level + 1), maxSizeOfArray, node1, m_allocator, node2);
                     }
                 }
 
                 m_count = size;
+                
+                UpdateLastNode();
 
                 return;
             }
@@ -92,17 +94,17 @@ namespace Konsarpoo.Collections
                 {
                     INode node1 = m_root;
                     INode node2;
-                    if (node1.Ensure(ref restSize, ref defaultValue, out node2) == false)
+                    if (node1.Ensure(ref restSize, ref defaultValue, out node2, m_allocator) == false)
                     {
-                        m_root = new LinkNode(null, node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
-                        
-                        node1.Parent = m_root;
-                        node2.Parent = m_root;
+                        m_root = new LinkNode((ushort)(node1.Level + 1), maxSizeOfArray, node1, m_allocator, node2);
                     }
                 }
+
             }
 
             m_count = size;
+
+            UpdateLastNode();
         }
     }
 }

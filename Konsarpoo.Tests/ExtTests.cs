@@ -9,20 +9,79 @@ namespace Konsarpoo.Collections.Tests
     public class ExtTests
     {
         [Test]
-        public void Add1000()
+        public void AddAll()
         {
-            for (int j = 0; j < 100; j++)
+            var data = new Data<int>(0, 16);
+            var expected = new List<int>();
+
+            for (int i = 0; i < ((int)ushort.MaxValue * 100); i++)
             {
-                var data = new Data<int>();
+                data.Add(i);
+                expected.Add(i);
+            }
 
-                for (int i = 0; i < 1000; i++)
-                {
-                    data.Add(i);
-                }
+            Assert.AreEqual(expected, data);
 
-                data.Dispose();
+            data.Dispose();
+        }
+        
+        [Test]
+        public void AddAll1()
+        {
+            var data = new Data<int>(0, 1000_000);
+            var expected = new List<int>();
+
+            for (int i = 0; i < 1000_000; i++)
+            {
+                data.Add(i);
+                expected.Add(i);
+            }
+
+            Assert.AreEqual(expected, data);
+
+            data.Dispose();
+        }
+        
+        [Test]
+        public void Add10000()
+        {
+            var testData =  new Data<int>();
+            
+            var stack = new Data<int>();
+            
+            for (int i = 0; i < 10000; i++)
+            {
+                testData.Add(i);
+                
+                stack.Push(i);
+
+                var d = testData[i];
+                
+                Assert.AreEqual(i, d);
+            }
+
+            while (stack.Count > 0)
+            {
+                var pop = stack.Pop();
             }
         }
+        
+        [Test]
+        public void Add1000_16()
+        {
+            var stack = new Data<int>(0, 16);
+            
+            for (int i = 0; i < 1000; i++)
+            {
+                stack.Push(i);
+            }
+
+            while (stack.Count > 0)
+            {
+                var pop = stack.Pop();
+            }
+        }
+        
 
         [Test]
         public void TestCreateFromArrays()

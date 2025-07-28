@@ -114,10 +114,12 @@ namespace Konsarpoo.Collections
 
             unchecked { list.m_version += 1; }
 
-            list.m_root?.Clear();
+            list.m_root?.Clear(list.m_allocator);
             list.m_root = temp.m_root;
+            list.m_tailStoreNode = temp.UpdateLastNode();
 
             temp.m_root = null;
+            temp.m_tailStoreNode = null;
             temp.Dispose();
         }
     }

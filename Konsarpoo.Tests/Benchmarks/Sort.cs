@@ -22,8 +22,8 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
 
         private Data<int> data16 = new Data<int>(0, 16);
         private Data<int> data1024 = new Data<int>(0, 1024);
-        private Data<int> data = new Data<int>(0, 1024 * 100);
-        private int[] arr = new int[1024 * 100];
+        private Data<int> data = new Data<int>(0, (ushort)(ushort.MaxValue));
+        private int[] arr = new int[ushort.MaxValue];
         
         [GlobalSetup]
         public void Setup()
@@ -32,7 +32,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
             GcArrayPoolMixedAllocator<int>.ClearArrayOnRequest = false;
             
             int j = 0;
-            for (int i = (1024 * 100) - 1; i >= 0; i--)
+            for (int i = (ushort.MaxValue) - 1; i >= 0; i--)
             {
                 data16.Add(i);
                 data1024.Add(i);

@@ -22,7 +22,7 @@ namespace Konsarpoo.Collections.Tests
     [TestFixture(1024, AllocatorType.Pool, 0)]
     public class DataTest : BaseTest
     {
-        public DataTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base(maxSizeOfArrayBucket, allocatorType, gcLen)
+        public DataTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen) : base((ushort)maxSizeOfArrayBucket, allocatorType, (ushort)gcLen)
         {
         }
 
@@ -222,12 +222,14 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestPoolList([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
+            var arrayAllocatorAllocator = new ArrayAllocatorAllocator<int>();
+            
             {
-                var poolList = new PoolList<int>(count, 0);
+                var poolList = new PoolList<int>((ushort)count, 0);
 
                 for (int i = 0; i < count; i++)
                 {
-                    poolList.Add(i);
+                    poolList.Add(i, arrayAllocatorAllocator);
                 }
 
                 for (int i = 0; i < count; i++)
@@ -235,14 +237,14 @@ namespace Konsarpoo.Collections.Tests
                     Assert.AreEqual(i, poolList[i]);
                 }
 
-                var poolListCopy = new PoolList<int>(poolList);
+                var poolListCopy = new PoolList<int>(poolList, arrayAllocatorAllocator);
 
                 for (int i = 0; i < count; i++)
                 {
                     Assert.AreEqual(i, poolListCopy[i]);
                 }
 
-                poolList.Dispose();
+                poolList.Clear(arrayAllocatorAllocator);
 
                 Assert.AreEqual(0, poolList.Count);
             }
@@ -253,33 +255,37 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestPoolList2([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
+            var arrayAllocatorAllocator = new ArrayAllocatorAllocator<int>();
+
             {
-                var poolList = new PoolList<int>(count, 0);
+                var poolList = new PoolList<int>((ushort)count, 0);
 
                 for (int i = 0; i < count; i++)
                 {
-                    poolList.Add(i);
+                    poolList.Add(i, arrayAllocatorAllocator);
                 }
 
-                poolList.Clear();
+                poolList.Clear(arrayAllocatorAllocator);
 
                 Assert.AreEqual(0, poolList.m_items.Length);
                 Assert.AreEqual(0, poolList.m_size);
             }
-           
+
             GC.Collect();
         }
-        
+
         [Test]
         public void TestPoolListInsert([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
+            var arrayAllocatorAllocator = new ArrayAllocatorAllocator<int>();
+            
             {
-                var poolList = new PoolList<int>(count, 0);
+                var poolList = new PoolList<int>((ushort)count, 0);
                 var list = new List<int>(count);
 
                 for (int i = 0; i < count; i++)
                 {
-                    poolList.Insert(0, i);
+                    poolList.Insert(0, i, arrayAllocatorAllocator);
                     list.Insert(0, i);
 
                     Assert.AreEqual(list[i], poolList[i]);
@@ -515,7 +521,6 @@ namespace Konsarpoo.Collections.Tests
                 
                 Assert.NotNull(storageNode);
                 Assert.NotNull(storageNode.Storage);
-                Assert.NotNull(storageNode.Parent);
             }
 
             var ints = new Data<int>();
@@ -529,8 +534,6 @@ namespace Konsarpoo.Collections.Tests
             Assert.NotNull(node);
             
             Assert.AreEqual(1, node.Storage[0]);
-            
-            Assert.Null(node.Parent);
         }
 
         [Test]

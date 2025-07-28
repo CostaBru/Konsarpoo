@@ -10,13 +10,13 @@ namespace Konsarpoo.Collections
     /// </summary>
     /// <typeparam name="T"></typeparam>
     [DebuggerDisplay("PoolList. Size: {m_size}")]
-    internal class PoolList<T> : PoolListBase<T>, IDisposable
+    internal class PoolList<T> : PoolListBase<T>
     {
         /// <summary>
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(int maxCapacity, int capacity) : base(new GcArrayPoolMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
+        public PoolList(ushort maxCapacity, ushort capacity) : base(new GcArrayPoolMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
         {
         }
         
@@ -24,7 +24,7 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
+        public PoolList(IArrayAllocator<T> allocator, ushort maxCapacity, ushort capacity) : base(allocator, maxCapacity, capacity)
         {
         }
 
@@ -32,26 +32,8 @@ namespace Konsarpoo.Collections
         /// Copying constructor.
         /// </summary>
         /// <param name="poolList"></param>
-        public PoolList(PoolListBase<T> poolList) : base(poolList)
+        public PoolList(PoolListBase<T> poolList, IArrayAllocator<T> allocator) : base(poolList, allocator)
         {
-        }
-
-        /// <summary>
-        /// Destructor called by GC. Shouldn't be called if instance is properly disposed beforehand.
-        /// </summary>
-        ~PoolList()
-        {
-            Clear();
-        }
-
-        /// <summary>
-        /// Clears container and returns all node arrays back to array allocator. Suppresses instance finalization.
-        /// </summary>
-        public void Dispose()
-        {
-            Clear();
-
-            GC.SuppressFinalize(this);
         }
     }
 }

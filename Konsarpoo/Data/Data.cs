@@ -44,8 +44,7 @@ namespace Konsarpoo.Collections
         private static volatile bool s_clearArrayOnReturn = KonsarpooAllocatorGlobalSetup.ClearArrayOnReturn;
         private static Action<IReadOnlyList<T>> s_disposingHandler;
 
-        [NonSerialized] private readonly IArrayAllocator<T> m_arrayAllocator;
-        [NonSerialized] private readonly IArrayAllocator<INode> m_nodesAllocator;
+        [NonSerialized] private readonly IDataAllocatorSetup<T> m_allocator;
         
         private int m_maxSizeOfArray;
 
@@ -65,16 +64,6 @@ namespace Konsarpoo.Collections
             
             return GetStoreNodes(m_root).Count();
         }
-
-        /// <summary>
-        /// Gets access to allocator.
-        /// </summary>
-        public IArrayAllocator<T> ArrayArrayAllocator => m_arrayAllocator;
-        
-        /// <summary>
-        /// Gets access to modes allocator.
-        /// </summary>
-        public IArrayAllocator<INode> NodesArrayAllocator => m_nodesAllocator;
 
         /// <summary>
         /// Tree root.
@@ -114,33 +103,38 @@ namespace Konsarpoo.Collections
         {
             s_disposingHandler = disposingHandler;
         }
-        
+
         /// <summary> Default Data&lt;T&gt; constructor.</summary>
         public Data()
         {
             var dataStorageAllocator = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetDataStorageAllocator<T>();
-            
-            m_arrayAllocator = dataStorageAllocator.GetDataArrayAllocator();
-            m_nodesAllocator = dataStorageAllocator.GetNodesArrayAllocator();
-            
+
+            m_allocator = dataStorageAllocator;
+
             var maxSizeOfArray = dataStorageAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
-            
-            var alignedSize = maxSizeOfArray <= 0
-                ? maxSizeOfArray
-                : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
-            
+
+            var alignedSize = (maxSizeOfArray == 0
+                ? 16
+                : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2))));
+
             m_maxSizeOfArray = alignedSize;
         }
-        
+
         /// <summary> Data&lt;T&gt; constructor accepting array storage and total items count.</summary>
         public Data(IEnumerable<T[]> arrays, int totalCount)
         {
-            var dataStorageAllocator = new DefaultGcAllocatorSetup(arrays.First().Length);
+            var length = arrays.First().Length;
+
+            if (length > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException($"Arrays length is too large. Must be less than {ushort.MaxValue}.");
+            }
+            
+            var dataStorageAllocator = new DefaultGcAllocatorSetup((ushort)length);
 
             var dataAllocatorSetup = dataStorageAllocator.GetDataStorageAllocator<T>();
-            
-            m_arrayAllocator = dataAllocatorSetup.GetDataArrayAllocator();
-            m_nodesAllocator = dataAllocatorSetup.GetNodesArrayAllocator();
+
+            m_allocator = dataAllocatorSetup;
 
             CreateFromArrays(arrays, totalCount);
         }
@@ -149,7 +143,7 @@ namespace Konsarpoo.Collections
         /// Data class constructor that allows setup default capacity.
         /// </summary>
         /// <param name="capacity"></param>
-        public Data(int capacity) : this(capacity, 0, null)
+        public Data(int capacity) : this(capacity, null, null)
         {
         }
 
@@ -159,7 +153,7 @@ namespace Konsarpoo.Collections
         /// <param name="capacity">Default capacity.</param>
         /// <param name="maxSizeOfArray">Max size of sub array node</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity, int maxSizeOfArray) : this(capacity, maxSizeOfArray, null)
+        public Data(int capacity, int? maxSizeOfArray) : this(capacity, maxSizeOfArray, null)
         {
         }
 
@@ -168,7 +162,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="allocatorSetup">Pool setup.</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(IDataAllocatorSetup<T> allocatorSetup) : this(0, 0, allocatorSetup)
+        public Data(IDataAllocatorSetup<T> allocatorSetup) : this(0, null, allocatorSetup)
         {
         }
 
@@ -179,7 +173,7 @@ namespace Konsarpoo.Collections
         /// <param name="maxSizeOfArray">Max size of sub array node</param>
         /// <param name="allocatorSetup">Pool setup.</param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public Data(int capacity, int maxSizeOfArray, [CanBeNull] IDataAllocatorSetup<T> allocatorSetup)
+        public Data(int capacity, int? maxSizeOfArray, [CanBeNull] IDataAllocatorSetup<T> allocatorSetup)
         {
             if (capacity < 0)
             {
@@ -190,22 +184,26 @@ namespace Konsarpoo.Collections
 
             var defaultArraySize = dataAllocator.MaxSizeOfArray ?? KonsarpooAllocatorGlobalSetup.MaxSizeOfArray;
 
-            m_arrayAllocator = dataAllocator.GetDataArrayAllocator();
-            m_nodesAllocator = dataAllocator.GetNodesArrayAllocator();
-            
-            var size = maxSizeOfArray <= 0
-                ? defaultArraySize
-                : maxSizeOfArray;
+            m_allocator = dataAllocator;
 
-            var alignedSize = Math.Max(16, 1 << (int)Math.Round(Math.Log(size, 2)));
+            var size = maxSizeOfArray ?? defaultArraySize;
+
+            var alignedSize = (size == 0
+                ? 16
+                : Math.Max(16, 1 << (int)Math.Round(Math.Log(size, 2))));
 
             m_maxSizeOfArray = alignedSize;
-            
+
             if (capacity > 0)
             {
-                var initialCapacity = 1 << (int)Math.Log(capacity > m_maxSizeOfArray ? m_maxSizeOfArray : capacity, 2.0);
+                var ms = m_maxSizeOfArray;
+                
+                var initialCapacity = (Math.Max(ushort.MaxValue + 1, 1 << (int)Math.Log(capacity > ms ? ms : capacity, 2.0)));
 
-                m_root = new StoreNode(null, m_arrayAllocator, m_maxSizeOfArray, initialCapacity);
+                var storeNode = new StoreNode(m_allocator.GetDataArrayAllocator(), m_maxSizeOfArray, initialCapacity);
+                
+                m_root = storeNode;
+                m_tailStoreNode = storeNode;
             }
         }
 
@@ -233,8 +231,7 @@ namespace Konsarpoo.Collections
                 
                 case Data<T> list:
                     m_maxSizeOfArray = list.m_maxSizeOfArray;
-                    m_arrayAllocator = list.m_arrayAllocator;
-                    m_nodesAllocator = list.m_nodesAllocator;
+                    m_allocator = list.m_allocator;
                     CreateFromList(list);
                     break;
                 
@@ -257,8 +254,7 @@ namespace Konsarpoo.Collections
             }
             
             m_maxSizeOfArray = source.m_maxSizeOfArray;
-            m_arrayAllocator = source.m_arrayAllocator;
-            m_nodesAllocator = source.m_nodesAllocator;
+            m_allocator = source.m_allocator;
             
             CreateFromList(source);
         }
@@ -529,24 +525,22 @@ namespace Konsarpoo.Collections
             if (m_root is StoreNode node)
             {
                 //inlined method StoreNode.Insert 
-                if (node.m_items.Length == 0)
-                {
-                    node.m_items = m_arrayAllocator.Rent(2);
-                }
-                else  if (node.m_size < node.m_maxCapacity - 1)
+                if (node.m_size < node.m_maxCapacity - 1)
                 {
                     if (node.m_size == node.m_items.Length)
                     {
-                        int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
+                        var newCapacity = Math.Min(Math.Max(node.m_items.Length * 2, 2), node.m_maxCapacity);
 
-                        T[] vals = m_arrayAllocator.Rent(newCapacity);
+                        var dataArrayAllocator = m_allocator.GetDataArrayAllocator();
+                        
+                        T[] vals =  dataArrayAllocator.Rent(newCapacity);
 
                         if (node.m_size > 0)
                         {
                             Array.Copy(node.m_items, 0, vals, 0, node.m_size);
                         }
 
-                        m_arrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+                        dataArrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
 
                         node.m_items = vals;
                     }
@@ -582,7 +576,7 @@ namespace Konsarpoo.Collections
             }
             else
             {
-                if (m_root.TryInsertAndPush(index, ref item, out var lastItem) == false)
+                if (m_root.TryInsertAndPush(index, ref item, out var lastItem, m_allocator) == false)
                 {
                     AddSlow(ref lastItem);
                 }
@@ -735,6 +729,8 @@ namespace Konsarpoo.Collections
             Add(item);
         }
 
+        private StoreNode m_tailStoreNode;
+        
         /// <summary>
         /// List API. Adds an object to the end of the Data&lt;T&gt;.
         /// </summary>
@@ -742,50 +738,53 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T item)
         {
-            if (m_root is StoreNode node)
+            var storeNode = m_tailStoreNode;
+            
+            if (storeNode != null)
             {
-                //inlined method StoreNode.Add 
-                if (node.m_items.Length == 0)
+                T[] array = storeNode.Storage;
+                int size = storeNode.Size;
+                
+                if (size < array.Length)
                 {
-                    var items = m_arrayAllocator.Rent(2);
+                    array[size] = item;
+                    storeNode.m_size = size + 1;
 
-                    node.m_items = items;
+                    unchecked { ++m_version; }
+                    m_count++;
+                    
+                    return;
                 }
-                else if (node.m_size == node.m_items.Length)
+                
+                if (size < storeNode.m_maxCapacity)
                 {
-                    if (node.m_size == node.m_maxCapacity)
+                    var newCapacity = Math.Min(Math.Max(storeNode.m_items.Length * 2, 2), storeNode.m_maxCapacity);
+
+                    var arrayAllocator = m_allocator.GetDataArrayAllocator();
+                    
+                    T[] vals = arrayAllocator.Rent(newCapacity);
+
+                    if (size > 0)
                     {
-                        AddSlow(ref item);
-                        return;
+                        Array.Copy(storeNode.m_items, 0, vals, 0, size);
                     }
 
-                    int newCapacity = Math.Min(node.m_items.Length * 2, node.m_maxCapacity);
+                    arrayAllocator.Return(storeNode.m_items, clearArray: s_clearArrayOnReturn);
 
-                    T[] vals = m_arrayAllocator.Rent(newCapacity);
-
-                    if (node.m_size > 0)
-                    {
-                        Array.Copy(node.m_items, 0, vals, 0, node.m_size);
-                    }
-
-                    m_arrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
-
-                    node.m_items = vals;
+                    storeNode.m_items = vals;
+                    
+                    storeNode.m_items[size] = item;
+                    storeNode.m_size = size + 1;
+                
+                    unchecked { ++m_version; }
+                    ++m_count;
+                    
+                    return;
                 }
-
-                node.m_items[node.m_size] = item;
-
-                node.m_size++;
-
-                unchecked { ++m_version; }
-
-                ++m_count;
-                return;
             }
-
+            
             AddSlow(ref item);
         }
-
        
 
         private void AddSlow(ref T item)
@@ -796,31 +795,31 @@ namespace Konsarpoo.Collections
             
             if (root == null)
             {
-                var storeNode = new StoreNode(null, m_arrayAllocator, maxSizeOfArray, 2);
+                var storeNode = new StoreNode(m_allocator.GetDataArrayAllocator(), maxSizeOfArray, 2);
 
                 storeNode.m_items[0] = item;
-
                 storeNode.m_size = 1;
 
                 m_root = storeNode;
+                m_tailStoreNode = storeNode;
 
                 unchecked { ++m_version; }
-                
                 ++m_count;
+                
                 return;
             }
 
-            INode node1 = root;
-            if (!node1.Add(ref item, out var node2))
-            {
-                m_root = new LinkNode(null, node1.Level + 1, maxSizeOfArray, node1, m_nodesAllocator, node2);
-                
-                node1.Parent = m_root;
-                node2.Parent = m_root;
-            }
-
+            var add = root.Add(ref item, out var newNode, 16, m_allocator);
+            
             unchecked { ++m_version; }
             ++m_count;
+            
+            if (add == false)
+            {
+                m_root = new LinkNode((ushort)(root.Level + 1), maxSizeOfArray, root, m_allocator, newNode);
+
+                m_tailStoreNode = (StoreNode)m_root.GetStorageNode(m_count - 1);
+            }
         }
 
         /// <summary>
@@ -833,12 +832,13 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            m_root?.Clear();
+            m_root?.Clear(m_allocator);
             m_count = 0;
             
             unchecked { ++m_version; }
 
             m_root = null;
+            m_tailStoreNode = null;
         }
 
         /// <summary>
@@ -1150,15 +1150,18 @@ namespace Konsarpoo.Collections
             
             if (m_root is StoreNode storeNode)
             {
-                var removeAll = storeNode.RemoveAll(item, comparer);
+                var allocator = m_allocator.GetDataArrayAllocator();
+                
+                var removeAll = storeNode.RemoveAll(item, comparer, allocator);
 
                 m_count -= removeAll;
 
                 if (m_count <= 0)
                 {
-                    storeNode.Clear();
+                    storeNode.Clear(allocator);
 
                     m_root = null;
+                    m_tailStoreNode = null;
                     
                     m_count = 0;
                 }
@@ -1215,13 +1218,14 @@ namespace Konsarpoo.Collections
             
             if (m_root is StoreNode simpleNode)
             {
-                var removeAll = simpleNode.RemoveAll(match);
+                var removeAll = simpleNode.RemoveAll(match, m_allocator.GetDataArrayAllocator());
 
                 m_count -= removeAll;
 
                 if (m_count <= 0)
                 {
                     m_root = null;
+                    m_tailStoreNode = null;
                     
                     m_count = 0;
                 }
@@ -1230,6 +1234,20 @@ namespace Konsarpoo.Collections
             }
 
             return RemoveAllSlow(match);
+        }
+
+        private StoreNode UpdateLastNode()
+        {
+            var tailStoreNode = m_root as StoreNode ?? m_root?.GetStorageNode(m_count - 1) as StoreNode;
+
+            m_tailStoreNode = tailStoreNode;
+
+            if (ReferenceEquals(m_tailStoreNode, tailStoreNode) == false)
+            {
+                //
+            }
+            
+            return m_tailStoreNode;
         }
 
         private int RemoveAllSlow(Func<T, bool> match)
@@ -1276,7 +1294,7 @@ namespace Konsarpoo.Collections
             
             if (m_root is StoreNode simpleNode)
             {
-                simpleNode.RemoveAt(index);
+                simpleNode.RemoveAt(index, m_allocator.GetDataArrayAllocator());
 
                 m_count--;
                 unchecked { ++m_version; }
@@ -1284,6 +1302,7 @@ namespace Konsarpoo.Collections
                 if (m_count <= 0)
                 {
                     m_root = null;
+                    m_tailStoreNode = null;
                     m_count = 0;
                 }
 
@@ -1302,12 +1321,9 @@ namespace Konsarpoo.Collections
 
             T newLastItem = default;
 
-            m_root.RemoveAtAndPop(index, ref newLastItem);
+            bool last = false;
             
-            if (m_root.Size == 0)
-            {
-                m_root = null;
-            }
+            m_root.RemoveAtAndPop(index, ref newLastItem, m_allocator, ref last);
             
             m_count--;
             unchecked { ++m_version; }
@@ -1315,7 +1331,12 @@ namespace Konsarpoo.Collections
             if (m_count <= 0)
             {
                 m_root = null;
+                m_tailStoreNode = null;
                 m_count = 0;
+            }
+            else
+            {
+                UpdateLastNode();
             }
         }
 
@@ -1347,7 +1368,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            m_root.RemoveLast();
+            m_root.RemoveLast(m_allocator);
 
             unchecked { ++m_version; }
             
@@ -1355,9 +1376,14 @@ namespace Konsarpoo.Collections
 
             if (m_count <= 0)
             {
-                m_root.Clear();
+                m_root.Clear(m_allocator);
                 m_root = null;
+                m_tailStoreNode = null;
                 m_count = 0;
+            }
+            else
+            {
+                UpdateLastNode();
             }
         }
 
@@ -1595,15 +1621,22 @@ namespace Konsarpoo.Collections
             {
                 if (source.m_root is StoreNode simpleNode)
                 {
-                    m_root = new StoreNode(null, simpleNode);
+                    var storeNode = new StoreNode(simpleNode, m_allocator.GetDataArrayAllocator());
+                    
+                    m_root = storeNode;
 
+                    m_tailStoreNode = storeNode;
+                    
                     m_count = source.m_count;
                 }
                 else if (source.m_root is LinkNode linkNode)
                 {
-                    m_root = new LinkNode(null, linkNode);
-
+                    m_root = new LinkNode(linkNode, m_allocator);
+                    
                     m_count = source.m_count;
+                    
+                    UpdateLastNode();
+                    
                 }
             }
             else
