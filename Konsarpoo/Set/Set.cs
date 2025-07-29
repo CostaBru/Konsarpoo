@@ -287,11 +287,11 @@ namespace Konsarpoo.Collections
 
             int storageIndex = hashCode % m_buckets.m_count;
 
-            var slotArr = m_slots.m_root?.Storage;
-
-            if (slotArr != null)
+            if (m_slots.m_root?.HasStorage ?? false)
             {
-                var bucketsArray = m_buckets.m_root.Storage;
+                var slotArr = m_slots.m_root.Storage!;
+                
+                var bucketsArray = m_buckets.m_root.Storage!;
 
                 var start = bucketsArray[storageIndex];
 
@@ -337,11 +337,11 @@ namespace Konsarpoo.Collections
                 ++m_lastIndex;
             }
             
-            slotArr = m_slots.m_root?.Storage;
 
-            if (slotArr != null)
+            if (m_slots.m_root?.HasStorage ?? false)
             {
-                var bucketsArray = m_buckets.m_root?.Storage;
+                var slotArr = m_slots.m_root.Storage!;
+                var bucketsArray = m_buckets.m_root.Storage!;
                 
                 var bucket = bucketsArray[storageIndex];
 
@@ -415,13 +415,12 @@ namespace Konsarpoo.Collections
             {
                 return false;
             }
-            
-            var slotArray = m_slots.m_root?.Storage;
 
-            if (slotArray != null)
+            if (m_slots.m_root?.HasStorage ?? false)
             {
-                return new SetRs<T>(m_buckets.m_root.Storage, slotArray, m_buckets.m_count, m_count, m_comparer)
-                    .Contains(item);
+                var slotArray = m_slots.m_root?.Storage;
+                
+                return new SetRs<T>(m_buckets.m_root.Storage, slotArray, m_buckets.m_count, m_count, m_comparer).Contains(item);
             }
             
             int hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
@@ -429,11 +428,11 @@ namespace Konsarpoo.Collections
             var storageIndex = hashCode % m_buckets.m_count;
             
             int start;
-            
-            var bucketsArray = m_buckets.m_root?.Storage;
 
-            if (bucketsArray != null)
+            if (m_buckets.m_root?.HasStorage ?? false)
             {
+                var bucketsArray = m_buckets.m_root.Storage!;
+                
                 start = bucketsArray[storageIndex];
             }
             else
@@ -572,10 +571,10 @@ namespace Konsarpoo.Collections
         {
             var version = m_version;
             
-            var slotArr =m_slots.m_root?.Storage;
-            
-            if (slotArr != null)
+            if (m_slots.m_root?.HasStorage ?? false)
             {
+                var slotArr = m_slots.m_root.Storage!;
+                
                 for (int i = 0; i < m_lastIndex && i < slotArr.Length; ++i)
                 {
                     if (slotArr[i].HashCode >= 0)
@@ -829,11 +828,11 @@ namespace Konsarpoo.Collections
             m_buckets.Ensure(newSize);
             m_slots.Ensure(newSize);
 
-            var bucketsArray = m_buckets.m_root?.Storage;
-            var slotsArray = m_slots.m_root?.Storage;
-            
-            if (bucketsArray != null && slotsArray != null)
+            if (m_buckets.m_root.HasStorage && m_slots.m_root.HasStorage)
             {
+                var bucketsArray = m_buckets.m_root.Storage!;
+                var slotsArray = m_slots.m_root.Storage!;
+                
                 var bucketsArr = bucketsArray;
                 var slotsArr = slotsArray;
 

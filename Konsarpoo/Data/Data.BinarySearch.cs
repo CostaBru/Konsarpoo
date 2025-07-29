@@ -31,7 +31,7 @@ namespace Konsarpoo.Collections
             }
 
             //common case
-            if (m_root?.Storage != null)
+            if (m_root?.HasStorage ?? false)
             {
                 return new DataRs<T>(m_root.Storage, m_count)
                     .BinarySearch(value, startIndex, count, comparer);
@@ -80,13 +80,11 @@ namespace Konsarpoo.Collections
             {
                 return -1;
             }
-         
-            var storage = m_root?.Storage;
 
             //common case
-            if (storage is not null)
+            if (m_root?.HasStorage ?? false)
             {
-                return Array.BinarySearch(storage, startIndex, count - startIndex, value);
+                return Array.BinarySearch(m_root?.Storage, startIndex, count - startIndex, value);
             }
             
             return BinarySearchSlow(value, startIndex, count, Comparer<T>.Default);
@@ -107,13 +105,11 @@ namespace Konsarpoo.Collections
             {
                 return -1;
             }
-            
-            var storage = m_root?.Storage;
 
             //common case
-            if (storage is not null)
+            if (m_root?.HasStorage ?? false)
             {
-                return Array.BinarySearch(storage, startIndex, m_count - startIndex, value);
+                return Array.BinarySearch(m_root?.Storage, startIndex, m_count - startIndex, value);
             }
 
             return BinarySearchSlow(value, startIndex, m_count, Comparer<T>.Default);
@@ -141,13 +137,11 @@ namespace Konsarpoo.Collections
             {
                 return -1;
             }
-            
-            var storage = m_root?.Storage;
 
             //common case
-            if (storage is not null)
+            if (m_root?.HasStorage ?? false)
             {
-                return Array.BinarySearch(storage, startIndex, count - startIndex, value, comparer);
+                return Array.BinarySearch(m_root?.Storage, startIndex, count - startIndex, value, comparer);
             }
 
             return BinarySearchSlow(value, startIndex, count, comparer);

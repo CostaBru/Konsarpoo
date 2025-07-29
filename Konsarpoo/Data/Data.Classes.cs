@@ -9,10 +9,10 @@ namespace Konsarpoo.Collections
 {
     public partial class Data<T>
     {
-         /// <summary>
-        /// Base tree node interface
+        /// <summary>
+        /// Tree node interface.
         /// </summary>
-        public interface INodeBase : IEnumerable<T>
+        public interface INode : IEnumerable<T>
         {
             /// <summary>
             /// Level of current leave.
@@ -32,16 +32,15 @@ namespace Konsarpoo.Collections
             T[] Storage { get; }
             
             /// <summary>
+            /// Returns true if node is storage node.
+            /// </summary>
+            bool HasStorage { get; }
+            
+            /// <summary>
             /// Gets size of node.
             /// </summary>
             int Size { get; }
-        }
-
-        /// <summary>
-        /// Tree node interface.
-        /// </summary>
-        public interface INode : INodeBase 
-        {
+            
             /// <summary>
             /// Adds item to the node or creates a new node with new item.
             /// </summary>
@@ -170,6 +169,8 @@ namespace Konsarpoo.Collections
             }
 
             public T[] Storage => null;
+
+            public bool HasStorage => false;
 
             public int Size => m_nodes.m_size;
 
@@ -425,6 +426,8 @@ namespace Konsarpoo.Collections
             public int Level => 0;
 
             public T[] Storage => m_items;
+
+            public bool HasStorage => true;
 
             public int Size => m_size;
          

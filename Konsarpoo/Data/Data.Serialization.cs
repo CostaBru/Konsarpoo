@@ -62,12 +62,10 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            var storage = m_root.Storage;
-            
-            if (storage != null)
+            if (m_root.HasStorage)
             {
                 info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
-                info.WriteSingleArray(storage);
+                info.WriteSingleArray(m_root.Storage);
             }
             else
             {
@@ -196,11 +194,9 @@ namespace Konsarpoo.Collections
         {
             foreach (var nodeNode in node.Nodes)
             {
-                var storage = nodeNode.Storage;
-
-                if (storage != null)
+                if (nodeNode.HasStorage)
                 {
-                    yield return storage;
+                    yield return nodeNode.Storage;
                 }
                 else
                 {

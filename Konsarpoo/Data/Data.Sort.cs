@@ -16,11 +16,9 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            var rootStorage = m_root?.Storage;
-            
-            if (rootStorage != null)
+            if (m_root?.HasStorage ?? false)
             {
-                Array.Sort(rootStorage, 0, m_count);
+                Array.Sort(m_root.Storage, 0, m_count);
 
                 unchecked { m_version += 1; }
                 
@@ -87,7 +85,7 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            if (list.m_root?.Storage != null)
+            if (list.m_root?.HasStorage ?? false)
             {
                 Array.Sort(list.m_root.Storage, 0, list.m_root.Size, new Comparer(comparison));
 

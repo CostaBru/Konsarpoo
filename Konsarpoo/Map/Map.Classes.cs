@@ -251,7 +251,7 @@ namespace Konsarpoo.Collections
 
             public IEnumerator<TKey> GetEnumerator()
             {
-                if (m_dictionary.m_entries?.m_root.Storage != null)
+                if (m_dictionary.m_entries?.m_root.HasStorage ?? false)
                 {
                     return new ArrayEnumerator(m_dictionary);
                 }
@@ -507,7 +507,7 @@ namespace Konsarpoo.Collections
 
             IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator()
             {
-                if (m_dictionary.m_entries?.m_root?.Storage != null)
+                if (m_dictionary.m_entries?.m_root?.HasStorage ?? false)
                 {
                     return new ArrayEnumerator(m_dictionary);
                 }

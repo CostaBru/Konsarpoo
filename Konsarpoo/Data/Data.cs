@@ -57,7 +57,7 @@ namespace Konsarpoo.Collections
                 return 0;
             }
             
-            if (m_root.Storage != null)
+            if (m_root.HasStorage)
             {
                 return 1;
             }
@@ -379,16 +379,16 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ValueByRef(int index)
         {
-            var storage = m_root?.Storage;
+            var root = m_root;
             
-            if (storage != null)
+            if (root?.HasStorage ?? false)
             {
-                if (index >= m_root.Size)
+                if (index >= root.Size)
                 {
-                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_root.Size}).");
+                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({root.Size}).");
                 }
 
-                return ref storage[index];
+                return ref root.Storage[index];
             }
 
             return ref ValueByRefSlow(index);
@@ -407,10 +407,8 @@ namespace Konsarpoo.Collections
             {
                 throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Data size is {m_count}.");
             }
-            
-            var storage = m_root?.Storage;
-            
-            if (storage != null)
+
+            if (m_root?.HasStorage ?? false)
             {
                 return m_root;
             }
@@ -435,11 +433,10 @@ namespace Konsarpoo.Collections
         public void Reverse()
         {
             //common case
-            var storage = m_root?.Storage;
-            
-            if (storage != null)
+
+            if (m_root?.HasStorage ?? false)
             {
-                Array.Reverse(storage, 0, m_count);
+                Array.Reverse(m_root?.Storage, 0, m_count);
 
                 return;
             }
@@ -473,11 +470,10 @@ namespace Konsarpoo.Collections
             }
 
             //common case
-            var storage = m_root?.Storage;
-            
-            if (storage != null)
+
+            if (m_root?.HasStorage ?? false)
             {
-                return Array.IndexOf(storage, item, startIndex, m_count - startIndex);
+                return Array.IndexOf(m_root?.Storage, item, startIndex, m_count - startIndex);
             }
 
             return IndexOfSlow(item, startIndex);
@@ -493,11 +489,10 @@ namespace Konsarpoo.Collections
         int IList<T>.IndexOf(T item)
         {
             //common case
-            var storage = m_root?.Storage;
-            
-            if (storage != null)
+
+            if (m_root?.HasStorage ?? false)
             {
-                return Array.IndexOf(storage, item, 0, m_count);
+                return Array.IndexOf(m_root.Storage!, item, 0, m_count);
             }
             
             return IndexOfSlow(item, 0);
@@ -609,7 +604,7 @@ namespace Konsarpoo.Collections
                 
                     Ensure(newCount);
 
-                    if (list.m_root?.Storage != null && m_root?.Storage != null)
+                    if ((list.m_root?.HasStorage ?? false) && (m_root?.HasStorage ?? false))
                     {
                         Array.Copy(list.m_root.Storage, 0, m_root.Storage, count, list.Count);
                     }
@@ -631,11 +626,9 @@ namespace Konsarpoo.Collections
                 
                     Ensure(newCount);
 
-                    var rootStorage = m_root?.Storage;
-                    
-                    if (rootStorage != null)
+                    if (m_root?.HasStorage ?? false)
                     {
-                        arr.CopyTo(rootStorage, count);
+                        arr.CopyTo(m_root?.Storage, count);
                     }
                     else
                     {
@@ -655,13 +648,11 @@ namespace Konsarpoo.Collections
                 
                     Ensure(newCount);
 
-                    var rootStorage = m_root?.Storage;
-                    
-                    if (rootStorage != null)
+                    if (m_root?.HasStorage ?? false)
                     {
                         for (int i = 0; i < rList.Count; i++)
                         {
-                            rootStorage[count + i] = rList[i];
+                            (m_root?.Storage)[count + i] = rList[i];
                         }
                     }
                     else
@@ -684,15 +675,13 @@ namespace Konsarpoo.Collections
 
                     using var enumerator = rColl.GetEnumerator();
 
-                    var rootStorage = m_root?.Storage;
-                    
-                    if (rootStorage != null)
+                    if (m_root?.HasStorage ?? false)
                     {
                         for (int i = count; i < newCount; i++)
                         {
                             enumerator.MoveNext();
                         
-                            rootStorage[i] = enumerator.Current;
+                            m_root.Storage![i] = enumerator.Current;
                         }
                     }
                     else
@@ -881,7 +870,7 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CopyFrom(int index, [NotNull] T[] array, int arrayIndex, int count)
         {
-            if (count == 0)
+            if (count == 0 || m_root == null)
             {
                 return;
             }
@@ -891,11 +880,9 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(count),$"Cannot copy {count} elements from collection with size {m_count} starting at {index} to array with length {array.Length}.");
             }
 
-            var rootStorage = m_root?.Storage;
-            
-            if (rootStorage != null)
+            if (m_root.HasStorage)
             {
-                Array.Copy(array, arrayIndex, rootStorage, index, count);
+                Array.Copy(array, arrayIndex, m_root.Storage!, index, count);
 
                 return;
             }
@@ -967,11 +954,14 @@ namespace Konsarpoo.Collections
                 throw new ArgumentOutOfRangeException(nameof(count),$"Cannot copy {count} elements from collection with size {m_count} starting at {index} to array with length {array.Length}.");
             }
 
-            var rootStorage = m_root?.Storage;
-            
-            if (rootStorage != null)
+            if (m_root == null)
             {
-                Array.Copy(rootStorage, index, array, arrayIndex, count);
+                return;
+            }
+
+            if (m_root.HasStorage)
+            {
+                Array.Copy(m_root.Storage!, index, array, arrayIndex, count);
 
                 return;
             }
@@ -1400,15 +1390,13 @@ namespace Konsarpoo.Collections
             
             var version = m_version;
 
-            var storage = m_root.Storage;
-            
-            if (storage is not null)
+            if (m_root.HasStorage)
             {
-                for (int i = 0; i < m_count && i < storage.Length; i++)
+                for (int i = 0; i < m_count && i < m_root.Storage!.Length; i++)
                 {
                     CheckState(ref version);
 
-                    yield return storage[i];
+                    yield return m_root.Storage[i];
                 }
             }
             else

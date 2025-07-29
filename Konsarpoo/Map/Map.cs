@@ -354,10 +354,10 @@ namespace Konsarpoo.Collections
                 return false;
             }
             
-            var keys = m_entries.m_root?.Storage;
-            
-            if (keys != null)
+            if (m_entries.m_root?.HasStorage ?? false)
             {
+                var keys = m_entries.m_root.Storage!;
+                
                 if (ReferenceEquals(value, null))
                 {
                     for (int i = 0; i < m_count && i < keys.Length; i++)
@@ -470,14 +470,13 @@ namespace Konsarpoo.Collections
             
             if (m_buckets.m_count > 0)
             {
-                Entry<TKey, TValue>[] keys = m_entries.m_root.Storage;
-                
-                if (keys != null)
+                if (m_entries.m_root.HasStorage)
                 {
-                    return ref new MapRs<TKey, TValue>(m_buckets.m_root.Storage, keys, m_buckets.m_count, m_count, m_comparer)
-                        .ValueByRef(key, out success);
+                    Entry<TKey, TValue>[] keys = m_entries.m_root.Storage;
+
+                    return ref new MapRs<TKey, TValue>(m_buckets.m_root.Storage, keys, m_buckets.m_count, m_count, m_comparer).ValueByRef(key, out success);
                 }
-                
+
                 var hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
                 for (var i = m_buckets[hashCode % m_buckets.m_count] - 1; i >= 0; )
@@ -505,7 +504,7 @@ namespace Konsarpoo.Collections
         /// <returns></returns>
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
-            if (m_entries.m_root?.Storage != null)
+            if (m_entries.m_root?.HasStorage ?? false)
             {
                 return new ArrayEnumerator(this);
             }
@@ -560,13 +559,13 @@ namespace Konsarpoo.Collections
             int hashCode = m_comparer.GetHashCode(key) & HashCoef;
 
             int index = hashCode % m_buckets.m_count;
-            
-            var keys = m_entries.m_root?.Storage;
 
             var bucket = m_buckets[index] - 1;
 
-            if (keys != null)
+            if (m_entries.m_root?.HasStorage ?? false)
             {
+                var keys = m_entries.m_root?.Storage;
+                
                 for (int i = bucket; i >= 0; i = keys[i].Key.Next)
                 {
                     ref var keyEntry = ref keys[i];
@@ -627,10 +626,11 @@ namespace Konsarpoo.Collections
                 m_count++;
             }
 
-            var entriesArray = m_entries.m_root?.Storage;
 
-            if (entriesArray != null)
+            if (m_entries.m_root?.HasStorage ?? false)
             {
+                var entriesArray = m_entries.m_root.Storage!;
+                
                 ref var valueByRef = ref entriesArray[freeList];
             
                 valueByRef.Key.HashCode = hashCode;
@@ -648,10 +648,11 @@ namespace Konsarpoo.Collections
                 valueByRef.Value = value;
             }
             
-            var bucketsArray = m_buckets.m_root?.Storage;
             
-            if (bucketsArray != null)
+            if (m_buckets.m_root?.HasStorage ?? false)
             {
+                var bucketsArray = m_buckets.m_root.Storage!;
+                
                 bucketsArray[index] = freeList + 1;
             }
             else
@@ -682,11 +683,11 @@ namespace Konsarpoo.Collections
                 int index = hashCode % m_buckets.m_count;
                 int last = -1;
 
-                var entries = m_entries.m_root?.Storage;
-                var buckets = m_buckets.m_root?.Storage;
-
-                if (entries != null && buckets != null)
+                if (m_entries.m_root.HasStorage && m_buckets.m_root.HasStorage)
                 {
+                    var entries = m_entries.m_root.Storage!;
+                    var buckets = m_buckets.m_root.Storage!;
+                    
                     for (int i = buckets[index] - 1; i >= 0; )
                     {
                         ref var keyEntry = ref entries[i];
@@ -750,10 +751,10 @@ namespace Konsarpoo.Collections
 
             m_entries.Ensure(prime);
 
-            var bucketsArray = m_buckets.m_root?.Storage;
-
-            if (bucketsArray != null)
+            if (m_buckets.m_root?.HasStorage ?? false)
             {
+                var bucketsArray = m_buckets.m_root.Storage!;
+                
                 Array.Clear(bucketsArray, 0, bucketsArray.Length);
             }
             else
@@ -763,11 +764,11 @@ namespace Konsarpoo.Collections
             
             m_buckets.Ensure(prime);
 
-            var entries = m_entries.m_root?.Storage;
-            var bucketsValues = m_buckets.m_root?.Storage;
-
-            if (entries != null && bucketsValues != null)
+            if (m_entries.m_root!.HasStorage && m_buckets.m_root!.HasStorage)
             {
+                var entries = m_entries.m_root.Storage!;
+                var bucketsValues = m_buckets.m_root.Storage!;
+                
                 for (var i = 0; i < entriesCount && i < entries.Length; i++)
                 {
                     ref var keyEntry = ref entries[i];

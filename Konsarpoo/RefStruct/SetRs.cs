@@ -487,16 +487,19 @@ public ref struct SetRs<T>
         }
     }
     
+    private static readonly bool IsReferenceType = !typeof(T).IsValueType;
+    
     /// <summary>
     /// Determines whether the SetRs&lt;T&gt; contains the item.
     /// </summary>
     /// <param name="item"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Contains([NotNull] T item)
+    public bool Contains([CanBeNull] T item)
     {
         if (m_count > 0)
         {
-            var hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+            var hashCode = IsReferenceType && item == null ? 0 : m_comparer.GetHashCode(item!) & int.MaxValue;
+            
             for (var i = m_buckets[hashCode % m_hashCount] - 1; i >= 0;)
             {
                 ref var kv = ref m_entries[i];
@@ -573,7 +576,22 @@ public ref struct SetRs<T>
     {
         if (m_count > 0)
         {
-            int hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
+            int hashCode = 0;
+            if (IsReferenceType)
+            {
+                if (key == null)
+                {
+                    hashCode = 0;
+                }
+                else
+                {
+                    hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
+                }
+            }
+            else
+            {
+                hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
+            }
 
             int index = hashCode % m_hashCount;
             int last = -1;
