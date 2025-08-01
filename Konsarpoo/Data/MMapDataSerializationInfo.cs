@@ -22,7 +22,12 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     protected MemoryMappedFile m_mmf;
 
-    public MemoryMappedDataSerializationInfo(string path, int maxSizeOfArray, int arrayCapacity, long estimatedSizeOfArray, long maxSizeOfFile = 0)
+    public MemoryMappedDataSerializationInfo(string path, 
+        int maxSizeOfArray, 
+        int arrayCapacity, 
+        long estimatedSizeOfArray, 
+        Type arrayItemType, 
+        long maxSizeOfFile = 0)
     {
         m_path = path;
         m_maxSizeOfArray = maxSizeOfArray;
@@ -32,12 +37,18 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         
         using var fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
-        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+        m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, true);
+
+        if (arrayItemType == typeof(double))
+        {
+            m_writeBytes = m_writeBytesDouble;
+            m_readBytes = m_readBytesDouble;
+        }
     }
 
     protected abstract long GetEstimatedSizeOfArrayCore(long estimatedSizeOfT, int maxSizeOfArray);
 
-    protected MemoryMappedDataSerializationInfo(string path, long estimatedSizeOfT)
+    protected MemoryMappedDataSerializationInfo(string path, long estimatedSizeOfT, Type arrayItemType)
     {
         m_path = path;
         m_mmf = MemoryMappedFile.CreateFromFile(path, FileMode.Open, null);
@@ -50,6 +61,12 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         m_count = readMetaData.arraysCount;
         m_bytesCapacity = readMetaData.arraysCount * estimatedSizeOfArray + m_metaSize;
         m_estimatedSizeOfArray = estimatedSizeOfArray;
+        
+        if (arrayItemType == typeof(double))
+        {
+            m_writeBytes = m_writeBytesDouble;
+            m_readBytes = m_readBytesDouble;
+        }
     }
 
     private void Resize(long dataLength)
@@ -94,7 +111,7 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     public void AppendArray<T>(T[] array)
     {
         var i = m_count;
-        var (_, __, ___) = WriteArrayCore(i, array);
+        var (__, ___) = WriteArrayCore(i, array);
         m_count++;
     }
 
@@ -105,7 +122,7 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     protected int ArrayCount => m_count;
 
-    protected virtual (byte[] bytes, int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
+    protected virtual (int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
     {
         if (i >= m_count - 1)
         {
@@ -122,11 +139,11 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
         var chunks = CopyMemory<T>(nextArrayOffset, copySize, pool);
 
-        (byte[] bytes, int bytesWritten, long offset) = WriteArrayToMem(i, array);
+        (int bytesWritten, long offset) = WriteArrayToMem(i, array);
 
         WriteMemory<T>(offset + bytesWritten, copySize, chunks, pool);
 
-        return (bytes, bytesWritten, offset);
+        return (bytesWritten, offset);
     }
 
     private void WriteMemory<T>(long offset, long size, List<(byte[] chunk, int size)> chunks, ArrayPool<byte> pool)
@@ -178,11 +195,12 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         }
     }
 
-    private (byte[] data, int byteSize, long offset) WriteArrayToMem<T>(int i, T[] array)
+   
+    private (int byteSize, long offset) WriteArrayToMem<T>(int i, T[] array)
     {
-        var bytes = GetBytes(array);
-
         long offset = GetMmapArrayOffset(i);
+        
+        var bytes = GetBytes(array);
 
         var bytesSize = bytes.count + Marshal.SizeOf<int>();
 
@@ -199,15 +217,54 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
             accessor.Flush();
         }
 
-        return (bytes.data, bytesSize, offset);
+        return (bytesSize, offset);
     }
 
-    protected virtual (byte[] data, int count) GetBytes<T>(T[] array)
+    private Func<object, (byte[] data, int count)> m_writeBytes = (array) =>
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
         byte[] data = ms.ToArray();
         return (data, data.Length);
+    };
+
+    private static Func<object, (byte[] data, int count)> m_writeBytesDouble = GetBytesFunc<double>();
+    
+    private static Func<object, (byte[] data, int count)> GetBytesFunc<T>() where T : struct
+    {
+        Func<object, (byte[] data, int count)> f = (arr) =>
+        {
+            var span = ((T[])arr).AsSpan();
+            var asBytes = MemoryMarshal.AsBytes<T>(span);
+            return (asBytes.ToArray(), asBytes.Length);
+        };
+
+        return f;
+    }
+    
+    private Func<(byte[] data, int length), object> m_readBytes = (p) =>
+    {
+        using var ms = new MemoryStream(p.data, 0, p.length);
+        return new BinaryFormatter().Deserialize(ms);
+    };
+
+    private static Func<(byte[] data, int length), object> m_readBytesDouble = ReadBytesFunc<double>();
+    
+    private static Func<(byte[] data, int length), object> ReadBytesFunc<T>() where T : struct
+    {
+        Func<(byte[] data, int length), object> f = (fb) =>
+        {
+            Span<byte> bytes = fb.data.AsSpan();
+            Span<T> doubles = MemoryMarshal.Cast<byte, T>(bytes);
+            return doubles.ToArray();
+        };
+
+        return f;
+    }
+    
+    protected (byte[] data, int count) GetBytes(object array)
+    {
+        return m_writeBytes(array);
     }
 
     public T[] ReadArray<T>(int index) 
@@ -235,10 +292,9 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         }
     }
 
-    protected virtual T[] GetData<T>(byte[] data, int length)
+    protected T[] GetData<T>(byte[] data, int length)
     {
-        using var ms = new MemoryStream(data, 0, length);
-        return (T[])new BinaryFormatter().Deserialize(ms);
+       return (T[])m_readBytes((bytes: data, length: length));
     }
 
     public void WriteSingleArray<T>(T[] array)

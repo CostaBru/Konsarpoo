@@ -10,11 +10,11 @@ public class MemoryMappedDataFixedSizeSerializationInfo<T> : MemoryMappedDataSer
     private static readonly long s_binBytesOverHead = EstimateSerializedSize(Array.Empty<T>());
     
     public MemoryMappedDataFixedSizeSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfT, long maxSizeOfFile = 0) :
-        base(path, maxSizeOfArray, arraysCount, GetEstimatedSizeOfArray(estimatedSizeOfT, maxSizeOfArray), maxSizeOfFile)
+        base(path, maxSizeOfArray, arraysCount, GetEstimatedSizeOfArray(estimatedSizeOfT, maxSizeOfArray), typeof(T), maxSizeOfFile)
     {
     }
     
-    private MemoryMappedDataFixedSizeSerializationInfo(string file, long estimatedSizeOfT) : base(file, estimatedSizeOfT)
+    private MemoryMappedDataFixedSizeSerializationInfo(string file, long estimatedSizeOfT) : base(file, estimatedSizeOfT, typeof(T))
     {
     }
     

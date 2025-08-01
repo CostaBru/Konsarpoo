@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 
@@ -8,18 +9,18 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
 {
     private long[] m_offsetTable;
     
-    public MemoryMappedDataVariableSizeSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray, long maxSizeOfFile = 0) : base(path, maxSizeOfArray, arraysCount, estimatedSizeOfArray * maxSizeOfArray, maxSizeOfFile)
+    public MemoryMappedDataVariableSizeSerializationInfo(string path, int maxSizeOfArray, int arraysCount, long estimatedSizeOfArray,  Type arrayItemType, long maxSizeOfFile = 0) : base(path, maxSizeOfArray, arraysCount, estimatedSizeOfArray * maxSizeOfArray, arrayItemType, maxSizeOfFile)
     {
         m_offsetTable = new long[arraysCount];
     }
 
-    private MemoryMappedDataVariableSizeSerializationInfo(string file, long estimatedSizeOfArray) : base(file, estimatedSizeOfArray)
+    private MemoryMappedDataVariableSizeSerializationInfo(string file, long estimatedSizeOfArray, Type arrayItemType) : base(file, estimatedSizeOfArray, arrayItemType)
     {
     }
 
-    public static MemoryMappedDataVariableSizeSerializationInfo Open(string file, long estimatedSizeOfArray)
+    public static MemoryMappedDataVariableSizeSerializationInfo Open(string file, long estimatedSizeOfArray, Type arrayItemType)
     {
-        return new MemoryMappedDataVariableSizeSerializationInfo(file, estimatedSizeOfArray);
+        return new MemoryMappedDataVariableSizeSerializationInfo(file, estimatedSizeOfArray, arrayItemType);
     }
     
     private void AppendNextArrayOffset(int arrayIndex, long offset, long bytesWritten)
@@ -69,9 +70,9 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
         return readMetaData;
     }
 
-    protected override (byte[] bytes, int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
+    protected override (int bytesWritten, long offset) WriteArrayCore<T>(int i, T[] array)
     {
-        var (bytes, bytesWritten, offset) = base.WriteArrayCore(i, array);
+        var ( bytesWritten, offset) = base.WriteArrayCore(i, array);
 
         var arrayCount = ArrayCount;
 
@@ -91,7 +92,7 @@ public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSer
             }
         }
 
-        return (bytes, bytesWritten, offset);
+        return (bytesWritten, offset);
     }
 
     private long[] ReadOffsetTableInfo(int arrayCount)

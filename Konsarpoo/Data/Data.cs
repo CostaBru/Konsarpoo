@@ -1231,11 +1231,6 @@ namespace Konsarpoo.Collections
             var tailStoreNode = m_root as StoreNode ?? m_root?.GetStorageNode(m_count - 1) as StoreNode;
 
             m_tailStoreNode = tailStoreNode;
-
-            if (ReferenceEquals(m_tailStoreNode, tailStoreNode) == false)
-            {
-                //
-            }
             
             return m_tailStoreNode;
         }

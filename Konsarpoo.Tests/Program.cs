@@ -8,8 +8,24 @@ namespace Brudixy.Tests
     {
         public static void Main(string[] args)
         {
+            /*var mMapVsFile = new MMapVsFile();
+
+            try
+            {
+                mMapVsFile.Setup();
+                
+                mMapVsFile.MMap();
+
+                mMapVsFile.File();
+            }
+            finally
+            {
+                mMapVsFile.Cleanup();
+            }*/
+
+
             BenchmarkRunner
-                .Run<DataFill>(
+                .Run<MMapVsFile>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));

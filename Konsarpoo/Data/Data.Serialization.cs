@@ -99,11 +99,6 @@ namespace Konsarpoo.Collections
                     throw new ArgumentException($"Array len:{array.Length} must be power of 2, but was not.");
                 }
                 
-                if (array.Length > ushort.MaxValue)
-                {
-                    throw new ArgumentException($"Array len:{array.Length} must not be greater than {ushort.MaxValue}.");
-                }
-                
                 if (m_root == null)
                 {
                     m_maxSizeOfArray = array.Length;
@@ -128,9 +123,8 @@ namespace Konsarpoo.Collections
                 INode node2;
                 if (node1.AddArray(array, nodeSize, out node2, m_allocator) == false)
                 {
-                    m_root = new LinkNode((ushort)(node1.Level + 1),array.Length, node1, m_allocator, node2);
+                    m_root = new LinkNode((ushort)(node1.Level + 1), prevArrayLen, node1, m_allocator, node2);
                 }
-
                 
                 prevArrayLen = array.Length;
                 rest -= nodeSize;
