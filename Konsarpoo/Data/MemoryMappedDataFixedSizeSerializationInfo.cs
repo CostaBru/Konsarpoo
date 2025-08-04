@@ -5,7 +5,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Konsarpoo.Collections;
 
-public class MemoryMappedDataFixedSizeSerializationInfo<T> : MemoryMappedDataSerializationInfo
+internal class MemoryMappedDataFixedSizeSerializationInfo<T> : MemoryMappedDataSerializationInfo
 {
     private static readonly long s_binBytesOverHead = EstimateSerializedSize(Array.Empty<T>());
     

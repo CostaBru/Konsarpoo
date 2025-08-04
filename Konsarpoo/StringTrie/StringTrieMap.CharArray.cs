@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
-public partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TValue>
+internal partial class StringTrieMap<TValue> : IDictionary<IEnumerable<char>, TValue>
 {
     bool IDictionary<IEnumerable<char>, TValue>.ContainsKey([NotNull] IEnumerable<char> key) => TryGetValueCore(key, out var _);
 

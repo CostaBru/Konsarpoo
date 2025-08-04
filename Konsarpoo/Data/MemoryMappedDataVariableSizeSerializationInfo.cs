@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace Konsarpoo.Collections;
 
-public class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSerializationInfo
+internal class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataSerializationInfo
 {
     private long[] m_offsetTable;
     

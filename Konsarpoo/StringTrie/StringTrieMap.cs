@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections;
     [DebuggerTypeProxy(typeof(StringTrieMapDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
     [Serializable]
-    public partial class StringTrieMap<TValue> : 
+    internal partial class StringTrieMap<TValue> : 
         IDictionary<string, TValue>, 
         ICollection<KeyValuePair<string, TValue>>,
         IEnumerable<KeyValuePair<string, TValue>>, 

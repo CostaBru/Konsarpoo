@@ -25,7 +25,7 @@ namespace Brudixy.Tests
 
 
             BenchmarkRunner
-                .Run<MMapVsFile>(
+                .Run<SeriPerfTest>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));

@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Konsarpoo.Collections;
 
-public partial class StringTrieMap<TValue>
+internal partial class StringTrieMap<TValue>
 {
     [DebuggerDisplay("'{KeyChar}' {ChildrenCount} False")]
     internal class TrieLinkNode<TValue> : IEnumerable<KeyValuePair<char, TrieLinkNode<TValue>>>

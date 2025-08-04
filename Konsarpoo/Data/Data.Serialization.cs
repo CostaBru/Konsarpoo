@@ -36,7 +36,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
 
-            SerializeTo(new DataMemorySerializationInfo(info));
+            SerializeTo(new DataMemorySerializationInfo<T>(info));
         }
         
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
@@ -48,12 +48,12 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            DeserializeFrom(new DataMemorySerializationInfo(m_siInfo));
+            DeserializeFrom(new DataMemorySerializationInfo<T>(m_siInfo));
 
             m_siInfo = null;
         }
         
-        public void SerializeTo(IDataSerializationInfo info)
+        public void SerializeTo(DataMemorySerializationInfo<T> info)
         {
             if (m_root is null)
             {
@@ -135,7 +135,7 @@ namespace Konsarpoo.Collections
             UpdateLastNode();
         }
 
-        public void DeserializeFrom(IDataSerializationInfo info)
+        public void DeserializeFrom(DataMemorySerializationInfo<T> info)
         {
             var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetaData();
             
@@ -147,7 +147,7 @@ namespace Konsarpoo.Collections
                 
                 if (elementsCount == 1)
                 {
-                    T[] objArray = info.ReadSingleArray<T>();
+                    T[] objArray = info.ReadSingleArray();
                     if (objArray == null)
                     {
                         throw new SerializationException("Cannot read list values from serialization info.");
@@ -169,11 +169,11 @@ namespace Konsarpoo.Collections
             }
         }
 
-        private IEnumerable<T[]> ReadArrays(IDataSerializationInfo info, int count)
+        private IEnumerable<T[]> ReadArrays(DataMemorySerializationInfo<T> info, int count)
         {
             for (int j = 0; j < count; j++)
             {
-                var array = info.ReadArray<T>(j);
+                var array = info.ReadArray(j);
                 
                 if (array == null)
                 {

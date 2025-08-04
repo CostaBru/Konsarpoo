@@ -6,7 +6,7 @@ namespace Konsarpoo.Collections
     /// <summary>
     /// std::vector API.
     /// </summary>
-    public class std
+    internal class std
     {
         /// <summary>
         /// Creates vector from params.

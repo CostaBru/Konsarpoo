@@ -1,6 +1,6 @@
 ﻿namespace Konsarpoo.Collections;
 
-public interface IDataSerializationInfo
+internal interface IDataSerializationInfo
 {
     void WriteMetaData((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData);
 

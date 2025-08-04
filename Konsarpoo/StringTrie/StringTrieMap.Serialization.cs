@@ -9,7 +9,7 @@ using System.Xml.Serialization;
 namespace Konsarpoo.Collections;
 
 [KnownType(typeof(KeyValuePair<,>))]
-public partial class StringTrieMap<TValue> : IXmlSerializable
+internal partial class StringTrieMap<TValue> : IXmlSerializable
 {
     private const string VersionName = "Version";
     private const string SizeName = "Size";

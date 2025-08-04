@@ -8,7 +8,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Konsarpoo.Collections;
 
-public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDisposable
+internal abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo, IDisposable
 {
     protected readonly int m_maxSizeOfArray;
     protected long m_bytesCapacity;
@@ -21,6 +21,8 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     protected abstract long GetMmapArrayOffset(int arrayIndex);
 
     protected MemoryMappedFile m_mmf;
+    protected MemoryMappedViewAccessor m_accessor;
+    protected bool m_disposed = false;
 
     public MemoryMappedDataSerializationInfo(string path, 
         int maxSizeOfArray, 
@@ -39,6 +41,10 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
         m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, true);
 
+        MemoryMappedViewAccessor memoryMappedViewAccessor = m_mmf.CreateViewAccessor();
+
+        m_accessor = memoryMappedViewAccessor;
+
         if (arrayItemType == typeof(double))
         {
             m_writeBytes = m_writeBytesDouble;
@@ -52,7 +58,8 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     {
         m_path = path;
         m_mmf = MemoryMappedFile.CreateFromFile(path, FileMode.Open, null);
-
+        m_accessor = m_mmf.CreateViewAccessor();
+        
         var readMetaData = ReadMetaData();
 
         var estimatedSizeOfArray = GetEstimatedSizeOfArrayCore(estimatedSizeOfT, readMetaData.maxSizeOfArray);
@@ -71,10 +78,11 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     private void Resize(long dataLength)
     {
+        m_accessor.Flush();
+        m_accessor.Dispose();
         m_mmf.Dispose();
 
         m_bytesCapacity += m_bytesCapacity / 2;
-
         m_bytesCapacity = Math.Max(dataLength, m_bytesCapacity);
         
         using var fs = new FileStream(m_path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -82,28 +90,23 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         fs.SetLength(m_bytesCapacity);
 
         m_mmf = MemoryMappedFile.CreateFromFile(fs, null, m_bytesCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+        m_accessor = m_mmf.CreateViewAccessor();
     }
   
     public void WriteMetaData((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
-        using var accessor = m_mmf.CreateViewAccessor(0, m_metaSize, MemoryMappedFileAccess.Write);
-        
-        accessor.Write(0, metaData.maxSizeOfArray);
-        accessor.Write(sizeof(int), metaData.dataCount);
-        accessor.Write(sizeof(int) * 2, metaData.version);
-        accessor.Write(sizeof(int) * 3, metaData.arraysCount);
-        
-        accessor.Flush();
+        m_accessor.Write(0, metaData.maxSizeOfArray);
+        m_accessor.Write(sizeof(int), metaData.dataCount);
+        m_accessor.Write(sizeof(int) * 2, metaData.version);
+        m_accessor.Write(sizeof(int) * 3, metaData.arraysCount);
     }
 
     public virtual (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
     {
-        using var accessor = m_mmf.CreateViewAccessor(0, m_metaSize, MemoryMappedFileAccess.Read);
-        
-        int maxSize = accessor.ReadInt32(0);
-        int count = accessor.ReadInt32(sizeof(int));
-        int version = accessor.ReadInt32(sizeof(int) * 2);
-        int arrayCount = accessor.ReadInt32(sizeof(int) * 3);
+        int maxSize = m_accessor.ReadInt32(0);
+        int count = m_accessor.ReadInt32(sizeof(int));
+        int version = m_accessor.ReadInt32(sizeof(int) * 2);
+        int arrayCount = m_accessor.ReadInt32(sizeof(int) * 3);
         
         return (maxSize, count, version, arrayCount);
     }
@@ -148,51 +151,43 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
 
     private void WriteMemory<T>(long offset, long size, List<(byte[] chunk, int size)> chunks, ArrayPool<byte> pool)
     {
-        using (var writeMemAccessor = m_mmf.CreateViewAccessor(offset , size, MemoryMappedFileAccess.Write))
-        {
-            int position = 0;
+        int position = 0;
             
-            foreach (var chunk in chunks)
-            {
-                writeMemAccessor.WriteArray(position, chunk.chunk, 0, chunk.size);
+        foreach (var chunk in chunks)
+        {
+            m_accessor.WriteArray(position + offset, chunk.chunk, 0, chunk.size);
                 
-                position += chunk.size;
+            position += chunk.size;
                 
-                pool.Return(chunk.chunk);
-            }
-
-            writeMemAccessor.Flush();
+            pool.Return(chunk.chunk);
         }
     }
 
     private List<(byte[] chunk, int size)> CopyMemory<T>(long offset, long copySize, ArrayPool<byte> pool)
     {
-        using (var copyMemAccessor = m_mmf.CreateViewAccessor(offset, copySize, MemoryMappedFileAccess.Read))
+        var chunks = new List<(byte[] chunk, int size)>();
+
+        var rest = copySize;
+
+        int position = 0;
+
+        while (rest > 0)
         {
-            var chunks = new List<(byte[] chunk, int size)>();
+            var minChunkSize = (int)Math.Min(ushort.MaxValue + 1, rest);
 
-            var rest = copySize;
+            var chunk = pool.Rent(minChunkSize);
 
-            int position = 0;
+            var chunkCopySize = (int)Math.Min(rest, chunk.Length);
 
-            while (rest > 0)
-            {
-                var minChunkSize = (int)Math.Min(1024, rest);
+            m_accessor.ReadArray(position + offset, chunk, 0, chunkCopySize);
 
-                var chunk = pool.Rent(minChunkSize);
+            chunks.Add((chunk, chunkCopySize));
 
-                var chunkCopySize = (int)Math.Min(rest, chunk.Length);
+            rest -= chunkCopySize;
 
-                copyMemAccessor.ReadArray(position, chunk, 0, chunkCopySize);
-
-                chunks.Add((chunk, chunkCopySize));
-
-                rest -= chunkCopySize;
-
-                position += chunkCopySize;
-            }
-            return chunks;
+            position += chunkCopySize;
         }
+        return chunks;
     }
 
    
@@ -209,13 +204,8 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
             Resize(bytesSize + offset);
         }
         
-        using (var accessor = m_mmf.CreateViewAccessor(offset, bytesSize, MemoryMappedFileAccess.Write))
-        {
-            accessor.Write(0, bytes.count); // prefix with length
-            accessor.WriteArray(Marshal.SizeOf<int>(), bytes.data, 0, bytes.count);
-            
-            accessor.Flush();
-        }
+        m_accessor.Write(offset, bytes.count); // prefix with length
+        m_accessor.WriteArray(offset + Marshal.SizeOf<int>(), bytes.data, 0, bytes.count);
 
         return (bytesSize, offset);
     }
@@ -270,17 +260,16 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
     public T[] ReadArray<T>(int index) 
     {
         long offset = GetMmapArrayOffset(index);
-        using var accessor = m_mmf.CreateViewAccessor(offset, 4);
+        var accessor = m_accessor;
 
-        int length = accessor.ReadInt32(0);
+        int length = accessor.ReadInt32(offset);
 
         var pool = ArrayPool<byte>.Shared;
         var data = pool.Rent(length);
 
         try
         {
-            using var dataAccessor = m_mmf.CreateViewAccessor(offset + Marshal.SizeOf<int>(), length);
-            dataAccessor.ReadArray(0, data, 0, length);
+            accessor.ReadArray(offset + Marshal.SizeOf<int>(), data, 0, length);
 
             var array = GetData<T>(data, length);
 
@@ -307,8 +296,17 @@ public abstract class MemoryMappedDataSerializationInfo : IDataSerializationInfo
         return ReadArray<T>(0);
     }
 
+    
     public void Dispose()
     {
+        if (m_disposed)
+        {
+            return;
+        }
+
+        m_accessor?.Flush();
+        m_accessor?.Dispose();
         m_mmf?.Dispose();
+        m_disposed = true;
     }
 }
