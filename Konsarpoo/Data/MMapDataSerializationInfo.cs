@@ -65,8 +65,8 @@ internal abstract class MemoryMappedDataSerializationInfo : IDataSerializationIn
         var estimatedSizeOfArray = GetEstimatedSizeOfArrayCore(estimatedSizeOfT, readMetaData.maxSizeOfArray);
 
         m_maxSizeOfArray = readMetaData.maxSizeOfArray;
-        m_count = readMetaData.arraysCount;
-        m_bytesCapacity = readMetaData.arraysCount * estimatedSizeOfArray + m_metaSize;
+        m_count = readMetaData.arraysCapacity;
+        m_bytesCapacity = readMetaData.arraysCapacity * estimatedSizeOfArray + m_metaSize;
         m_estimatedSizeOfArray = estimatedSizeOfArray;
         
         if (arrayItemType == typeof(double))
@@ -93,15 +93,15 @@ internal abstract class MemoryMappedDataSerializationInfo : IDataSerializationIn
         m_accessor = m_mmf.CreateViewAccessor();
     }
   
-    public void WriteMetaData((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
+    public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
     {
         m_accessor.Write(0, metaData.maxSizeOfArray);
         m_accessor.Write(sizeof(int), metaData.dataCount);
         m_accessor.Write(sizeof(int) * 2, metaData.version);
-        m_accessor.Write(sizeof(int) * 3, metaData.arraysCount);
+        m_accessor.Write(sizeof(int) * 3, metaData.arraysCapacity);
     }
 
-    public virtual (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
+    public virtual (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetaData()
     {
         int maxSize = m_accessor.ReadInt32(0);
         int count = m_accessor.ReadInt32(sizeof(int));
@@ -257,9 +257,9 @@ internal abstract class MemoryMappedDataSerializationInfo : IDataSerializationIn
         return m_writeBytes(array);
     }
 
-    public T[] ReadArray<T>(int index) 
+    public T[] ReadArray<T>(int arrayIndex) 
     {
-        long offset = GetMmapArrayOffset(index);
+        long offset = GetMmapArrayOffset(arrayIndex);
         var accessor = m_accessor;
 
         int length = accessor.ReadInt32(offset);

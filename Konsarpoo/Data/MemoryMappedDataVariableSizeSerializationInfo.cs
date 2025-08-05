@@ -61,11 +61,11 @@ internal class MemoryMappedDataVariableSizeSerializationInfo : MemoryMappedDataS
         return estimatedSizeOfT * maxSizeOfArray;
     }
 
-    public override (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
+    public override (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetaData()
     {
         var readMetaData = base.ReadMetaData();
         
-        m_offsetTable = ReadOffsetTableInfo(readMetaData.arraysCount);
+        m_offsetTable = ReadOffsetTableInfo(readMetaData.arraysCapacity);
         
         return readMetaData;
     }
