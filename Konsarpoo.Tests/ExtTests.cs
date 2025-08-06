@@ -16,23 +16,12 @@ namespace Konsarpoo.Collections.Tests
 
             for (int i = 0; i < 10000; i++)
             {
-                if (i == 16)
-                {
-                    //
-                }
-                
                 data2.Add(i);
                 data1.Add(i);
             }
 
             for (int i = 0; i < data2.Count; i++)
             {
-                if (i == 1025)
-                {
-                    //
-                }
-                
-                var value1 = data1[i];
                 var value = data2[i];
                 
                 Assert.AreEqual(i, value);

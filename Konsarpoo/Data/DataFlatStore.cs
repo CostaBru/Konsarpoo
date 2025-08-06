@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections;
 
-internal class DataFlatStore<T>
+internal class DataFlatStore<T> : IReadOnlyList<T>
 {
     private class Store
     {
@@ -24,13 +26,18 @@ internal class DataFlatStore<T>
     private int m_count;
     
     private Store m_lastStore;
-    private GcArrayPoolMixedAllocator<Store> m_nodeArrayPoolMixed = new();
-    private ArrayAllocatorAllocator<T> m_arrayPool = new();
+    private IArrayAllocator<Store> m_nodeArrayPoolMixed;
+    private IArrayAllocator<T> m_arrayPool;
 
-    public DataFlatStore(int maxSizeOfArray)
+    public DataFlatStore(int maxSizeOfArray, IArrayAllocator<T> allocator = null)
     {
         m_maxSizeOfArray = maxSizeOfArray;
         m_stepBase = (ushort)Math.Log(m_maxSizeOfArray, 2);
+
+        var defaultAllocatorSetup = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup;
+        
+        m_arrayPool = allocator ?? defaultAllocatorSetup.GetDataStorageAllocator<T>().GetDataArrayAllocator()!;
+        m_nodeArrayPoolMixed = defaultAllocatorSetup.GetDataStorageAllocator<Store>().GetDataArrayAllocator()!;
         
         var store = new Store(m_arrayPool.Rent(m_maxSizeOfArray), 0);
         m_lastStore = store;
@@ -46,24 +53,24 @@ internal class DataFlatStore<T>
             var current = index >> m_stepBase;
             var next = index - (current << m_stepBase);
 
-            if (current < 0 || current > m_storage.Count)
+            if (current < 0 || current > m_storage.m_size)
             {
                 throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_storage.Count}.");
             }
 
-            return m_storage[current].Storage[next];
+            return m_storage.m_items[current].Storage[next];
         }
         set
         {
             var current = index >> m_stepBase;
             var next = index - (current << m_stepBase);
 
-            if (current < 0 || current > m_storage.Count)
+            if (current < 0 || current > m_storage.m_size)
             {
                 throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_storage.Count}.");
             }
 
-            m_storage[current].Storage[next] = value;
+            m_storage.m_items[current].Storage[next] = value;
         }
     }
 
@@ -97,5 +104,24 @@ internal class DataFlatStore<T>
         store.Size++;
 
         m_count++;  
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        foreach (var item in m_storage.m_items)
+        {
+            if (item != null)
+            {
+                for (var i = 0; i < item.Storage.Length && i < item.Size; i++)
+                {
+                   yield return item.Storage[i];
+                }
+            }
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 }
