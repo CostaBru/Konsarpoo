@@ -56,6 +56,21 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
 
             return data.Count;
         }
+        
+        [Benchmark]
+        public int Data2_Add()
+        {
+            var data = new DataFlatStore<int>(NodeSize);
+
+            for (int i = 0; i < N; i++)
+            {
+                data.Add(i);
+            }
+            
+            data.Dispose();
+
+            return data.Count;
+        }
 
         [Benchmark]
         public int Data_Ensure()

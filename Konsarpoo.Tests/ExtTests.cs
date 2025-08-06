@@ -9,6 +9,37 @@ namespace Konsarpoo.Collections.Tests
     public class ExtTests
     {
         [Test]
+        public void TestData2()
+        {
+            var data2 = new DataFlatStore<int>(2048);
+            var data1 = new Data<int>(0, 2048);
+
+            for (int i = 0; i < 10000; i++)
+            {
+                if (i == 16)
+                {
+                    //
+                }
+                
+                data2.Add(i);
+                data1.Add(i);
+            }
+
+            for (int i = 0; i < data2.Count; i++)
+            {
+                if (i == 1025)
+                {
+                    //
+                }
+                
+                var value1 = data1[i];
+                var value = data2[i];
+                
+                Assert.AreEqual(i, value);
+            }
+        }
+        
+        [Test]
         public void TestSeriHelper()
         {
             var seriLookup = BuiltinSeriHelper.GetSeriLookup();

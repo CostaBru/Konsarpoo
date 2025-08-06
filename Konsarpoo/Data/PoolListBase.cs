@@ -48,6 +48,11 @@ namespace Konsarpoo.Collections
             m_items = allocator.Rent(Math.Min(capacity, m_maxCapacity));
         }
         
+        public PoolListBase(int maxCapacity)
+        {
+            m_maxCapacity = maxCapacity;
+        }
+        
         public PoolListBase(int maxCapacity, T[] items)
         {
             m_maxCapacity = maxCapacity;

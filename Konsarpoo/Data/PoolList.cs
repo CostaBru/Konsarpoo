@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(ushort maxCapacity, ushort capacity) : base(new GcArrayPoolMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
+        public PoolList(int maxCapacity, int capacity) : base(new GcArrayPoolMixedAllocator<T>(ArrayPool<T>.Shared), maxCapacity, capacity)
         {
         }
         
@@ -24,7 +24,7 @@ namespace Konsarpoo.Collections
         /// Default constructor.
         /// </summary>
         /// <param name="capacity"></param>
-        public PoolList(IArrayAllocator<T> allocator, ushort maxCapacity, ushort capacity) : base(allocator, maxCapacity, capacity)
+        public PoolList(IArrayAllocator<T> allocator, int maxCapacity, int capacity) : base(allocator, maxCapacity, capacity)
         {
         }
 
