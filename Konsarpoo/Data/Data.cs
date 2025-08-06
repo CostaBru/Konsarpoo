@@ -522,9 +522,10 @@ namespace Konsarpoo.Collections
                 //inlined method StoreNode.Insert 
                 if (node.m_size < node.m_maxCapacity - 1)
                 {
-                    if (node.m_size == node.m_items.Length)
+                    var storage = node.Storage!;
+                    if (node.m_size == storage.Length)
                     {
-                        var newCapacity = Math.Min(Math.Max(node.m_items.Length * 2, 2), node.m_maxCapacity);
+                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), node.m_maxCapacity);
 
                         var dataArrayAllocator = m_allocator.GetDataArrayAllocator();
                         
@@ -532,20 +533,23 @@ namespace Konsarpoo.Collections
 
                         if (node.m_size > 0)
                         {
-                            Array.Copy(node.m_items, 0, vals, 0, node.m_size);
+                            Array.Copy(storage, 0, vals, 0, node.m_size);
                         }
 
-                        dataArrayAllocator.Return(node.m_items, clearArray: s_clearArrayOnReturn);
+                        dataArrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
-                        node.m_items = vals;
+                        storage = vals;
                     }
 
                     if (index < node.m_size)
                     {
-                        Array.Copy(node.m_items, index, node.m_items, index + 1, node.m_size - index);
+                        Array.Copy(storage, index, storage, index + 1, node.m_size - index);
                     }
 
-                    node.m_items[index] = item;
+                    storage[index] = item;
+
+                    node.Storage = storage;
+                    
                     node.m_size += 1;
 
                     m_count++;
@@ -731,12 +735,14 @@ namespace Konsarpoo.Collections
             
             if (storeNode != null)
             {
-                T[] array = storeNode.Storage;
+                T[] storage = storeNode.Storage!;
                 int size = storeNode.Size;
                 
-                if (size < array.Length)
+                if (size < storage.Length)
                 {
-                    array[size] = item;
+                    storage[size] = item;
+
+                    storeNode.Storage = storage;
                     storeNode.m_size = size + 1;
 
                     unchecked { ++m_version; }
@@ -747,7 +753,7 @@ namespace Konsarpoo.Collections
                 
                 if (size < storeNode.m_maxCapacity)
                 {
-                    var newCapacity = Math.Min(Math.Max(storeNode.m_items.Length * 2, 2), storeNode.m_maxCapacity);
+                    var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), storeNode.m_maxCapacity);
 
                     var arrayAllocator = m_allocator.GetDataArrayAllocator();
                     
@@ -755,14 +761,15 @@ namespace Konsarpoo.Collections
 
                     if (size > 0)
                     {
-                        Array.Copy(storeNode.m_items, 0, vals, 0, size);
+                        Array.Copy(storage, 0, vals, 0, size);
                     }
 
-                    arrayAllocator.Return(storeNode.m_items, clearArray: s_clearArrayOnReturn);
-
-                    storeNode.m_items = vals;
+                    arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
                     
-                    storeNode.m_items[size] = item;
+                    storage = vals; 
+                    storage[size] = item;
+                    
+                    storeNode.Storage = vals;
                     storeNode.m_size = size + 1;
                 
                     unchecked { ++m_version; }
@@ -786,7 +793,11 @@ namespace Konsarpoo.Collections
             {
                 var storeNode = new StoreNode(m_allocator.GetDataArrayAllocator(), maxSizeOfArray, 2);
 
-                storeNode.m_items[0] = item;
+                var storage = storeNode.Storage;
+
+                storage[0] = item;
+
+                storeNode.Storage = storage;
                 storeNode.m_size = 1;
 
                 m_root = storeNode;

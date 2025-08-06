@@ -5,7 +5,7 @@ using NUnit.Framework;
 namespace Konsarpoo.Collections.Tests
 {
     [TestFixture]
-    public class DataFileSerializationInfoTests
+    public class DataFileSerializationTests
     {
         private string m_testFile;
 
@@ -27,7 +27,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void AppendArray_AppendsArraysCorrectly()
         {
-            var info = new DataFileSerializationInfo(m_testFile);
+            var info = new DataFileSerialization(m_testFile);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -50,11 +50,65 @@ namespace Konsarpoo.Collections.Tests
                 info.Dispose();
             }
         }
+        
+        [Test]
+        public void TestWriteMetaDataAndAppend()
+        {
+            var info = new DataFileSerialization(m_testFile);
+            try
+            {
+                info.SetMetadata((4, 8, 1, 200));
+                
+                var arr1 = new[] { 1, 2, 3 };
+                var arr2 = new[] { 4, 5, 6, 7 };
+
+                info.AppendArray(arr1);
+                info.AppendArray(arr2);
+                
+                var read1 = info.ReadArray<int>(0);
+                var read2 = info.ReadArray<int>(1);
+                
+                Assert.AreEqual(arr1, read1);
+                Assert.AreEqual(arr2, read2);
+            }
+            finally
+            {
+                info.Dispose();
+            }
+        }
+        
+        [Test]
+        public void TestSettingArrayCapacityDoNotCorrupt()
+        {
+            var info = new DataFileSerialization(m_testFile);
+            try
+            {
+                info.SetMetadata((4, 0, 1, 2));
+                
+                var arr1 = new[] { 1, 2, 3 };
+                var arr2 = new[] { 4, 5, 6, 7 };
+                
+                info.AppendArray(arr1);
+                info.AppendArray(arr2);
+
+                info.SetMetadata((4, 0, 1, 100));
+                
+                var read1 = info.ReadArray<int>(0);
+                var read2 = info.ReadArray<int>(1);
+                
+                Assert.AreEqual(arr1, read1);
+                Assert.AreEqual(arr2, read2);
+            }
+            finally
+            {
+                info.Dispose();
+            }
+        }
 
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly()
         {
-            var info = new DataFileSerializationInfo(m_testFile);
+            var info = new DataFileSerialization(m_testFile);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -76,7 +130,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly_Copy()
         {
-            var info = new DataFileSerializationInfo(m_testFile);
+            var info = new DataFileSerialization(m_testFile);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };

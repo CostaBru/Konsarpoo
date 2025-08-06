@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Runtime.Serialization;
 
 namespace Konsarpoo.Collections;
 
-public class DataMemorySerializationInfo<T> 
+public class DataMemorySerializationInfo : IDataSerializationInfo
 {
     private const string CapacityName = "Capacity";
     private const string NodeCapacityName = "NodeCapacity";
@@ -15,44 +13,10 @@ public class DataMemorySerializationInfo<T>
     
     private readonly SerializationInfo info;
     private int m_count;
-    
-    private static readonly ILookup<Type, (Func<object, byte[]> write, Func<byte[], object> read)> m_typesSeri = BuiltinSeriHelper.GetSeriLookup();
 
-    private Action<SerializationInfo, string, T[]> m_writeArray;
-    private Func<SerializationInfo, string, T[]> m_readArray;
-    
-    public DataMemorySerializationInfo(SerializationInfo inf, bool useHelper = true)
+    public DataMemorySerializationInfo(SerializationInfo inf)
     {
         info = inf;
-        
-        var tuple = m_typesSeri[typeof(T)].FirstOrDefault();
-
-        if (tuple.write != null && useHelper)
-        {
-            m_writeArray = (i, n, a) =>
-            {
-                i.AddValue(n, tuple.write(a), typeof(byte[]));
-            };
-            
-            m_readArray = (i, n) =>
-            {
-                byte[] objArray = (byte[])i.GetValue(n, typeof(byte[]));
-
-                return (T[])tuple.read(objArray);
-            };
-        }
-        else
-        {
-            m_writeArray = (i, n, a) =>
-            {
-                i.AddValue(n, a, typeof(T[]));
-            };
-            
-            m_readArray = (i, n) =>
-            {
-               return (T[])i.GetValue(n, typeof(T[]));
-            };
-        }
     }
     
     private string GetElementName(int index)
@@ -67,15 +31,15 @@ public class DataMemorySerializationInfo<T>
 
     private static readonly string[] s_predefinedElementsName = Enumerable.Range(0, 100).Select(i => ElementsName + i).ToArray();
 
-    public void WriteMetaData((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
+    public void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
     {
         info.AddValue(NodeCapacityName, metaData.maxSizeOfArray);
         info.AddValue(CapacityName, metaData.dataCount);
         info.AddValue(VersionName, metaData.version);
-        info.AddValue(ElementsCountName, metaData.arraysCount);
+        info.AddValue(ElementsCountName, metaData.arraysCapacity);
     }
 
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetaData()
+    public (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata()
     {
         var maxSizeOfArray = info.GetInt32(NodeCapacityName);
         var dataCount = info.GetInt32(CapacityName);
@@ -85,31 +49,31 @@ public class DataMemorySerializationInfo<T>
         return (maxSizeOfArray, dataCount, version, elementsCount);
     }
 
-    public void AppendArray(T[] array)
+    public void AppendArray<T>(T[] array)
     {
         var i = m_count;
 
         var elementsName = GetElementName(i);
-
-        m_writeArray(info, elementsName, array);
+        info.AddValue(elementsName, array, typeof(T[]));
 
         m_count++;
     }
 
-    public void WriteSingleArray(T[] st)
+    public void WriteSingleArray<T>(T[] st)
     {
-        m_writeArray(info, ElementsName, st);
+        info.AddValue(ElementsName, st, typeof(T[]));
     }
 
-    public T[] ReadArray(int i)
+    public T[] ReadArray<T>(int i)
     {
         var elementName = GetElementName(i);
-
-        return m_readArray(info, elementName);
+        T[] objArray = (T[])info.GetValue(elementName, typeof(T[]));
+        return objArray;
     }
 
-    public T[] ReadSingleArray()
+    public T[] ReadSingleArray<T>()
     {
-        return m_readArray(info, ElementsName);
+        T[] objArray = (T[])info.GetValue(ElementsName, typeof(T[]));
+        return objArray;
     }
 }

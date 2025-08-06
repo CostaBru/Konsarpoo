@@ -64,7 +64,11 @@ namespace Konsarpoo.Collections
 
                 if (setupDefaultValueForArray || arrayAllocator.CleanArrayReturn == false)
                 {
-                    Array.Fill(storeNode.m_items, defaultValue, startIndex, m_count - startIndex);
+                    var storage = storeNode.Storage;
+
+                    Array.Fill(storage, defaultValue, startIndex, m_count - startIndex);
+
+                    storeNode.Storage = storage;
                 }
 
                 var restSize = size - m_count;

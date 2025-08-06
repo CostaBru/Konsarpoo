@@ -1,10 +1,10 @@
 ﻿namespace Konsarpoo.Collections;
 
-internal interface IDataSerializationInfo
+public interface IDataSerializationInfo
 {
-    void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData);
+    void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData);
 
-    (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetaData();
+    (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata();
     
     void AppendArray<T>(T[] array);
 

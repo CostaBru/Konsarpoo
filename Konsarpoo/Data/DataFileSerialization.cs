@@ -7,7 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Konsarpoo.Collections;
 
-internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
+internal class DataFileSerialization : IDataSerializationInfo, IDisposable
 {
     private readonly string m_filePath;
     private FileStream m_fileStream;
@@ -22,14 +22,14 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
     private long[] m_offsetTable;
 
 
-    public DataFileSerializationInfo(string filePath)
+    public DataFileSerialization(string filePath)
     {
         m_filePath = filePath;
         m_fileStream = new FileStream(m_filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
         
-        var metaData = ReadMetaData();
+        var metaData = ReadMetadata();
         
         m_arrayCount = metaData.arraysCapacity;
         m_version = metaData.version;
@@ -47,6 +47,26 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
         }
     }
 
+    private int m_edit = 0;
+    
+    public void BeginWrite()
+    {
+        m_edit++;
+    }
+
+    public void EndWrite()
+    {
+        m_edit--;
+
+        if (m_edit <= 0)
+        {
+            m_edit = 0;
+            m_writer.Flush();
+        }
+    }
+
+    protected bool CanFlush => m_edit == 0;
+
     public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
     {
         m_fileStream.Seek(0, SeekOrigin.Begin);
@@ -56,23 +76,42 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
         m_writer.Write(metaData.version);
         m_writer.Write(metaData.arraysCapacity);
 
-        var offsetTableBeforeResize = m_offsetTable.Length;
-        
-        if (metaData.arraysCapacity > offsetTableBeforeResize)
-        {
-            Array.Resize(ref m_offsetTable, metaData.arraysCapacity);
-        }
+        SetCapacityCore(metaData.arraysCapacity);
 
-        if (m_arrayCount > 0)
+        if (CanFlush)
         {
-            MoveData(offsetTableBeforeResize);
+            m_writer.Flush();
         }
-        
-        WriteOffsetTableInfo(m_offsetTable);
-        
-        m_writer.Flush();
     }
-    
+
+    public void SetCapacity(int capacity)
+    {
+        SetCapacityCore(capacity);
+    }
+
+    private void SetCapacityCore(int capacity)
+    {
+        var offsetTableBeforeResize = m_offsetTable.Length;
+
+        if (capacity > offsetTableBeforeResize)
+        {
+            Array.Resize(ref m_offsetTable, capacity);
+            
+            if (m_arrayCount > 0)
+            {
+                var newOffset = GetArrayOffset(0, m_offsetTable.Length);
+
+                MoveData(offsetTableBeforeResize, newOffset);
+            }
+        
+            WriteOffsetTableInfo(m_offsetTable);
+        }
+        else
+        {
+            throw new NotSupportedException("Trimming is not supported");
+        }
+    }
+
     private long[] ReadOffsetTableInfo(int arrayCount)
     {
         m_fileStream.Seek(m_metaSize, SeekOrigin.Begin);
@@ -87,7 +126,7 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
         return offsetTable;
     }
 
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetaData()
+    public (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata()
     {
         if (m_fileStream.Length == 0)
         {
@@ -104,6 +143,11 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
         return (maxSize, count, version, arraysCapacity);
     }
 
+    void IDataSerializationInfo.WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
+    {
+        SetMetadata(metaData);
+    }
+
     public void AppendArray<T>(T[] array)
     {
         if (m_arrayCount == m_offsetTable.Length)
@@ -114,7 +158,9 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
             
             if (offsetTableBeforeResize > 0)
             {
-                MoveData(offsetTableBeforeResize);
+                var newOffset = GetArrayOffset(0, m_offsetTable.Length);
+                
+                MoveData(offsetTableBeforeResize, newOffset);
             }
         }
 
@@ -127,10 +173,13 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
         UpdateArrayOffset(arrayIndex, written.offset, written.byteSize);
         WriteOffsetTableInfo(m_offsetTable);
         
-        m_writer.Flush();
+        if (CanFlush)
+        {
+            m_writer.Flush();
+        }
     }
 
-    private void MoveData(int offsetTableBeforeResize)
+    private void MoveData(int offsetTableBeforeResize, long newOffset)
     {
         var dataOffset = GetArrayOffset(0, offsetTableBeforeResize);
 
@@ -138,7 +187,7 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
 
         var chunks = CopyMemory(dataOffset, copySize);
 
-        WriteMemory(dataOffset, chunks);
+        WriteMemory(newOffset, chunks);
     }
 
     public void WriteArray<T>(int arrayIndex, T[] array)
@@ -206,7 +255,10 @@ internal class DataFileSerializationInfo : IDataSerializationInfo, IDisposable
 
         WriteOffsetTableInfo(m_offsetTable);
         
-        m_writer.Flush();
+        if (CanFlush)
+        {
+            m_writer.Flush();
+        }
     }
 
     private (int byteSize, long offset) WriteArrayToStream<T>(int i, T[] array)

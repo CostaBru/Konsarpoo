@@ -36,7 +36,7 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
 
-            SerializeTo(new DataMemorySerializationInfo<T>(info));
+            SerializeTo(new DataMemorySerializationInfo(info));
         }
         
         /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
@@ -48,30 +48,30 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            DeserializeFrom(new DataMemorySerializationInfo<T>(m_siInfo));
+            DeserializeFrom(new DataMemorySerializationInfo(m_siInfo));
 
             m_siInfo = null;
         }
         
-        public void SerializeTo(DataMemorySerializationInfo<T> info)
+        public void SerializeTo(IDataSerializationInfo info)
         {
             if (m_root is null)
             {
-                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
+                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, 1));
                 info.WriteSingleArray(Array.Empty<T>());
                 return;
             }
 
             if (m_root.HasStorage)
             {
-                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, 1));
+                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, 1));
                 info.WriteSingleArray(m_root.Storage);
             }
             else
             {
                 var storeNodes = GetStoreNodes(m_root).ToArray();
                 
-                info.WriteMetaData((m_maxSizeOfArray, m_count, m_version, storeNodes.Length));
+                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, storeNodes.Length));
                 foreach (var storeNode in storeNodes)
                 {
                     info.AppendArray(storeNode);
@@ -135,9 +135,9 @@ namespace Konsarpoo.Collections
             UpdateLastNode();
         }
 
-        public void DeserializeFrom(DataMemorySerializationInfo<T> info)
+        public void DeserializeFrom(IDataSerializationInfo info)
         {
-            var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetaData();
+            var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetadata();
             
             m_maxSizeOfArray = (ushort)maxSizeOfArray;
 
@@ -147,7 +147,7 @@ namespace Konsarpoo.Collections
                 
                 if (elementsCount == 1)
                 {
-                    T[] objArray = info.ReadSingleArray();
+                    T[] objArray = info.ReadSingleArray<T>();
                     if (objArray == null)
                     {
                         throw new SerializationException("Cannot read list values from serialization info.");
@@ -169,11 +169,11 @@ namespace Konsarpoo.Collections
             }
         }
 
-        private IEnumerable<T[]> ReadArrays(DataMemorySerializationInfo<T> info, int count)
+        private IEnumerable<T[]> ReadArrays(IDataSerializationInfo info, int count)
         {
             for (int j = 0; j < count; j++)
             {
-                var array = info.ReadArray(j);
+                var array = info.ReadArray<T>(j);
                 
                 if (array == null)
                 {

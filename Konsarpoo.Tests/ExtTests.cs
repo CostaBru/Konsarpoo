@@ -27,76 +27,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(i, value);
             }
         }
-        
-        [Test]
-        public void TestSeriHelper()
-        {
-            var seriLookup = BuiltinSeriHelper.GetSeriLookup();
-
-            var map = new Dictionary<Type, Action<Array, Type>>()
-            {
-                { typeof(DateTime), FillDateTimeArray },
-                { typeof(DateTimeOffset), FillDateTimeOffsetArray },
-                { typeof(Guid), FillGuidArray },
-            };
-
-            foreach (var pair in seriLookup)
-            {
-                var type = pair.Key;
-                var seri = pair.First();
-
-                var instance = Array.CreateInstance(type, 100);
-                
-                var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
-
-                var action = map.GetOrDefault(underlyingType, FillArray);
-
-                action(instance, underlyingType);
-
-                var bytes = seri.write(instance);
-
-                var result = seri.read(bytes);
-                
-                Assert.AreEqual(instance, result);
-            }
-        }
-
-        private static void FillArray(Array instance, Type underlyingType)
-        {
-            for (int i = 0; i < 100; i++)
-            {
-                instance.SetValue(Convert.ChangeType(i, underlyingType), i);
-            }
-        }
-        
-        private static void FillDateTimeArray(Array instance, Type underlyingType)
-        {
-            var dateTime = DateTime.Now;
-
-            for (int i = 0; i < 100; i++)
-            {
-                instance.SetValue(dateTime.AddSeconds(i), i);
-            }
-        }
-        
-        private static void FillGuidArray(Array instance, Type underlyingType)
-        {
-            for (int i = 0; i < 100; i++)
-            {
-                instance.SetValue(Guid.NewGuid(), i);
-            }
-        }
-        
-        private static void FillDateTimeOffsetArray(Array instance, Type underlyingType)
-        {
-            var dateTime = DateTimeOffset.Now;
-
-            for (int i = 0; i < 100; i++)
-            {
-                instance.SetValue(dateTime.AddSeconds(i), i);
-            }
-        }
-
+       
         [Test]
         public void AddAll()
         {

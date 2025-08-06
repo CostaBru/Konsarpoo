@@ -58,11 +58,11 @@ namespace Konsarpoo.Collections
                 
                 if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
                 {
-                    MergeTo(comparer, n1, n2, s1.m_items, s2.m_items, items);
+                    MergeTo(comparer, n1, n2, s1.Storage, s2.Storage, items);
                 }
                 else if (list1.m_root is Data<T>.StoreNode ss1)
                 {
-                    MergeTo(comparer, n1, n2, ss1.m_items, list2, items);
+                    MergeTo(comparer, n1, n2, ss1.Storage, list2, items);
                 }
                 else
                 {
@@ -73,11 +73,11 @@ namespace Konsarpoo.Collections
             {
                 if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
                 {
-                    MergeTo(comparer, n1, n2, s1.m_items, s2.m_items, result);
+                    MergeTo(comparer, n1, n2, s1.Storage, s2.Storage, result);
                 }
                 else if (list1.m_root is Data<T>.StoreNode ss1)
                 {
-                    MergeTo(comparer, n1, n2, ss1.m_items, list2, result);
+                    MergeTo(comparer, n1, n2, ss1.Storage, list2, result);
                 }
                 else
                 {

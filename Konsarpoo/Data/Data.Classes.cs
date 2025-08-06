@@ -396,9 +396,11 @@ namespace Konsarpoo.Collections
                 {
                     if (node is StoreNode storeNode)
                     {
-                        for (int i = 0; i < storeNode.m_size && i < storeNode.m_items.Length; i++)
+                        var storage = storeNode.ReadStorage;
+
+                        for (int i = 0; i < storeNode.m_size && i < storage.Length; i++)
                         {
-                            yield return storeNode.m_items[i];
+                            yield return storage[i];
                         }
                     }
                     else
@@ -425,7 +427,13 @@ namespace Konsarpoo.Collections
         {
             public int Level => 0;
 
-            public T[] Storage => m_items;
+            public T[] Storage
+            {
+                get { return m_items; }
+                set { m_items = value; }
+            }
+            
+            public T[] ReadStorage => m_items;
 
             public bool HasStorage => true;
 
@@ -480,12 +488,14 @@ namespace Konsarpoo.Collections
             }
 
             public bool TryInsertAndPush(int index, ref T item, out T lastItem, IDataAllocatorSetup<T> allocator)
-            { 
+            {
+                var storage = Storage!;
+                
                 if (m_size < m_maxCapacity)
                 {
-                    if (m_size == m_items.Length)
+                    if (m_size == storage.Length)
                     {
-                        var newCapacity = Math.Min(Math.Max(m_items.Length * 2, 2), m_maxCapacity);
+                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), m_maxCapacity);
 
                         var arrayAllocator = allocator.GetDataArrayAllocator();
                         
@@ -493,20 +503,23 @@ namespace Konsarpoo.Collections
 
                         if (m_size > 0)
                         {
-                            Array.Copy(m_items, 0, vals, 0, m_size);
+                            Array.Copy(storage, 0, vals, 0, m_size);
                         }
 
-                        arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                        arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
-                        m_items = vals;
+                        storage = vals;
                     }
 
                     if (index < m_size)
                     {
-                        Array.Copy(m_items, index, m_items, index + 1, m_size - index);
+                        Array.Copy(storage, index, storage, index + 1, m_size - index);
                     }
 
-                    m_items[index] = item;
+                    storage[index] = item;
+
+                    Storage = storage;
+                    
                     m_size += 1;
 
                     lastItem = default;
@@ -515,11 +528,13 @@ namespace Konsarpoo.Collections
                 }
                 else
                 {
-                    lastItem = m_items[m_size - 1];
+                    lastItem = storage[m_size - 1];
 
-                    Array.Copy(m_items, index, m_items, index + 1, m_size - index - 1);
+                    Array.Copy(storage, index, storage, index + 1, m_size - index - 1);
 
-                    m_items[index] = item;
+                    storage[index] = item;
+                    
+                    Storage = storage;
 
                     return false;
                 }
@@ -527,7 +542,7 @@ namespace Konsarpoo.Collections
 
             public T RemoveAtAndPop(int index, ref T newLastValue, IDataAllocatorSetup<T> allocator, ref bool last)
             {
-                var pushBackValue = this.m_items[index];
+                var pushBackValue = this.Storage[index];
 
                 var dataArrayAllocator = allocator.GetDataArrayAllocator();
                 
@@ -547,7 +562,7 @@ namespace Konsarpoo.Collections
 
             public int IndexOf(ref T item, int startIndex)
             {
-                return Array.IndexOf(m_items, item, startIndex, m_size - startIndex);
+                return Array.IndexOf(ReadStorage, item, startIndex, m_size - startIndex);
             }
 
             public IEnumerable<INode> Nodes => Array.Empty<INode>();
@@ -601,7 +616,11 @@ namespace Konsarpoo.Collections
 
                     if (arrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                     {
-                        Array.Fill(storeNode.m_items, defaultValue, 0, arraySize);
+                        var storage = storeNode.Storage;
+
+                        Array.Fill(storage, defaultValue, 0, arraySize);
+
+                        storeNode.Storage = storage;
                     }
 
                     node = storeNode;
@@ -616,18 +635,22 @@ namespace Konsarpoo.Collections
 
             private void Ensure(T defaultValue, int newSize, IArrayAllocator<T> allocator)
             {
+                var storage = Storage;
+
                 T[] vals = allocator.Rent(newSize);
 
-                Array.Copy(m_items, 0, vals, 0, m_size);
+                Array.Copy(storage, 0, vals, 0, m_size);
 
-                allocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                allocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
-                m_items = vals;
+                storage = vals;
 
                 if (allocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                 {
-                    Array.Fill(m_items, defaultValue, m_size, newSize - m_size);
+                    Array.Fill(storage, defaultValue, m_size, newSize - m_size);
                 }
+
+                Storage = storage;
             }
         }
     }
