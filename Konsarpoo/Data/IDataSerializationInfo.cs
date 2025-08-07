@@ -14,3 +14,4 @@ public interface IDataSerializationInfo
 
     T[] ReadSingleArray<T>();
 }
+

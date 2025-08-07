@@ -25,7 +25,7 @@ namespace Brudixy.Tests
 
 
             BenchmarkRunner
-                .Run<DataSerializationReport>(
+                .Run<DataFill>(
                     ManualConfig
                         .Create(DefaultConfig.Instance)
                         .WithOptions(ConfigOptions.DisableOptimizationsValidator));

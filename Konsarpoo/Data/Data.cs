@@ -520,37 +520,41 @@ namespace Konsarpoo.Collections
             if (m_root is StoreNode node)
             {
                 //inlined method StoreNode.Insert 
-                if (node.m_size < node.m_maxCapacity - 1)
+                if (node.m_list.m_size < node.m_list.m_maxCapacity - 1)
                 {
+                    node.OnStorageAccess();
+                    
                     var storage = node.Storage!;
-                    if (node.m_size == storage.Length)
+                    if (node.m_list.m_size == storage.Length)
                     {
-                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), node.m_maxCapacity);
+                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), node.m_list.m_maxCapacity);
 
                         var dataArrayAllocator = m_allocator.GetDataArrayAllocator();
                         
                         T[] vals =  dataArrayAllocator.Rent(newCapacity);
 
-                        if (node.m_size > 0)
+                        if (node.m_list.m_size > 0)
                         {
-                            Array.Copy(storage, 0, vals, 0, node.m_size);
+                            Array.Copy(storage, 0, vals, 0, node.m_list.m_size);
                         }
 
                         dataArrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
                         storage = vals;
+
+                        node.m_list.m_items = storage;
                     }
 
-                    if (index < node.m_size)
+                    if (index < node.m_list.m_size)
                     {
-                        Array.Copy(storage, index, storage, index + 1, node.m_size - index);
+                        Array.Copy(storage, index, storage, index + 1, node.m_list.m_size - index);
                     }
 
                     storage[index] = item;
-
-                    node.Storage = storage;
                     
-                    node.m_size += 1;
+                    node.OnStorageChanged();
+                    
+                    node.m_list.m_size += 1;
 
                     m_count++;
                     unchecked { ++m_version; }
@@ -735,6 +739,8 @@ namespace Konsarpoo.Collections
             
             if (storeNode != null)
             {
+                storeNode.OnStorageAccess();
+                
                 T[] storage = storeNode.Storage!;
                 int size = storeNode.Size;
                 
@@ -742,8 +748,8 @@ namespace Konsarpoo.Collections
                 {
                     storage[size] = item;
 
-                    storeNode.Storage = storage;
-                    storeNode.m_size = size + 1;
+                    storeNode.m_list.m_size = size + 1;
+                    storeNode.OnStorageChanged();
 
                     unchecked { ++m_version; }
                     m_count++;
@@ -751,9 +757,9 @@ namespace Konsarpoo.Collections
                     return;
                 }
                 
-                if (size < storeNode.m_maxCapacity)
+                if (size < storeNode.m_list.m_maxCapacity)
                 {
-                    var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), storeNode.m_maxCapacity);
+                    var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), storeNode.m_list.m_maxCapacity);
 
                     var arrayAllocator = m_allocator.GetDataArrayAllocator();
                     
@@ -769,9 +775,11 @@ namespace Konsarpoo.Collections
                     storage = vals; 
                     storage[size] = item;
                     
-                    storeNode.Storage = vals;
-                    storeNode.m_size = size + 1;
+                    storeNode.m_list.m_items = vals;
+                    storeNode.m_list.m_size = size + 1;
                 
+                    storeNode.OnStorageChanged();
+                    
                     unchecked { ++m_version; }
                     ++m_count;
                     
@@ -791,15 +799,8 @@ namespace Konsarpoo.Collections
             
             if (root == null)
             {
-                var storeNode = new StoreNode(m_allocator.GetDataArrayAllocator(), maxSizeOfArray, 2);
-
-                var storage = storeNode.Storage;
-
-                storage[0] = item;
-
-                storeNode.Storage = storage;
-                storeNode.m_size = 1;
-
+                var storeNode = new StoreNode(m_allocator.GetDataArrayAllocator(), maxSizeOfArray, 2, item);
+                
                 m_root = storeNode;
                 m_tailStoreNode = storeNode;
 
@@ -1159,7 +1160,7 @@ namespace Konsarpoo.Collections
 
                 if (m_count <= 0)
                 {
-                    storeNode.Clear(allocator);
+                    storeNode.Clear(m_allocator);
 
                     m_root = null;
                     m_tailStoreNode = null;
@@ -1290,7 +1291,7 @@ namespace Konsarpoo.Collections
             
             if (m_root is StoreNode simpleNode)
             {
-                simpleNode.RemoveAt(index, m_allocator.GetDataArrayAllocator());
+                simpleNode.RemoveItemAt(index, m_allocator.GetDataArrayAllocator());
 
                 m_count--;
                 unchecked { ++m_version; }

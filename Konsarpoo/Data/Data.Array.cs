@@ -55,7 +55,7 @@ namespace Konsarpoo.Collections
 
                 int startIndex = 0;
 
-                m_count = storeNode.m_size;
+                m_count = storeNode.m_list.m_size;
 
                 m_root = storeNode;
                 m_tailStoreNode = storeNode;
@@ -64,11 +64,13 @@ namespace Konsarpoo.Collections
 
                 if (setupDefaultValueForArray || arrayAllocator.CleanArrayReturn == false)
                 {
+                    storeNode.OnStorageAccess();
+                    
                     var storage = storeNode.Storage;
 
                     Array.Fill(storage, defaultValue, startIndex, m_count - startIndex);
 
-                    storeNode.Storage = storage;
+                    storeNode.OnStorageChanged();
                 }
 
                 var restSize = size - m_count;

@@ -1191,6 +1191,7 @@ namespace Konsarpoo.Collections.Tests
 
             list.Insert(index, -500);
             dataList.Insert(index, -500);
+            var v = dataList[index];
 
             Assert.AreEqual(list.Count, dataList.Count);
 

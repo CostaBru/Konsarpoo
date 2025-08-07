@@ -44,7 +44,6 @@ namespace Konsarpoo.Collections
         public PoolListBase(IArrayAllocator<T> allocator, int maxCapacity, int capacity)
         {
             m_maxCapacity = maxCapacity;
-
             m_items = allocator.Rent(Math.Min(capacity, m_maxCapacity));
         }
         
@@ -56,7 +55,6 @@ namespace Konsarpoo.Collections
         public PoolListBase(int maxCapacity, T[] items)
         {
             m_maxCapacity = maxCapacity;
-
             m_items = items;
         }
 
@@ -85,30 +83,35 @@ namespace Konsarpoo.Collections
                 throw new InvalidOperationException($"Cannot add more items. Max size {m_maxCapacity} has reached.");
             }
 
-            if (m_size == m_items.Length)
+            AddItemCore(item, ref m_items, ref m_size, m_maxCapacity, arrayAllocator);
+        }
+
+        internal static void AddItemCore(T item, ref T[] storage, ref int size, int maxCapacity, IArrayAllocator<T> arrayAllocator)
+        {
+            if (size == storage.Length)
             {
-                var newCapacity = Math.Min(Math.Max(m_items.Length * 2, 2), m_maxCapacity);
+                var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), maxCapacity);
 
                 T[] vals = arrayAllocator.Rent(newCapacity);
 
-                if (m_size > 0)
+                if (size > 0)
                 {
-                    Array.Copy(m_items, 0, vals, 0, m_size);
+                    Array.Copy(storage, 0, vals, 0, size);
                 }
 
-                arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
-                m_items = vals;
+                storage = vals;
             }
 
-            m_items[m_size] = item;
-
-            m_size++;
+            storage[size] = item;
+            
+            size++;
         }
 
         public void Clear(IArrayAllocator<T> arrayAllocator)
         {
-            ReturnArray(arrayAllocator);
+            ReturnArray(arrayAllocator, ref m_items);
 
             m_size = 0;
         }
@@ -124,7 +127,7 @@ namespace Konsarpoo.Collections
 
             if (m_size == 0)
             {
-                ReturnArray(arrayAllocator);
+                ReturnArray(arrayAllocator, ref m_items);
 
                 return true;
             }
@@ -134,20 +137,25 @@ namespace Konsarpoo.Collections
 
         public void RemoveAt(int index, IArrayAllocator<T> arrayAllocator)
         {
-            if (m_size > 0)
-            {
-                m_size -= 1;
+            RemoveAtCore(index, ref m_size, ref m_items, arrayAllocator);
+        }
 
-                if (index < m_size)
+        internal static void RemoveAtCore(int index, ref int size, ref T[] storage, IArrayAllocator<T> arrayAllocator)
+        {
+            if (size > 0)
+            {
+                size -= 1;
+
+                if (index < size)
                 {
-                    Array.Copy(m_items, index + 1, m_items, index, m_size - index);
+                    Array.Copy(storage, index + 1, storage, index, size - index);
                 }
 
-                m_items[m_size] = Default;
+                storage[size] = Default;
 
-                if (m_size == 0)
+                if (size == 0)
                 {
-                    ReturnArray(arrayAllocator);
+                    ReturnArray(arrayAllocator, ref storage);
                 }
             }
         }
@@ -217,7 +225,7 @@ namespace Konsarpoo.Collections
             
             if (m_size == 0)
             {
-                ReturnArray(arrayAllocator);
+                ReturnArray(arrayAllocator, ref m_items);
             }
 
             return num;
@@ -274,21 +282,21 @@ namespace Konsarpoo.Collections
             m_size = index1;
 
             if (m_size == 0)
-            {
-                ReturnArray(arrayAllocator);
+            {     
+                ReturnArray(arrayAllocator, ref m_items);
             }
 
             return num;
         }
         
-        internal void ReturnArray(IArrayAllocator<T> arrayAllocator)
+        internal static void ReturnArray(IArrayAllocator<T> arrayAllocator, ref T[] storage)
         {
-            if (m_items.Length > 0)
+            if (storage.Length > 0)
             {
-                arrayAllocator.Return(m_items, clearArray: s_clearArrayOnReturn);
+                arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
             }
 
-            m_items = Array.Empty<T>();
+            storage = Array.Empty<T>();
         }
     }
 }

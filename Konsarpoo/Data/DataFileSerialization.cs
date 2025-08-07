@@ -7,7 +7,13 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Konsarpoo.Collections;
 
-internal class DataFileSerialization : IDataSerializationInfo, IDisposable
+internal interface IDataArrayFileAccessor
+{
+    T[] ReadArray<T>(int arrayIndex);
+    void WriteArray<T>(int arrayIndex, T[] array);
+}
+
+internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAccessor, IDisposable
 {
     private readonly string m_filePath;
     private FileStream m_fileStream;
