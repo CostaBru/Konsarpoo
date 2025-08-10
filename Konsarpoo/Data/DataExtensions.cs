@@ -52,26 +52,19 @@ namespace Konsarpoo.Collections
             
             result.Ensure(n1 + n2);
 
-            if (result.m_root is Data<T>.StoreNode r)
+            if (result.m_root is Data<T>.IStoreNode r)
             {
-                r.OnStorageAccess();
-                
                 var items = r.Storage;
                 
-                if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
+                if (list1.m_root is Data<T>.IStoreNode s1 && list2.m_root is Data<T>.IStoreNode s2)
                 {
-                    s1.OnStorageAccess();
-                    s2.OnStorageAccess();
-                    
                     MergeTo(comparer, n1, n2, s1.Storage, s2.Storage, items);
                     
                     s1.OnStorageDone();
                     s2.OnStorageDone();
                 }
-                else if (list1.m_root is Data<T>.StoreNode ss1)
+                else if (list1.m_root is Data<T>.IStoreNode ss1)
                 {
-                    ss1.OnStorageAccess();
-                    
                     MergeTo(comparer, n1, n2, ss1.Storage, list2, items);
                     
                     ss1.OnStorageDone();
@@ -80,25 +73,18 @@ namespace Konsarpoo.Collections
                 {
                     MergeTo(comparer, n1, n2, list1, list2, items);
                 }
-
-                r.OnStorageChanged();
             }
             else
             {
-                if (list1.m_root is Data<T>.StoreNode s1 && list2.m_root is Data<T>.StoreNode s2)
+                if (list1.m_root is Data<T>.IStoreNode s1 && list2.m_root is Data<T>.IStoreNode s2)
                 {
-                    s1.OnStorageAccess();
-                    s2.OnStorageAccess();
-                    
                     MergeTo(comparer, n1, n2, s1.Storage, s2.Storage, result);
                     
                     s1.OnStorageDone();
                     s2.OnStorageDone();
                 }
-                else if (list1.m_root is Data<T>.StoreNode ss1)
+                else if (list1.m_root is Data<T>.IStoreNode ss1)
                 {
-                    ss1.OnStorageAccess();
-                    
                     MergeTo(comparer, n1, n2, ss1.Storage, list2, result);
                     
                     ss1.OnStorageDone();

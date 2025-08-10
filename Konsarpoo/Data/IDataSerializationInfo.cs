@@ -2,9 +2,9 @@
 
 public interface IDataSerializationInfo
 {
-    void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData);
+    void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData);
 
-    (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata();
+    (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata();
     
     void AppendArray<T>(T[] array);
 

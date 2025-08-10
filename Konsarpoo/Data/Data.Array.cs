@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections
 {
@@ -35,7 +36,7 @@ namespace Konsarpoo.Collections
         /// </summary>
         /// <param name="size"></param>
         /// <param name="defaultValue"></param>
-        public void Ensure(int size, T defaultValue = default)
+        public virtual void Ensure(int size, T defaultValue = default)
         {
             if (m_count >= size)
             {
@@ -49,28 +50,23 @@ namespace Konsarpoo.Collections
             if (m_root == null)
             {
                 //common case
-                var arrayAllocator = m_allocator.GetDataArrayAllocator();
-                
-                var storeNode = new StoreNode(arrayAllocator, maxSizeOfArray, Math.Min(maxSizeOfArray, size));
+
+                var storeNode = new StoreNode(m_allocator, maxSizeOfArray, Math.Min(maxSizeOfArray, size));
 
                 int startIndex = 0;
 
-                m_count = storeNode.m_list.m_size;
+                m_count = storeNode.m_size;
 
                 m_root = storeNode;
                 m_tailStoreNode = storeNode;
 
                 var setupDefaultValueForArray = EqualityComparer<T>.Default.Equals(defaultValue, Default) == false;
 
-                if (setupDefaultValueForArray || arrayAllocator.CleanArrayReturn == false)
+                if (setupDefaultValueForArray || m_allocator.GetDataArrayAllocator().CleanArrayReturn == false)
                 {
-                    storeNode.OnStorageAccess();
-                    
                     var storage = storeNode.Storage;
 
                     Array.Fill(storage, defaultValue, startIndex, m_count - startIndex);
-
-                    storeNode.OnStorageChanged();
                 }
 
                 var restSize = size - m_count;

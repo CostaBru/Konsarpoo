@@ -11,9 +11,9 @@ public enum AllocatorType
 
 public class BaseTest
 {
-    private readonly ushort? m_maxSizeOfArrayBucket;
-    private readonly AllocatorType m_allocatorType;
-    private readonly ushort m_gcLen;
+    protected readonly ushort? m_maxSizeOfArrayBucket;
+    protected readonly AllocatorType m_allocatorType;
+    protected readonly ushort m_gcLen;
 
     public BaseTest(int? maxSizeOfArrayBucket, AllocatorType allocatorType, int gcLen)
     {

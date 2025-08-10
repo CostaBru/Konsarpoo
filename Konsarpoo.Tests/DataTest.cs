@@ -234,14 +234,14 @@ namespace Konsarpoo.Collections.Tests
 
                 for (int i = 0; i < count; i++)
                 {
-                    Assert.AreEqual(i, poolList[i]);
+                    Assert.AreEqual(i, poolList.GetItemByRef(i));
                 }
 
                 var poolListCopy = new PoolList<int>(poolList, arrayAllocatorAllocator);
 
                 for (int i = 0; i < count; i++)
                 {
-                    Assert.AreEqual(i, poolListCopy[i]);
+                    Assert.AreEqual(i, poolListCopy.GetItemByRef(i));
                 }
 
                 poolList.Clear(arrayAllocatorAllocator);
@@ -288,7 +288,7 @@ namespace Konsarpoo.Collections.Tests
                     poolList.Insert(0, i, arrayAllocatorAllocator);
                     list.Insert(0, i);
 
-                    Assert.AreEqual(list[i], poolList[i]);
+                    Assert.AreEqual(list[i], poolList.GetItemByRef(i));
                 }
 
                 var enumerator = ((IEnumerable)poolList).GetEnumerator();

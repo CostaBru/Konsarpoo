@@ -11,6 +11,8 @@ internal interface IDataArrayFileAccessor
 {
     T[] ReadArray<T>(int arrayIndex);
     void WriteArray<T>(int arrayIndex, T[] array);
+    void AppendArray<T>(T[] array);
+    int ArrayCount { get; }
 }
 
 internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAccessor, IDisposable
@@ -27,17 +29,28 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     protected static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
     private long[] m_offsetTable;
 
+    public DataFileSerialization(string filePath, int maxSizeOfArray, int arrayCapacity = 0)
+    {
+        m_filePath = filePath;
+        m_fileStream = new FileStream(m_filePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        m_writer = new BinaryWriter(m_fileStream);
+        m_reader = new BinaryReader(m_fileStream);
+
+        m_maxSizeOfArray = maxSizeOfArray;
+
+        m_offsetTable = new long[arrayCapacity];
+    }
 
     public DataFileSerialization(string filePath)
     {
         m_filePath = filePath;
-        m_fileStream = new FileStream(m_filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        m_fileStream = new FileStream(m_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
         
         var metaData = ReadMetadata();
         
-        m_arrayCount = metaData.arraysCapacity;
+        m_arrayCount = metaData.arraysCount;
         m_version = metaData.version;
         m_dataCount = metaData.dataCount;
         m_maxSizeOfArray = metaData.maxSizeOfArray;
@@ -45,7 +58,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         
         if (m_arrayCount > 0)
         {
-            m_offsetTable = ReadOffsetTableInfo(m_arrayCount);
+            m_offsetTable = ReadOffsetTableInfo();
         }
         else
         {
@@ -71,18 +84,24 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         }
     }
 
+    public void Flush()
+    {
+        if (CanFlush)
+        {
+            m_writer.Flush();
+        }
+    }
+
     protected bool CanFlush => m_edit == 0;
 
-    public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
+    public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
         m_fileStream.Seek(0, SeekOrigin.Begin);
         
         m_writer.Write(metaData.maxSizeOfArray);
         m_writer.Write(metaData.dataCount);
         m_writer.Write(metaData.version);
-        m_writer.Write(metaData.arraysCapacity);
-
-        SetCapacityCore(metaData.arraysCapacity);
+        m_writer.Write(metaData.arraysCount);
 
         if (CanFlush)
         {
@@ -90,7 +109,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         }
     }
 
-    public void SetCapacity(int capacity)
+    public void SetArrayCapacity(int capacity)
     {
         SetCapacityCore(capacity);
     }
@@ -118,11 +137,13 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         }
     }
 
-    private long[] ReadOffsetTableInfo(int arrayCount)
+    private long[] ReadOffsetTableInfo()
     {
         m_fileStream.Seek(m_metaSize, SeekOrigin.Begin);
-        
-        long[] offsetTable = new long[arrayCount];
+
+        var offsetTableCapacity = m_reader.ReadInt32();
+
+        long[] offsetTable = new long[offsetTableCapacity];
 
         for (int i = 0; i < offsetTable.Length; i++)
         {
@@ -132,7 +153,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         return offsetTable;
     }
 
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata()
+    public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata()
     {
         if (m_fileStream.Length == 0)
         {
@@ -149,7 +170,13 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         return (maxSize, count, version, arraysCapacity);
     }
 
-    void IDataSerializationInfo.WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
+    private void WriteArrayCapacity(int count)
+    {
+        m_fileStream.Seek(sizeof(int) * 3, SeekOrigin.Begin);
+        m_writer.Write(count);
+    }
+
+    void IDataSerializationInfo.WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
         SetMetadata(metaData);
     }
@@ -175,7 +202,8 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         var written = WriteArrayToStream(arrayIndex, array);
         
         m_arrayCount++;
-        
+
+        WriteArrayCapacity(m_arrayCount);
         UpdateArrayOffset(arrayIndex, written.offset, written.byteSize);
         WriteOffsetTableInfo(m_offsetTable);
         
@@ -200,6 +228,8 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     {
         WriteArrayAt(arrayIndex, array);
     }
+
+    public int ArrayCount => m_arrayCount;
 
     public void WriteSingleArray<T>(T[] array)
     {
@@ -344,7 +374,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     
     private long GetBaseOffset(int offsetTableLenInFile)
     {
-        return m_metaSize + Marshal.SizeOf<long>() * offsetTableLenInFile;
+        return m_metaSize + sizeof(int) + sizeof(long) * offsetTableLenInFile;
     }
     
     private void UpdateArrayOffset(int arrayIndex, long offset, long bytesWritten)
@@ -366,6 +396,8 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     private void WriteOffsetTableInfo(long[] offsetTable)
     {
         m_fileStream.Seek(m_metaSize, SeekOrigin.Begin);
+        m_writer.Write(offsetTable.Length);
+        
         for (var index = 0; index < offsetTable.Length; index++)
         {
             var val = offsetTable[index];

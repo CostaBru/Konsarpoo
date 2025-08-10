@@ -27,7 +27,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void AppendArray_AppendsArraysCorrectly()
         {
-            var info = new DataFileSerialization(m_testFile);
+            var info = new DataFileSerialization(m_testFile, 4, 0);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -54,7 +54,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestWriteMetaDataAndAppend()
         {
-            var info = new DataFileSerialization(m_testFile);
+            var info = new DataFileSerialization(m_testFile, 2, 0);
             try
             {
                 info.SetMetadata((4, 8, 1, 200));
@@ -80,7 +80,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestSettingArrayCapacityDoNotCorrupt()
         {
-            var info = new DataFileSerialization(m_testFile);
+            var info = new DataFileSerialization(m_testFile, 2, 0);
             try
             {
                 info.SetMetadata((4, 0, 1, 2));
@@ -108,7 +108,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly()
         {
-            var info = new DataFileSerialization(m_testFile);
+            var info = new DataFileSerialization(m_testFile, 4, 0);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -130,7 +130,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly_Copy()
         {
-            var info = new DataFileSerialization(m_testFile);
+            var info = new DataFileSerialization(m_testFile, 2, 0);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };

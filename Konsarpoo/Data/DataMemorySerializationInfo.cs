@@ -31,15 +31,15 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
 
     private static readonly string[] s_predefinedElementsName = Enumerable.Range(0, 100).Select(i => ElementsName + i).ToArray();
 
-    public void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCapacity) metaData)
+    public void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
         info.AddValue(NodeCapacityName, metaData.maxSizeOfArray);
         info.AddValue(CapacityName, metaData.dataCount);
         info.AddValue(VersionName, metaData.version);
-        info.AddValue(ElementsCountName, metaData.arraysCapacity);
+        info.AddValue(ElementsCountName, metaData.arraysCount);
     }
 
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCapacity) ReadMetadata()
+    public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata()
     {
         var maxSizeOfArray = info.GetInt32(NodeCapacityName);
         var dataCount = info.GetInt32(CapacityName);

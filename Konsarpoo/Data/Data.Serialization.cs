@@ -79,7 +79,7 @@ namespace Konsarpoo.Collections
             }
         }
 
-        private void CreateFromArrays([NotNull] IEnumerable<T[]> arrays, int totalCount)
+        protected virtual void CreateFromArrays([NotNull] IEnumerable<T[]> arrays, int totalCount)
         {
             if (arrays == null) throw new ArgumentNullException(nameof(arrays));
             if (totalCount < 0) throw new ArgumentOutOfRangeException(nameof(totalCount));

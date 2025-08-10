@@ -13,7 +13,7 @@ namespace Konsarpoo.Collections
     /// </summary>
     /// <typeparam name="T"></typeparam>
     [DebuggerDisplay("PoolList. Size: {m_size}")]
-    internal class PoolListBase<T> : IEnumerable, IEnumerable<T>
+    public class PoolListBase<T> : IEnumerable, IEnumerable<T>
     {
         public static readonly T Default = default(T);
 
@@ -28,7 +28,17 @@ namespace Konsarpoo.Collections
 
         public int Count => m_size;
 
-        public ref T this[int index]
+        public ref T GetItemByRef(int index)
+        {
+            if (index >= m_size)
+            {
+                throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_size}).");
+            }
+
+            return ref m_items[index];
+        }
+
+        public T this[int index]
         {
             get
             {
@@ -37,7 +47,16 @@ namespace Konsarpoo.Collections
                     throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_size}).");
                 }
 
-                return ref m_items[index];
+                return m_items[index];
+            }
+            set
+            {
+                if (index >= m_size)
+                {
+                    throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_size}).");
+                }
+
+                m_items[index] = value;
             }
         }
 
@@ -250,7 +269,7 @@ namespace Konsarpoo.Collections
             return GetEnumerator();
         }
 
-        internal int RemoveAll(T item, IComparer<T> comparer, IArrayAllocator<T> arrayAllocator)
+        public int RemoveAll(T item, IComparer<T> comparer, IArrayAllocator<T> arrayAllocator)
         {
             int index1 = 0;
             while (index1 < m_size && comparer.Compare(m_items[index1], item) != 0)

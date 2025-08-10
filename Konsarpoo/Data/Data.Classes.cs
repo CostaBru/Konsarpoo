@@ -24,8 +24,18 @@ namespace Konsarpoo.Collections
             /// Return item by reference using zero based index.
             /// </summary>
             /// <param name="index"></param>
-            ref T this[int index] { get; }
-            
+            ref T GetItemByRef(int index);
+
+            /// <summary>
+            /// Return item using zero based index.
+            /// </summary>
+            /// <param name="index"></param>
+            T this[int index]
+            {
+                get;
+                set;
+            }
+
             /// <summary>
             /// Returns internal storage array if node is store node otherwise null.
             /// </summary>
@@ -40,7 +50,7 @@ namespace Konsarpoo.Collections
             /// <summary>
             /// Gets size of node.
             /// </summary>
-            int Size { get; }
+            int Size { get; set; }
             
             /// <summary>
             /// Adds item to the node or creates a new node with new item.
@@ -56,6 +66,12 @@ namespace Konsarpoo.Collections
             /// Clears node.
             /// </summary>
             void Clear(IDataAllocatorSetup<T> allocator);
+            
+            /// <summary>
+            /// Clears node on dispose.
+            /// </summary>
+            /// <param name="allocator"></param>
+            void Dispose(IDataAllocatorSetup<T> allocator);
 
             /// <summary>
             /// Removes last item.
@@ -112,7 +128,7 @@ namespace Konsarpoo.Collections
             /// <param name="index"></param>
             /// <returns></returns>
             [NotNull]
-            INode GetStorageNode(int index);
+            IStoreNode GetStorageNode(int index);
        
             /// <summary>
             /// Tries to insert array into existing node. Returns true if node can fit new item. Returns false if lastItem is required to push into next index.
@@ -124,6 +140,27 @@ namespace Konsarpoo.Collections
             /// <returns></returns>
             bool AddArray(T[] array, int size, out INode node, IDataAllocatorSetup<T> allocator);
         }
+        
+        public interface IStoreNode: INode
+        {
+            T[] GetStorage();
+            
+            int MaxCapacity { get; }
+
+            void AddItem(T item, IDataAllocatorSetup<T> allocator);
+            
+            void RemoveItemAt(int index, IDataAllocatorSetup<T> arrayAllocator);
+            
+            void InsertItem(int index, T item, IDataAllocatorSetup<T> allocator);
+            
+            int RemoveAll(T item, IComparer<T> comparer, IDataAllocatorSetup<T> allocator);
+           
+            int RemoveAll(Func<T, bool> match, IDataAllocatorSetup<T> allocator);
+            
+            int FindIndex(Predicate<T> match, int start);
+            
+            void OnStorageDone(IDataAllocatorSetup<T> allocator = null);
+        }
 
         /// <summary>
         /// Tree Leaf/link node class
@@ -132,15 +169,29 @@ namespace Konsarpoo.Collections
         protected sealed class LinkNode : INode
         {
             private const int c_linkNodeCapacity = ushort.MaxValue + 1;
-            
+
             private readonly PoolListBase<INode> m_nodes;
             private readonly ushort m_level;
             private readonly ushort m_stepBase;
             private readonly int m_leafCapacity;
 
             public int Level => m_level;
-            
-            public ref T this[int index]
+
+            public ref T GetItemByRef(int index)
+            {
+                var current = index >> m_stepBase;
+                var next = index - (current << m_stepBase);
+
+                if (current < 0 || current > m_nodes.m_size)
+                {
+                    throw new IndexOutOfRangeException(
+                        $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                }
+
+                return ref m_nodes.m_items[current].GetItemByRef(next);
+            }
+
+            public T this[int index]
             {
                 get
                 {
@@ -149,21 +200,36 @@ namespace Konsarpoo.Collections
 
                     if (current < 0 || current > m_nodes.m_size)
                     {
-                        throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                        throw new IndexOutOfRangeException(
+                            $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
                     }
 
-                    return ref m_nodes.m_items[current][next];
+                    return m_nodes.m_items[current][next];
+                }
+                set
+                {
+                    var current = index >> m_stepBase;
+                    var next = index - (current << m_stepBase);
+
+                    if (current < 0 || current > m_nodes.m_size)
+                    {
+                        throw new IndexOutOfRangeException(
+                            $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                    }
+
+                    m_nodes.m_items[current][next] = value;
                 }
             }
-            
-            public INode GetStorageNode(int index)
+
+            public IStoreNode GetStorageNode(int index)
             {
                 var current = index >> m_stepBase;
                 var next = index - (current << m_stepBase);
-                
+
                 if (current < 0 || current > m_nodes.m_size)
                 {
-                    throw new IndexOutOfRangeException($"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
+                    throw new IndexOutOfRangeException(
+                        $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
                 }
 
                 return m_nodes.m_items[current].GetStorageNode(next);
@@ -173,9 +239,25 @@ namespace Konsarpoo.Collections
 
             public bool HasStorage => false;
 
-            public int Size => m_nodes.m_size;
+            public int Size
+            {
+                get
+                {
+                    return m_nodes.m_size;
+                }
+                set
+                {
+                    if (value > m_leafCapacity)
+                    {
+                        throw new InvalidOperationException("Cannot set size greater than capacity.");
+                    }
+                    
+                    m_nodes.m_size = value;
+                }
+            }
 
-            public LinkNode(ushort level, int leafCapacity, INode child1, IDataAllocatorSetup<T> nodesAllocator,  INode child2 = null)
+            public LinkNode(ushort level, int leafCapacity, INode child1, IDataAllocatorSetup<T> nodesAllocator,
+                INode child2 = null)
             {
                 m_level = level;
                 m_leafCapacity = leafCapacity;
@@ -183,7 +265,7 @@ namespace Konsarpoo.Collections
                 m_stepBase = (ushort)Math.Log(Math.Pow(c_linkNodeCapacity, m_level - 1) * m_leafCapacity, 2);
 
                 var nodesArrayAllocator = nodesAllocator.GetNodesArrayAllocator();
-                
+
                 m_nodes = new PoolListBase<INode>(nodesArrayAllocator, c_linkNodeCapacity, capacity: 16);
                 m_nodes.Add(child1, nodesArrayAllocator);
 
@@ -200,9 +282,9 @@ namespace Konsarpoo.Collections
                 m_stepBase = linkNode.m_stepBase;
 
                 var nodesAllocator = allocator.GetNodesArrayAllocator();
-                var dataArrayAllocator = allocator.GetDataArrayAllocator();
-                
-                m_nodes = new PoolListBase<INode>(nodesAllocator, c_linkNodeCapacity, capacity: linkNode.m_nodes.m_size);
+
+                m_nodes = new PoolListBase<INode>(nodesAllocator, c_linkNodeCapacity,
+                    capacity: linkNode.m_nodes.m_size);
 
                 foreach (var node in linkNode.m_nodes)
                 {
@@ -212,22 +294,24 @@ namespace Konsarpoo.Collections
                     }
                     else if (node is StoreNode sn)
                     {
-                        m_nodes.Add(new StoreNode(sn, dataArrayAllocator), nodesAllocator);
+                        m_nodes.Add(new StoreNode(sn, allocator), nodesAllocator);
                     }
                 }
             }
 
             public bool Add(ref T item, out INode node, int capacity, IDataAllocatorSetup<T> allocator)
             {
-                if (m_nodes[m_nodes.m_size - 1].Add(ref item, out var node1, capacity, allocator) == false)
+                if (m_nodes.GetItemByRef(m_nodes.m_size - 1).Add(ref item, out var node1, capacity, allocator) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
                         node = new LinkNode(m_level, m_leafCapacity, node1, allocator);
                         return false;
                     }
+
                     m_nodes.Add(node1, allocator.GetNodesArrayAllocator());
                 }
+
                 node = this;
                 return true;
             }
@@ -243,24 +327,11 @@ namespace Konsarpoo.Collections
                         $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
                 }
 
-                lastItem = default;
+                var pushed = TryInsertAndPushCore(current, next, ref item, out lastItem, allocator, m_nodes);
 
-                for (int i = current; i < m_nodes.m_items.Length && i < m_nodes.m_size; i++)
-                {
-                    var node = m_nodes.m_items[i];
-                    
-                    if (node.TryInsertAndPush(next, ref item, out lastItem, allocator))
-                    {
-                        return true;
-                    }
-
-                    item = lastItem;
-                    
-                    next = 0;
-                }
-
-                return false;
+                return pushed;
             }
+
 
             public T RemoveAtAndPop(int index, ref T newLastValue, IDataAllocatorSetup<T> allocator, ref bool last)
             {
@@ -273,96 +344,58 @@ namespace Konsarpoo.Collections
                         $"The index value ${index} given is out of range. Nodes index ${current}, nodes size is {m_nodes.m_size}.");
                 }
 
-                T pushBack = default;
-                
-                var nodesArrayAllocator = allocator.GetNodesArrayAllocator();
-                
-                for (int i = m_nodes.m_size - 1; i >= current; i--)
-                {
-                    var node = m_nodes.m_items[i];
-
-                    if (i != current)
-                    {
-                        pushBack = node.RemoveAtAndPop(0, ref newLastValue, allocator, ref last);
-                        
-                        if(node.Size == 0)
-                        {
-                            m_nodes.RemoveAt(i, nodesArrayAllocator);
-                        }
-                    }
-                    else
-                    {
-                        bool _ = true;
-                        
-                        pushBack = node.RemoveAtAndPop(next, ref newLastValue, allocator, ref _);
-                        
-                        if(node.Size == 0)
-                        {
-                            m_nodes.RemoveAt(i, nodesArrayAllocator);
-                        }
-                    }
-                  
-                    newLastValue = pushBack;
-                }
-
-                return pushBack;
+                return RemoveAtAndPopCore(ref newLastValue, allocator, ref last, current, next, m_nodes);
             }
 
             public int IndexOf(ref T item, int startIndex)
             {
                 var current = startIndex >> m_stepBase;
                 var next = startIndex - (current << m_stepBase);
-                
+
                 if (current < 0 || current > m_nodes.m_size)
                 {
                     return -1;
                 }
 
-                for (int i = current; i < m_nodes.m_size; i++)
-                {
-                    var node = m_nodes[i];
-
-                    var subIndex = node.IndexOf(ref item, next);
-
-                    if (subIndex >= 0)
-                    {
-                        return subIndex + (i << m_stepBase);
-                    }
-
-                    next = 0;
-                }
-
-                return -1;
+                return IndexOfCore(ref item, current, next, m_nodes, m_stepBase);
             }
 
+
             public IEnumerable<INode> Nodes => m_nodes;
-            
+
             public bool AddArray(T[] array, int size, out INode node, IDataAllocatorSetup<T> allocator)
             {
-                if (m_nodes[m_nodes.m_size - 1].AddArray(array, size, out var node1, allocator) == false)
+                if (m_nodes.GetItemByRef(m_nodes.m_size - 1).AddArray(array, size, out var node1, allocator) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
                         node = new LinkNode(m_level, m_leafCapacity, node1, allocator);
                         return false;
                     }
+
                     m_nodes.Add(node1, allocator.GetNodesArrayAllocator());
                 }
+
                 node = this;
                 return true;
             }
 
-            public bool Ensure(ref int size, ref T defaultValue, out INode node, IDataAllocatorSetup<T> allocator)
+            public bool Ensure(ref int size, 
+                ref T defaultValue, 
+                out INode node,
+                IDataAllocatorSetup<T> allocator)
             {
-                if (m_nodes[m_nodes.m_size - 1].Ensure(ref size, ref defaultValue, out var node1, allocator) == false)
+                if (m_nodes.GetItemByRef(m_nodes.m_size - 1).Ensure(ref size, ref defaultValue, out var node1, allocator) == false)
                 {
                     if (m_nodes.m_size == c_linkNodeCapacity)
                     {
                         node = new LinkNode(m_level, m_leafCapacity, node1, allocator);
                         return false;
                     }
+
                     m_nodes.Add(node1, allocator.GetNodesArrayAllocator());
                 }
+
                 node = this;
                 return true;
             }
@@ -377,9 +410,14 @@ namespace Konsarpoo.Collections
                 m_nodes.Clear(allocator.GetNodesArrayAllocator());
             }
 
+            public void Dispose(IDataAllocatorSetup<T> allocator)
+            {
+                Clear(allocator);
+            }
+
             public bool RemoveLast(IDataAllocatorSetup<T> allocator)
             {
-                var node = m_nodes[m_nodes.m_size - 1];
+                var node = m_nodes.GetItemByRef(m_nodes.m_size - 1);
 
                 node.RemoveLast(allocator);
 
@@ -397,9 +435,9 @@ namespace Konsarpoo.Collections
                 {
                     if (node is StoreNode storeNode)
                     {
-                        var storage = storeNode.m_list.m_items;
+                        var storage = storeNode.m_items;
 
-                        for (int i = 0; i < storeNode.m_list.m_size && i < storage.Length; i++)
+                        for (int i = 0; i < storeNode.m_size && i < storage.Length; i++)
                         {
                             yield return storage[i];
                         }
@@ -418,60 +456,136 @@ namespace Konsarpoo.Collections
             {
                 return GetEnumerator();
             }
+
+            internal static bool TryInsertAndPushCore(int current,
+                int next, 
+                ref T item,
+                out T lastItem,
+                IDataAllocatorSetup<T> allocator, 
+                PoolListBase<INode> nodesStorage)
+            {
+                lastItem = default;
+
+                bool pushed = false;
+
+                for (int i = current; i < nodesStorage.m_items.Length && i < nodesStorage.m_size; i++)
+                {
+                    var node = nodesStorage.m_items[i];
+
+                    if (node.TryInsertAndPush(next, ref item, out lastItem, allocator))
+                    {
+                        pushed = true;
+                        break;
+                    }
+
+                    item = lastItem;
+
+                    next = 0;
+                }
+
+                return pushed;
+            }
+
+            internal static T RemoveAtAndPopCore(ref T newLastValue, 
+                IDataAllocatorSetup<T> allocator, 
+                ref bool last,
+                int current, 
+                int next, 
+                PoolListBase<INode> nodesStore)
+            {
+                T pushBack = default;
+
+                var nodesArrayAllocator = allocator.GetNodesArrayAllocator();
+
+                for (int i = nodesStore.m_size - 1; i >= current; i--)
+                {
+                    var node = nodesStore.m_items[i];
+
+                    if (i != current)
+                    {
+                        pushBack = node.RemoveAtAndPop(0, ref newLastValue, allocator, ref last);
+
+                        if (node.Size == 0)
+                        {
+                            nodesStore.RemoveAt(i, nodesArrayAllocator);
+                        }
+                    }
+                    else
+                    {
+                        bool _ = true;
+
+                        pushBack = node.RemoveAtAndPop(next, ref newLastValue, allocator, ref _);
+
+                        if (node.Size == 0)
+                        {
+                            nodesStore.RemoveAt(i, nodesArrayAllocator);
+                        }
+                    }
+
+                    newLastValue = pushBack;
+                }
+
+                return pushBack;
+            }
+
+            internal static int IndexOfCore(ref T item, int current, int next, PoolListBase<INode> nodeStorage, ushort stepBase)
+            {
+                for (int i = current; i < nodeStorage.m_size; i++)
+                {
+                    var node = nodeStorage.GetItemByRef(i);
+
+                    var subIndex = node.IndexOf(ref item, next);
+
+                    if (subIndex >= 0)
+                    {
+                        return subIndex + (i << stepBase);
+                    }
+
+                    next = 0;
+                }
+
+                return -1;
+            }
         }
 
-        
-        
+
         /// <summary>
         /// Tree data storage class.
         /// </summary>
-        [DebuggerDisplay("Store. Size: {m_list.m_size}")]
-        internal class StoreNode : INode
+        [DebuggerDisplay("Store. Size: {StoreNode.m_size}")]
+        protected sealed class StoreNode : PoolListBase<T>, IStoreNode
         {
+            public static readonly T Default = default(T);
+            internal static volatile bool s_clearArrayOnReturn = KonsarpooAllocatorGlobalSetup.ClearArrayOnReturn;
+           
             public int Level => 0;
 
-            public ref T this[int index]
-            {
-                get
-                {
-                    if (index >= m_list.m_size)
-                    {
-                        throw new IndexOutOfRangeException($"Index '{index}' is greater or equal the size of collection ({m_list.m_size}).");
-                    }
-                    
-                    return ref m_list.m_items[index];
-                }
-            }
+            T[] INode.Storage => m_items;
 
-            T[] INode.Storage
-            {
-                get
-                {
-                    OnStorageAccess();
-                    
-                    return m_list.m_items;
-                }
-            }
-            
-            public T[] Storage => m_list.m_items;
+            public T[] Storage => m_items;
 
-            public virtual void OnStorageAccess()
-            {
-            }
-            
-            public virtual void OnStorageDone()
-            {
-            }
-
-            public virtual void OnStorageChanged()
+            public void OnStorageDone(IDataAllocatorSetup<T> allocator = null)
             {
             }
 
             public bool HasStorage => true;
 
-            public int Size => m_list.m_size;
+            public int Size
+            {
+                get
+                {
+                    return m_size;
+                }
+                set
+                {
+                    if (value > m_maxCapacity)
+                    {
+                        throw new InvalidOperationException("Cannot set size greater than capacity.");
+                    }
 
-            internal PoolListBase<T> m_list;
+                    m_size = value;
+                }
+            }
 
             public bool AddArray(T[] array, int size, out INode node, IDataAllocatorSetup<T> allocator)
             {
@@ -479,139 +593,132 @@ namespace Konsarpoo.Collections
                 return false;
             }
 
-            public StoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity)
+            T[] IStoreNode.GetStorage()
             {
-                m_list = new PoolListBase<T>(allocator, maxCapacity, capacity);
+                return Storage;
+            }
+
+            public StoreNode(IDataAllocatorSetup<T> allocator, int maxCapacity, int capacity) : base(allocator.GetDataArrayAllocator(), maxCapacity, capacity)
+            {
             }
             
-            public StoreNode(T[] items, int size) 
+            public StoreNode(T[] items, int size) : base(items.Length, items)
             {
-                m_list = new PoolListBase<T>(items.Length, items);
-                m_list.m_size = size;
+                m_size = size;
             }
 
-            public StoreNode(StoreNode poolList, IArrayAllocator<T> allocator) 
+            public StoreNode(StoreNode poolList, IDataAllocatorSetup<T> allocator) : base(poolList, allocator.GetDataArrayAllocator())
             {
-                m_list = new PoolListBase<T>(poolList.m_list, allocator);
             }
 
-            public StoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity, T item)
+            public StoreNode(IDataAllocatorSetup<T> allocator, int maxCapacity, int capacity, T item) : base(allocator.GetDataArrayAllocator(), maxCapacity, capacity)
             {
-                m_list = new PoolListBase<T>(allocator, maxCapacity, capacity);
-                m_list.AddItem(item, allocator);
-                OnStorageChanged();
+                AddItem(item, allocator);
+            }
+            
+            public void AddItem(T item, IDataAllocatorSetup<T> allocator)
+            {
+                AddItemCore(item, ref m_items, ref m_size, m_maxCapacity, allocator.GetDataArrayAllocator());
             }
 
             public bool Add(ref T item, out INode node, int capacity, IDataAllocatorSetup<T> allocator)
             {
-                if (m_list.m_size == m_list.m_maxCapacity)
+                if (m_size == m_maxCapacity)
                 {
-                    node = new StoreNode(allocator.GetDataArrayAllocator(), m_list.m_maxCapacity, capacity, item);
+                    node = new StoreNode(allocator, m_maxCapacity, capacity, item);
                     return false;
                 }
 
-                OnStorageAccess();
-                m_list.AddItem(item, allocator.GetDataArrayAllocator());
-                OnStorageChanged();
+                AddItem(item, allocator.GetDataArrayAllocator());
                 node = this;
                 return true;
             }
 
-            public void RemoveItemAt(int index, IArrayAllocator<T> arrayAllocator)
+            public void RemoveItemAt(int index, IDataAllocatorSetup<T> arrayAllocator)
             {
-                OnStorageAccess();
-                
-                m_list.RemoveAt(index, arrayAllocator);
+                RemoveAt(index, arrayAllocator.GetDataArrayAllocator());
+            }
 
-                OnStorageChanged(); 
+            public int RemoveAll(T item, IComparer<T> comparer, IDataAllocatorSetup<T> allocator)
+            {
+                return base.RemoveAll(item, comparer, allocator.GetDataArrayAllocator());
             }
 
             public void Clear(IDataAllocatorSetup<T> allocator)
             {
-                OnStorageAccess();
-                
-                m_list.Clear(allocator.GetDataArrayAllocator());
-                
-                OnStorageChanged(); 
+                ReturnArray(allocator.GetDataArrayAllocator(), ref m_items);
+
+                m_size = 0;
+            }
+
+            public void Dispose(IDataAllocatorSetup<T> allocator)
+            {
+                Clear(allocator);
             }
 
             public bool RemoveLast(IDataAllocatorSetup<T> allocator)
             {
-                OnStorageAccess();
-                
-                var removeLast = m_list.RemoveLast(allocator.GetDataArrayAllocator());
-                
-                OnStorageChanged(); 
+                var removeLast = RemoveLast(allocator.GetDataArrayAllocator());
 
                 return removeLast;
             }
 
+            public void InsertItem(int index, T item, IDataAllocatorSetup<T> allocator)
+            {
+                base.Insert(index, item, allocator.GetDataArrayAllocator());
+            }
+
+            public int MaxCapacity => m_maxCapacity;
+            
+            public int RemoveAll(Func<T, bool> match, IDataAllocatorSetup<T> allocator)
+            {
+                return RemoveAll(match, allocator.GetDataArrayAllocator());
+            }
+
             public bool TryInsertAndPush(int index, ref T item, out T lastItem, IDataAllocatorSetup<T> allocator)
             {
-                OnStorageAccess();
-                
                 var storage = Storage!;
-                
-                if (m_list.m_size < m_list.m_maxCapacity)
-                {
-                    if (m_list.m_size == storage.Length)
-                    {
-                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), m_list.m_maxCapacity);
 
-                        var arrayAllocator = allocator.GetDataArrayAllocator();
-                        
-                        T[] vals = arrayAllocator.Rent(newCapacity);
+                var pushed = TryInsertAndPushCore(index, item, out lastItem, allocator, storage, this);
 
-                        if (m_list.m_size > 0)
-                        {
-                            Array.Copy(storage, 0, vals, 0, m_list.m_size);
-                        }
-
-                        arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
-
-                        storage = vals;
-                        m_list.m_items = vals;
-                    }
-
-                    if (index < m_list.m_size)
-                    {
-                        Array.Copy(storage, index, storage, index + 1, m_list.m_size - index);
-                    }
-
-                    storage[index] = item;
-                    m_list.m_size += 1;
-                    
-                    OnStorageChanged();
-
-                    lastItem = default;
-
-                    return true;
-                }
-                else
-                {
-                    lastItem = storage[m_list.m_size - 1];
-
-                    Array.Copy(storage, index, storage, index + 1, m_list.m_size - index - 1);
-
-                    storage[index] = item;
-                    
-                    OnStorageChanged();
-
-                    return false;
-                }
+                return pushed;
             }
 
             public T RemoveAtAndPop(int index, ref T newLastValue, IDataAllocatorSetup<T> allocator, ref bool last)
             {
-                OnStorageAccess();
-                
-                var storage = this.Storage!;
+                var pushBackValue = RemoveAtAndPopCore(index, newLastValue, allocator, ref last, this);
+
+                return pushBackValue;
+            }
+
+            public int IndexOf(ref T item, int startIndex)
+            {
+                return Array.IndexOf(m_items, item, startIndex, m_size - startIndex);
+            }
+
+            public IEnumerable<INode> Nodes => Array.Empty<INode>();
+
+            public IStoreNode GetStorageNode(int index)
+            {
+                return this;
+            }
+
+            public bool Ensure(ref int extraSize, ref T defaultValue, out INode node, IDataAllocatorSetup<T> allocator)
+            {
+                var ensureCore = EnsureCore(this, ref extraSize, defaultValue, out node, allocator, this);
+
+                return ensureCore;
+            }
+        
+            internal static T RemoveAtAndPopCore(int index, T newLastValue, IDataAllocatorSetup<T> allocator, ref bool last, PoolListBase<T> arrayStore)
+            {
+                var storage = arrayStore.m_items;
                 
                 var pushBackValue = storage[index];
 
                 var dataArrayAllocator = allocator.GetDataArrayAllocator();
                 
-                m_list.RemoveAt(index, dataArrayAllocator);
+                arrayStore.RemoveAt(index, dataArrayAllocator);
 
                 if (last == false)
                 {
@@ -619,77 +726,59 @@ namespace Konsarpoo.Collections
                 }
                 else
                 {
-                    m_list.AddItem(newLastValue, dataArrayAllocator);
+                    arrayStore.AddItem(newLastValue, dataArrayAllocator);
                 }
-
-                OnStorageChanged();
 
                 return pushBackValue;
             }
-
-            public int IndexOf(ref T item, int startIndex)
-            {
-                return Array.IndexOf(m_list.m_items, item, startIndex, m_list.m_size - startIndex);
-            }
-
-            public IEnumerable<INode> Nodes => Array.Empty<INode>();
             
-            public INode GetStorageNode(int index)
+            internal static bool EnsureCore(INode thisNode, ref int extraSize, T defaultValue, out INode node, IDataAllocatorSetup<T> allocator, PoolListBase<T> arrayStore)
             {
-                return this;
-            }
-
-            public bool Ensure(ref int extraSize, ref T defaultValue, out INode node, IDataAllocatorSetup<T> allocator)
-            {
-                var restOfThis = m_list.m_maxCapacity - m_list.m_size;
+                var restOfThis = arrayStore.m_maxCapacity - arrayStore.m_size;
 
                 var arrayAllocator = allocator.GetDataArrayAllocator();
                 
                 //can extend this
                 if (extraSize <= restOfThis)
                 {
-                    Ensure(defaultValue, (m_list.m_size + extraSize), arrayAllocator);
+                    Ensure(defaultValue, (arrayStore.m_size + extraSize), allocator, arrayStore);
 
-                    m_list.m_size += extraSize;
+                    arrayStore.m_size += extraSize;
 
                     extraSize = 0;
 
-                    node = this;
+                    node = thisNode;
 
                     return true;
                 }
 
                 if (restOfThis > 0)
                 {
-                    Ensure(defaultValue, (m_list.m_size + restOfThis), arrayAllocator);
+                    Ensure(defaultValue, (arrayStore.m_size + restOfThis), allocator, arrayStore);
 
-                    m_list.m_size += restOfThis;
+                    arrayStore.m_size += restOfThis;
                     
                     extraSize -= restOfThis;
                     
-                    node = this;
+                    node = thisNode;
 
                     return true;
                 }
                 
                 if(extraSize > 0)
-                //allocate new with rest
+                    //allocate new with rest
                 {
-                    var arraySize = Math.Min(m_list.m_maxCapacity, extraSize);
+                    var arraySize = Math.Min(arrayStore.m_maxCapacity, extraSize);
 
                     extraSize -= arraySize;
 
-                    var storeNode = new StoreNode(arrayAllocator, m_list.m_maxCapacity, arraySize);
+                    var storeNode = new StoreNode(allocator, arrayStore.m_maxCapacity, arraySize);
 
-                    storeNode.m_list.m_size = arraySize;
+                    storeNode.m_size = arraySize;
 
                     if (arrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                     {
-                         storeNode.OnStorageAccess();
-
                         Array.Fill(storeNode.Storage, defaultValue, 0, arraySize);
-
-                        storeNode.OnStorageChanged();
                     }
 
                     node = storeNode;
@@ -697,143 +786,82 @@ namespace Konsarpoo.Collections
                     return false;
                 }
                 
-                node = this;
+                node = thisNode;
 
                 return true;
             }
-
-            private void Ensure(T defaultValue, int newSize, IArrayAllocator<T> allocator)
+            
+            private static void Ensure(T defaultValue, int newSize, IDataAllocatorSetup<T> allocator, PoolListBase<T> arrayStore)
             {
-                OnStorageAccess();
-                
-                var storage = Storage;
+                var storage = arrayStore.m_items;
 
-                T[] vals = allocator.Rent(newSize);
+                var arrayAllocator = allocator.GetDataArrayAllocator();
 
-                Array.Copy(storage, 0, vals, 0, m_list.m_size);
+                T[] vals = arrayAllocator.Rent(newSize);
 
-                allocator.Return(storage, clearArray: s_clearArrayOnReturn);
+                Array.Copy(storage, 0, vals, 0, arrayStore.m_size);
+
+                arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
                 storage = vals;
 
-                if (allocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
+                if (arrayAllocator.CleanArrayReturn == false || EqualityComparer<T>.Default.Equals(defaultValue, Default) == false)
                 {
-                    Array.Fill(storage, defaultValue, m_list.m_size, newSize - m_list.m_size);
+                    Array.Fill(storage, defaultValue, arrayStore.m_size, newSize - arrayStore.m_size);
                 }
 
-                m_list.m_items = storage;
-                
-                OnStorageChanged();
+                arrayStore.m_items = storage;
             }
-
-            public IEnumerator<T> GetEnumerator()
-            {
-                OnStorageAccess();
-                
-                var items = m_list.m_items;
-                
-                for (var i = 0; i < items.Length && i < m_list.m_size; i++)
-                {
-                    var item = items[i];
-                    
-                    yield return item;
-                }
-                
-                OnStorageDone();
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
-            }
-
-            public int RemoveAll(T item, IComparer<T> comparer, IArrayAllocator<T> allocator)
-            {
-                OnStorageAccess();
-
-                var removeAll = m_list.RemoveAll(item, comparer, allocator);
-
-                if (removeAll > 0)
-                {
-                    OnStorageChanged();
-                }
-                else
-                {
-                    OnStorageDone();
-                }
-
-                return removeAll;
-            }
-
-            public int RemoveAll(Func<T, bool> match, IArrayAllocator<T> allocator)
-            {
-                OnStorageAccess();
-
-                var removeAll = m_list.RemoveAll(match, allocator);
-
-                if (removeAll > 0)
-                {
-                    OnStorageChanged();
-                }
-                else
-                {
-                    OnStorageDone();
-                }
-
-                return removeAll;
-            }
-
-            public int FindIndex(Predicate<T> match, int start)
-            {
-                var storage = m_list.m_items;
-                
-                return new DataRs<T>(storage, m_list.m_size)
-                    .FindIndexPredicate(match, start);
-            }
-        }
-
-        internal class FileStoreNode : StoreNode
-        {
-            public int ArrayIndex { get; set; }
-
-            public IDataArrayFileAccessor DataArrayFileAccessor  { get; set; }
             
-            public FileStoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity, int arrayIndex, IDataArrayFileAccessor dataArrayFileAccessor) : base(allocator, maxCapacity, capacity)
+            internal static bool TryInsertAndPushCore(int index, T item, out T lastItem, IDataAllocatorSetup<T> allocator, T[] storage, PoolListBase<T> arrayStore)
             {
-                ArrayIndex = arrayIndex;
-                DataArrayFileAccessor = dataArrayFileAccessor;
-            }
+                bool pushed = false;
 
-            public FileStoreNode(T[] items, int size, int arrayIndex, IDataArrayFileAccessor dataArrayFileAccessor) : base(items, size)
-            {
-                ArrayIndex = arrayIndex;
-                DataArrayFileAccessor = dataArrayFileAccessor;
-            }
+                if (arrayStore.m_size < arrayStore.m_maxCapacity)
+                {
+                    if (arrayStore.m_size == storage.Length)
+                    {
+                        var newCapacity = Math.Min(Math.Max(storage.Length * 2, 2), arrayStore.m_maxCapacity);
 
-            public FileStoreNode(StoreNode poolList, IArrayAllocator<T> allocator, int arrayIndex, IDataArrayFileAccessor dataArrayFileAccessor) : base(poolList, allocator)
-            {
-                ArrayIndex = arrayIndex;
-                DataArrayFileAccessor = dataArrayFileAccessor;
-            }
+                        var arrayAllocator = allocator.GetDataArrayAllocator();
+                        
+                        T[] vals = arrayAllocator.Rent(newCapacity);
 
-            public FileStoreNode(IArrayAllocator<T> allocator, int maxCapacity, int capacity, T item, int arrayIndex, IDataArrayFileAccessor dataArrayFileAccessor) : base(allocator, maxCapacity, capacity, item)
-            {
-                ArrayIndex = arrayIndex;
-                DataArrayFileAccessor = dataArrayFileAccessor;
-            }
+                        if (arrayStore.m_size > 0)
+                        {
+                            Array.Copy(storage, 0, vals, 0, arrayStore.m_size);
+                        }
 
-            public override void OnStorageAccess()
-            {
-                m_list.m_items = DataArrayFileAccessor.ReadArray<T>(ArrayIndex);
-            }
+                        arrayAllocator.Return(storage, clearArray: s_clearArrayOnReturn);
 
-            public override void OnStorageChanged()
-            {
-                DataArrayFileAccessor.WriteArray<T>(ArrayIndex, m_list.m_items);
-            }
+                        storage = vals;
+                        arrayStore.m_items = vals;
+                    }
 
-            public override void OnStorageDone()
-            {
+                    if (index < arrayStore.m_size)
+                    {
+                        Array.Copy(storage, index, storage, index + 1, arrayStore.m_size - index);
+                    }
+
+                    storage[index] = item;
+                    arrayStore.m_size += 1;
+
+                    lastItem = default;
+
+                    pushed = true;
+                }
+                else
+                {
+                    lastItem = storage[arrayStore.m_size - 1];
+
+                    Array.Copy(storage, index, storage, index + 1, arrayStore.m_size - index - 1);
+
+                    storage[index] = item;
+
+                    pushed = false;
+                }
+
+                return pushed;
             }
         }
     }
