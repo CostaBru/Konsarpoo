@@ -43,5 +43,5 @@ jobs:
     - name: Publish test results
       uses: actions/upload-artifact@v4
       with:
-        name: test-results
+        name: test-results-${{ matrix.operating-system }}
         path: ~/work/Konsarpoo/Konsarpoo/Konsarpoo.Tests/TestResults
