@@ -9,20 +9,117 @@ namespace Konsarpoo.Collections.Tests
     public class ExtTests
     {
         [Test]
-        public void Add1000()
+        public void TestData2()
         {
-            for (int j = 0; j < 100; j++)
+            var data2 = new DataFlatStore<int>(2048);
+            var data1 = new Data<int>(0, 2048);
+
+            for (int i = 0; i < 10000; i++)
             {
-                var data = new Data<int>();
+                data2.Add(i);
+                data1.Add(i);
+            }
 
-                for (int i = 0; i < 1000; i++)
-                {
-                    data.Add(i);
-                }
-
-                data.Dispose();
+            for (int i = 0; i < data2.Count; i++)
+            {
+                var value = data2[i];
+                
+                Assert.AreEqual(i, value);
             }
         }
+       
+        [Test]
+        public void AddAll()
+        {
+            var data = new Data<int>(0, 16);
+            var expected = new List<int>();
+
+            for (int i = 0; i < ((int)ushort.MaxValue * 100); i++)
+            {
+                data.Add(i);
+                expected.Add(i);
+            }
+
+            Assert.AreEqual(expected, data);
+
+            data.Dispose();
+        }
+        
+        [Test]
+        public void AddAll1()
+        {
+            var data = new Data<int>(0, 1000_000);
+            var expected = new List<int>();
+
+            for (int i = 0; i < 1000_000; i++)
+            {
+                data.Add(i);
+                expected.Add(i);
+            }
+
+            Assert.AreEqual(expected, data);
+
+            data.Dispose();
+        }
+        
+        [Test]
+        public void Add10000()
+        {
+            var testData =  new Data<int>();
+            
+            var stack = new Data<int>();
+            
+            for (int i = 0; i < 10000; i++)
+            {
+                testData.Add(i);
+                
+                stack.Push(i);
+
+                var d = testData[i];
+                
+                Assert.AreEqual(i, d);
+            }
+
+            while (stack.Count > 0)
+            {
+                var pop = stack.Pop();
+            }
+        }
+        
+        [Test]
+        public void Add1000_16()
+        {
+            var stack = new Data<int>(0, 16);
+            
+            for (int i = 0; i < 1000; i++)
+            {
+                stack.Push(i);
+            }
+
+            while (stack.Count > 0)
+            {
+                var pop = stack.Pop();
+            }
+        }
+        
+
+        [Test]
+        public void TestCreateFromArrays()
+        {
+            var test = Enumerable.Range(1, 100).Select(i => Enumerable.Range(1, 16).ToArray()).ToArray();
+
+            var expected = test.SelectMany(i => i).ToData();
+
+            var data = new Data<int>(test, 100 * 16);
+
+            for (int i = 0; i < expected.Count; i++)
+            {
+                var l = data[i];
+                
+                Assert.AreEqual(expected[i], l);
+            }
+        }
+
         
         [Test]
         public void TestAny()

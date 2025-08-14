@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
@@ -112,6 +113,24 @@ namespace Konsarpoo.Collections
                 : Math.Max(16, 1 << (int)Math.Round(Math.Log(maxSizeOfArray, 2)));
             
             m_maxSizeOfArray = alignedSize;
+        }
+        
+        /// <summary> Data&lt;T&gt; constructor accepting array storage and total items count.</summary>
+        public Data(IEnumerable<T[]> arrays, int totalCount, IDataAllocatorSetup<T> allocatorSetup = null)
+        {
+            var length = arrays.First().Length;
+
+            if (length > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException($"Arrays length is too large. Must be less than {ushort.MaxValue}.");
+            }
+
+            var dataAllocator = allocatorSetup ?? KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup.GetDataStorageAllocator<T>();
+
+            m_arrayAllocator = dataAllocator.GetDataArrayAllocator();
+            m_nodesAllocator = dataAllocator.GetNodesArrayAllocator();
+            
+            CreateFromArrays(arrays, totalCount);
         }
         
         /// <summary>
@@ -1577,6 +1596,60 @@ namespace Konsarpoo.Collections
                     m_count = source.m_count;
                 }
             }
+        }
+        
+        protected void CreateFromArrays([NotNull] IEnumerable<T[]> arrays, int totalCount)
+        {
+            if (arrays == null) throw new ArgumentNullException(nameof(arrays));
+            if (totalCount < 0) throw new ArgumentOutOfRangeException(nameof(totalCount));
+            
+            int rest = totalCount;
+
+            int prevArrayLen = int.MaxValue;
+            
+            foreach (var array in arrays)
+            {
+                var nodeSize = Math.Min(array.Length, rest);
+
+                var closestValidArrayLen = 1 << (int)Math.Round(Math.Log(array.Length, 2));
+                
+                if (closestValidArrayLen != array.Length)
+                {
+                    throw new ArgumentException($"Array len:{array.Length} must be power of 2, but was not.");
+                }
+                
+                if (m_root == null)
+                {
+                    m_maxSizeOfArray = array.Length;
+                    prevArrayLen = array.Length;
+                    
+                    rest -= nodeSize;
+
+                    var storeNode = new StoreNode(m_arrayAllocator, array, nodeSize);
+                    
+                    m_root = storeNode;
+                    
+                    continue;
+                }
+
+                if (prevArrayLen < array.Length)
+                {
+                    throw new ArgumentException($"The following array len:{array.Length} must be greater than or equal to former array length: {prevArrayLen}.");
+                }
+
+                INode node1 = m_root;
+                INode node2;
+                
+                if (node1.AddArray(array, nodeSize, out node2) == false)
+                {
+                    m_root = new LinkNode(node1, node1.Level + 1, prevArrayLen, node1, m_nodesAllocator, node2);
+                }
+                
+                prevArrayLen = array.Length;
+                rest -= nodeSize;
+            }
+
+            m_count = totalCount;
         }
     }
 }

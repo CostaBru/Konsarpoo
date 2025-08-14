@@ -23,6 +23,12 @@ namespace Konsarpoo.Collections
             }
             else
             {
+                if (size <= 0)
+                {
+                    Clear();
+                    return;
+                }
+                
                 while (m_count != 0 && m_count > size)
                 {
                     RemoveLast();

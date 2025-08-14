@@ -23,7 +23,7 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
         [Params(10, 1000, 1000_000)]
         public int N;
         
-        [Params(16, 1024 * 1024)]
+        [Params(16, ushort.MaxValue + 1, 1000_000)]
         public int NodeSize;
 
         [IterationSetup]
@@ -52,6 +52,21 @@ namespace Konsarpoo.Collections.Tests.Benchmarks
                 data.Add(i);
             }
 
+            data.Dispose();
+
+            return data.Count;
+        }
+        
+        [Benchmark]
+        public int Data2_Add()
+        {
+            var data = new DataFlatStore<int>(NodeSize);
+
+            for (int i = 0; i < N; i++)
+            {
+                data.Add(i);
+            }
+            
             data.Dispose();
 
             return data.Count;
