@@ -11,28 +11,28 @@ jobs:
     runs-on: windows-latest
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0'
           include-prerelease: True
       - name: Setup .NET Core 3.1
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0'
           include-prerelease: True
       - name: Restore dependencies
         run: dotnet restore
       - name: Setup NuGet.exe for use with actions
-        uses: NuGet/setup-nuget@v1.0.5
+        uses: NuGet/setup-nuget@v1.2.0
       - run: nuget restore Konsarpoo.sln
       - name: Build
         run: dotnet build --configuration Release --no-restore
       - name: Test
         run: dotnet test --no-build --configuration Release --no-restore --logger "trx;LogFileName=test-results-windows.trx"
       - name: Publish test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: D:\a\Konsarpoo\Konsarpoo\Konsarpoo.Tests\TestResults
@@ -41,14 +41,14 @@ jobs:
       - name: Run cover
         run: dotnet dotcover test --no-build --dcOutput="CoverageReport/Konsarpoo.CoverageReport.html" --dcReportType="HTML"
       - name: Publish test coverage
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-coverage 
           path: D:\a\Konsarpoo\Konsarpoo\CoverageReport
       - name: Write test coverage to env variable
         run:  python D:\a\Konsarpoo\Konsarpoo\Coverage\coverageToEnv.py D:\a\Konsarpoo\Konsarpoo\CoverageReport\Konsarpoo.CoverageReport.html
       - name: Create the Coverage Badge
-        uses: schneegans/dynamic-badges-action@v1.0.0
+        uses: schneegans/dynamic-badges-action@v1.6.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: 53438eb82c2cc9b70de34df4f14a7072
