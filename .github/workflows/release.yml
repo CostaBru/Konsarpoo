@@ -14,16 +14,13 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0'
-        include-prerelease: True
+        dotnet-version: '6.0.x'
     - name: Setup .NET Core 3.1
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '7.0'
-        include-prerelease: True
+        dotnet-version: '7.0.x'
     - name: Restore dependencies
       run: dotnet restore
-    # Note: For Linux runners, we use dotnet restore instead of nuget.exe
     - name: Verify commit exists in origin/main
       run: |
         git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*

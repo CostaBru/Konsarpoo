@@ -20,13 +20,11 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0'
-        include-prerelease: True
+        dotnet-version: '6.0.x'
     - name: Setup .NET Core 3.1
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '7.0'
-        include-prerelease: True
+        dotnet-version: '7.0.x'
     - name: Restore dependencies with dotnet
       run: dotnet restore
     # For cross-platform compatibility, we'll use dotnet CLI instead of nuget.exe on non-Windows platforms
