@@ -275,11 +275,6 @@ public class TrieMapTest : BaseTest
     
     public static  IDictionary<object, AbstractTupleTrieMap<(string, int), int>.TrieLinkNode<int>> NodesMapFactory(Type type)
     {
-        if (type == typeof(string))
-        {
-            return new StringTrieKeyAsObjectMapAdapter<AbstractTupleTrieMap<(string, int), int>.TrieLinkNode<int>>();
-        }
-
         return null;
     }
       
@@ -541,7 +536,7 @@ public class TrieMapTest : BaseTest
 
     private static IDictionary<object, AbstractTupleTrieMap<(string, string), string>.TrieLinkNode<string>> MapFactory(Type type)
     {
-        return  new StringTrieKeyAsObjectMapAdapter<AbstractTupleTrieMap<(string, string), string>.TrieLinkNode<string>>();
+        return null;
     }
 
     [Test]

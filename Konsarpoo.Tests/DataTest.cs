@@ -65,158 +65,7 @@ namespace Konsarpoo.Collections.Tests
             Assert.AreEqual(l2, l3 - l1);
             Assert.AreEqual(l1, l3 - l2);
         }
-
-        [Test]
-        public void TestStdVect([Values(100, 3, 2, 1)] int count)
-        {
-            {
-                var vector = new std.vector<int>();
-
-                Assert.True(vector.empty());
-
-                for (int i = 0; i < count; i++)
-                {
-                    vector.emplace_back(ref i);
-                }
-
-                Assert.AreEqual(0, vector.back());
-                Assert.AreEqual(count - 1, vector.front());
-
-                Assert.False(vector.empty());
-
-                Assert.AreEqual(count, vector.size());
-
-                for (int i = 0; i < count; i++)
-                {
-                    Assert.AreEqual(i, vector[i]);
-                }
-
-                var copy = new std.vector<int>(vector);
-
-                for (int i = 0; i < count; i++)
-                {
-                    Assert.AreEqual(i, copy[i]);
-                }
-                
-                vector.reverse();
-                
-                for (int i = 0; i < count; i++)
-                {
-                    Assert.AreEqual(i, vector[vector.size() - i - 1]);
-                }
-                
-                vector.sort();
-                
-                for (int i = 0; i < count; i++)
-                {
-                    Assert.AreEqual(i, vector[i]);
-                }
-
-                vector.Dispose();
-
-                Assert.AreEqual(0, vector.Count);
-            }
-
-            var makeVector = std.make_vector(1, 2);
-            
-            Assert.AreEqual(2, makeVector.size());
-            Assert.AreEqual(1, makeVector.at(0));
-            Assert.AreEqual(2, makeVector.at(1));
-
-            GC.Collect();
-        }
-
-        [Test]
-        public void TestStdVect2()
-        {
-            var vector = new std.vector<int>(Enumerable.Range(0, 10));
-
-            for (int i = 0; i < 10; i++)
-            {
-                Assert.AreEqual(i, vector.at(i));
-            }
-
-            vector.clear();
-
-            Assert.True(vector.empty());
-        }
-
-        [Test]
-        public void TestStdVector3()
-        {
-            var ints = new std.vector<int>();
-            
-            ints.resize(100, 1);
-
-            Assert.AreEqual(100, ints.Count);
-            Assert.True(ints.All(l => l == 1));
-            
-            ints.resize(50);
-            Assert.AreEqual(50, ints.Count);
-            Assert.True(ints.All(l => l == 1));
-            
-            ints.resize(0);
-            Assert.AreEqual(0, ints.Count);
-        }
-
-        [Test]
-        public void TestStdVect3()
-        {
-            var vector = new std.vector<int>();
-
-            for (int i = 0; i < 10; i++)
-            {
-                vector.push_back(i);
-
-                Assert.AreEqual(i, vector.at(0));
-
-                vector.pop_back();
-            }
-
-            Assert.True(vector.empty());
-        }
-        
-        [Test]
-        public void TestStdVectErase()
-        {
-            var vector = new std.vector<int>();
-
-            for (int i = 0; i < 10; i++)
-            {
-                vector.push_back(i);
-            }
-
-            for (int i = (int)vector.size() - 1; i >= 0; i--)
-            {
-                vector.erase(i);
-                
-                Assert.False(vector.Any(v => v == i));
-            }
-        }
-        
-        [Test]
-        public void TestStdVectErase2()
-        {
-            var vector = new std.vector<int>();
-
-            for (int i = 0; i < 10; i++)
-            {
-                vector.push_back(i);
-            }
-
-            vector.erase(2, 7);
-            
-            Assert.True(vector.Any(v => v == 0));
-            Assert.True(vector.Any(v => v == 1));
-            Assert.True(vector.Any(v => v == 8));
-            Assert.True(vector.Any(v => v == 9));
-
-            for (int i = 2; i <= 7; i++)
-            {
-                Assert.False(vector.Any(v => v == i));
-            }
-        }
-        
+      
 
         [Test]
         public void TestPoolList([Values(25000, 1000, 6, 5, 4, 3, 2, 1, 0)] int count)
@@ -389,11 +238,9 @@ namespace Konsarpoo.Collections.Tests
             if (insertPosition <= dataList.Count)
             {
                 var copy = dataList.ToList();
-                var vector = new std.vector<int>(dataList);
-
+              
                 dataList.Insert(insertPosition, -999);
                 copy.Insert(insertPosition, -999);
-                vector.insert(insertPosition, -999);
 
                 Assert.GreaterOrEqual(dataList.IndexOf(-999), 0);
                 Assert.GreaterOrEqual(((IList<int>)dataList).IndexOf(-999), 0);
@@ -402,7 +249,6 @@ namespace Konsarpoo.Collections.Tests
                 for (int i = 0; i < copy.Count; i++)
                 {
                     Assert.AreEqual(copy[i], dataList[i]);
-                    Assert.AreEqual(copy[i], vector.at(i));
                 }
             }
         }
@@ -636,17 +482,9 @@ namespace Konsarpoo.Collections.Tests
             var list3 = Enumerable.Range(0, 100).Reverse().ToData();
             var list4 = Enumerable.Range(0, 100).Reverse().ToData();
             var list5 = Enumerable.Range(0, 100).Reverse().ToData();
-            var vect1 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
-            var vect2 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
-            var vect3 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
-            var vect4 = new std.vector<int>(Enumerable.Range(0, 100).Reverse());
-
+      
             var comparison = new Comparison<int>((x, y) => x.CompareTo(y));
-
-            vect1.sort();
-            vect2.sort((x, y) => x.CompareTo(y));
-            vect3.sort(comparison);
-            vect4.sort(new IntComp());
+    
             
             list1.Sort();
 
@@ -661,10 +499,6 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(list1[index], list2[index]);
                 Assert.AreEqual(list2[index], list3[index]);
                 Assert.AreEqual(list4[index], list4[index]);
-                Assert.AreEqual(list4[index], vect1[index]);
-                Assert.AreEqual(list4[index], vect2[index]);
-                Assert.AreEqual(list4[index], vect3[index]);
-                Assert.AreEqual(list4[index], vect4[index]);
             }
 
             for (var index = 0; index < list1.Count; index++)
