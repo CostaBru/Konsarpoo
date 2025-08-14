@@ -24,9 +24,11 @@ jobs:
           include-prerelease: True
       - name: Restore dependencies
         run: dotnet restore
+      # On Windows, we can use NuGet.exe directly
       - name: Setup NuGet.exe for use with actions
         uses: NuGet/setup-nuget@v1.2.0
-      - run: nuget restore Konsarpoo.sln
+      - name: Restore with NuGet
+        run: nuget restore Konsarpoo.sln
       - name: Build
         run: dotnet build --configuration Release --no-restore
       - name: Test

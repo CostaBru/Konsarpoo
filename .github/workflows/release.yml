@@ -23,6 +23,7 @@ jobs:
         include-prerelease: True
     - name: Restore dependencies
       run: dotnet restore
+    # Note: For Linux runners, we use dotnet restore instead of nuget.exe
     - name: Verify commit exists in origin/main
       run: |
         git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*

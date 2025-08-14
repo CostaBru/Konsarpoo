@@ -27,11 +27,15 @@ jobs:
       with:
         dotnet-version: '7.0'
         include-prerelease: True
-    - name: Restore dependencies
+    - name: Restore dependencies with dotnet
       run: dotnet restore
-    - name: Setup NuGet.exe for use with actions
+    # For cross-platform compatibility, we'll use dotnet CLI instead of nuget.exe on non-Windows platforms
+    - name: Setup NuGet.exe for use with actions (Windows only)
+      if: ${{ runner.os == 'Windows' }}
       uses: NuGet/setup-nuget@v1.2.0
-    - run: nuget restore Konsarpoo.sln
+    - name: Restore with NuGet (Windows only)
+      if: ${{ runner.os == 'Windows' }}
+      run: nuget restore Konsarpoo.sln
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
