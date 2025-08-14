@@ -19,11 +19,8 @@ List of generic collections and APIs supported:
 
 Some extras built in:
 - ``BitArr``
-- ``String Trie Map``
 - ``Tuple Trie Map``
 - ``Lfu Cache``
-- ``Lfu Cache String Trie``
-- std::vector api
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
 
@@ -39,7 +36,7 @@ Set<> class interfaces:
 - ``ICollection<>,`` 
 - ``IReadOnlyCollection<>``
 
-Map<,> StringTrieMap<> TupleTrieMap<,,> LfuCache<,> classes interfaces:
+Map<,>  TupleTrieMap<,,> LfuCache<,> classes interfaces:
 - ``IDictionary<,>``
 - ``ICollection<KeyValuePair<,>>``
 - ``IEnumerable<KeyValuePair<,>>``
@@ -91,17 +88,6 @@ The ``Data`` class supports ``Stack`` and ``Queue`` API with linear time perform
 
 It is a compact array of bit values, which are represented as Booleans. It uses ``Data<int>`` as internal storage.
 
-### STRING TRIE MAP
-
-``StringTrieMap<V>`` is generic map collection was designed to store string keys in more space efficient way. It supports the built in ``IDictionary`` API and implemented as trie data structure. It has ``O(k)`` value value access time, where ``k`` is the len of a key. 
-
-``StringTrieMap<V>`` may contain 3 types of node: ``Link``, ``EndLink`` and ``Tail``. All node types have ``System.Char`` key.
-- ``Link`` node may have one or many child nodes.
-- ``EndLink`` node has a value and child nodes. 
-- ``Tail`` has a value and it may contain key suffix as a ``Data<System.Char>``.
-
-In addition to ``IDictionary`` API, there are methods for fetching values by prefix and suffix: ``WhereKeyStartsWith``, ``WhereKeyEndsWith``, ``WhereKeyContains``
-
 ### TUPLE TRIE MAP
 
 ``TupleTrieMap<T1..T5, TValue>`` is generic map collection was designed to store tuple keys in more space efficient way. It supports the built in ``IDictionary`` API and implemented as trie data structure. It has ``O(k)`` value value access time, where ``k`` is the length of a tuple.
@@ -126,10 +112,6 @@ In addition to that it can keep track both:
 User can define which type this cache should use as a collection of keys and set of frequencies.
 
 https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf
-
-### LFU CACHE STRING TRIE
-
-A LFU CACHE data structure where string keys stored in ``StringTrieMap<V>``.
 
 # Stackalloc and ref struct 
 
