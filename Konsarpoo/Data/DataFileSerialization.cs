@@ -29,10 +29,10 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     protected static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
     private long[] m_offsetTable;
 
-    public DataFileSerialization(string filePath, int maxSizeOfArray, int arrayCapacity = 0)
+    public DataFileSerialization(string filePath, FileMode fileMode, int maxSizeOfArray, int arrayCapacity = 0)
     {
         m_filePath = filePath;
-        m_fileStream = new FileStream(m_filePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        m_fileStream = new FileStream(m_filePath, fileMode, FileAccess.ReadWrite, FileShare.None);
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
 
@@ -41,10 +41,10 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         m_offsetTable = new long[arrayCapacity];
     }
 
-    public DataFileSerialization(string filePath)
+    public DataFileSerialization(string filePath, FileMode fileMode)
     {
         m_filePath = filePath;
-        m_fileStream = new FileStream(m_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        m_fileStream = new FileStream(m_filePath, fileMode, FileAccess.ReadWrite, FileShare.None);
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
         
@@ -368,7 +368,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         {
             return GetBaseOffset(arrayCount);
         }
-        
+
         return GetBaseOffset(arrayCount) + m_offsetTable[arrayIndex - 1];
     }
     

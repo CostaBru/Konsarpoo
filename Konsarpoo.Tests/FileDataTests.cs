@@ -1,0 +1,190 @@
+﻿using System;
+using System.IO;
+using System.Linq;
+using NUnit.Framework;
+
+namespace Konsarpoo.Collections.Tests
+{
+    [TestFixture]
+    public class FileDataTests
+    {
+        private string m_testFile;
+
+        [SetUp]
+        public void SetUp()
+        {
+            m_testFile = Path.GetTempPath() + Guid.NewGuid() + ".tmp";
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+           File.Delete(m_testFile);
+        }
+
+        [Test]
+        public void TestFileDataBasicOperations()
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 10; i++)
+                {
+                    fileData.Add(i);
+                }
+                
+                fileData.EndWrite();
+                
+                Assert.AreEqual(10, fileData.Count);
+                    
+                for (int i = 0; i < 10; i++)
+                {
+                    var actual = fileData[i];
+                    
+                    Assert.AreEqual(i, actual);
+                }
+            }
+            
+            using (var fileData = FileData<int>.Open(newFile, arrayBufferCapacity: 2))
+            {
+                Assert.AreEqual(10, fileData.Count);
+                
+                for (int i = 0; i < 10; i++)
+                {
+                    Assert.AreEqual(i, fileData[i]);
+                }
+                
+                var enumerated = fileData.ToArray();
+                Assert.AreEqual(10, enumerated.Length);
+                for (int i = 0; i < 10; i++)
+                {
+                    Assert.AreEqual(i, enumerated[i]);
+                }
+            }
+        }
+
+        [Test]
+        public void TestFileDataCacheEviction()
+        {
+            var cacheTestFile= m_testFile;
+            
+            using (var fileData = FileData<int>.Create(cacheTestFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 20; i++)
+                {
+                    fileData.Add(i);
+                }
+                
+                fileData.EndWrite();
+                
+                Assert.AreEqual(0, fileData[0]);  
+                Assert.AreEqual(15, fileData[15]); 
+                Assert.AreEqual(5, fileData[5]);   
+                Assert.AreEqual(19, fileData[19]); 
+                
+                for (int i = 0; i < 20; i++)
+                {
+                    Assert.AreEqual(i, fileData[i]);
+                }
+            }
+        }
+
+        [Test]
+        public void TestFileDataModification()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 10; i++)
+                {
+                    fileData.Add(i);
+                }
+                
+                fileData[0] = 100;
+                fileData[5] = 105;
+                fileData[9] = 109;
+                
+                fileData.EndWrite();
+                
+                Assert.AreEqual(100, fileData[0]);
+                Assert.AreEqual(105, fileData[5]);
+                Assert.AreEqual(109, fileData[9]);
+                
+                Assert.AreEqual(1, fileData[1]);
+                Assert.AreEqual(4, fileData[4]);
+                Assert.AreEqual(6, fileData[6]);
+            }
+            
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            {
+                Assert.AreEqual(100, fileData[0]);
+                Assert.AreEqual(105, fileData[5]);
+                Assert.AreEqual(109, fileData[9]);
+            }
+            
+        }
+
+        [Test]
+        public void TestFileDataBatchOperations()
+        {
+            var testFile  = m_testFile;
+            
+            using (var fileData = FileData<string>.Create(testFile, maxSizeOfArray: 8, arrayBufferCapacity: 3))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 50; i++)
+                {
+                    fileData.Add($"Item_{i:D3}");
+                }
+                
+                fileData[10] = "Modified_010";
+                fileData[25] = "Modified_025";
+                
+                fileData.EndWrite(); 
+                
+                Assert.AreEqual(50, fileData.Count);
+                Assert.AreEqual("Item_000", fileData[0]);
+                Assert.AreEqual("Modified_010", fileData[10]);
+                Assert.AreEqual("Modified_025", fileData[25]);
+                Assert.AreEqual("Item_049", fileData[49]);
+            }
+           
+        }
+
+        [Test]
+        public void TestFileDataMemoryPressure()
+        {
+            var testFile  = m_testFile;
+            
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 10, arrayBufferCapacity: 1))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 100; i++)
+                {
+                    fileData.Add((int)(Math.PI * (i + 100)));
+                }
+                
+                fileData.EndWrite();
+                
+                var random = new Random(42);
+                for (int i = 0; i < 200; i++)
+                {
+                    int index = random.Next(100);
+                    double expected = (int)(Math.PI * (index + 100));
+                    double actual = fileData[index];
+                    
+                    Assert.AreEqual(expected, actual, 1e-10);
+                }
+            }
+        }
+    }
+}
