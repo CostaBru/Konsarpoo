@@ -290,12 +290,11 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
             var chunk = LoadChuck(ai);
             if (chunk == null)
             {
-                // Should not happen for ai < m_arrayCount, but guard just in case
-                chunk = GetOrAddChunk(ai);
+                return;
             }
             
             // If chunk has space
-            if (chunk.Size < m_maxSizeOfArray)
+            if (chunk.Size < m_maxSizeOfArray - 1)
             {
                 // shift if inserting not at end of used region
                 if (elementIndex < chunk.Size)
@@ -306,22 +305,21 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
                 chunk.Size++;
                 chunk.IsDirty = true;
                 m_count++;
+                
                 return;
             }
-            else
+
+            // Chunk full: push last element forward
+            var last = chunk.Array[m_maxSizeOfArray - 1];
+            // Shift right inside the chunk starting from elementIndex
+            for (int i = m_maxSizeOfArray - 2; i >= elementIndex; i--)
             {
-                // Chunk full: push last element forward
-                var last = chunk.Array[m_maxSizeOfArray - 1];
-                // Shift right inside the chunk starting from elementIndex
-                for (int i = m_maxSizeOfArray - 2; i >= elementIndex; i--)
-                {
-                    chunk.Array[i + 1] = chunk.Array[i];
-                }
-                chunk.Array[elementIndex] = currentItem;
-                chunk.IsDirty = true; // size unchanged (still full)
-                currentItem = last;
-                elementIndex = 0; // insertion index for next chunk becomes start
+                chunk.Array[i + 1] = chunk.Array[i];
             }
+            chunk.Array[elementIndex] = currentItem;
+            chunk.IsDirty = true; // size unchanged (still full)
+            currentItem = last;
+            elementIndex = 0; // insertion index for next chunk becomes start
         }
 
         // All existing chunks were full, need a new chunk
