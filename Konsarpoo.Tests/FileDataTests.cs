@@ -228,5 +228,85 @@ namespace Konsarpoo.Collections.Tests
                 }
             }
         }
+
+        [Test]
+        public void TestFileDataRemoveAtOperations()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            {
+                fileData.BeginWrite();
+                for (int i = 0; i < 20; i++) fileData.Add(i);
+                var mirror = new List<int>(Enumerable.Range(0,20));
+                // remove first
+                fileData.RemoveAt(0); mirror.RemoveAt(0);
+                // remove last
+                fileData.RemoveAt(fileData.Count - 1); mirror.RemoveAt(mirror.Count - 1);
+                // remove middle
+                fileData.RemoveAt(5); mirror.RemoveAt(5);
+                // remove near chunk boundary
+                fileData.RemoveAt(3); mirror.RemoveAt(3);
+                // multiple removals to force propagation across several chunks
+                fileData.RemoveAt(7); mirror.RemoveAt(7);
+                fileData.RemoveAt(7); mirror.RemoveAt(7);
+                fileData.EndWrite();
+                Assert.AreEqual(mirror.Count, fileData.Count);
+                for (int i = 0; i < mirror.Count; i++) Assert.AreEqual(mirror[i], fileData[i], $"Mismatch after removals at {i}");
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            {
+                var mirror = new List<int>(Enumerable.Range(0,20));
+                mirror.RemoveAt(0);
+                mirror.RemoveAt(mirror.Count - 1);
+                mirror.RemoveAt(5);
+                mirror.RemoveAt(3);
+                mirror.RemoveAt(7);
+                mirror.RemoveAt(7);
+                Assert.AreEqual(mirror.Count, fileData.Count);
+                for (int i = 0; i < mirror.Count; i++) Assert.AreEqual(mirror[i], fileData[i], $"Mismatch after reopen removals at {i}");
+            }
+        }
+
+        [Test]
+        public void TestFileDataRemoveAtShrinksChunks()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2))
+            {
+                fileData.BeginWrite();
+                for (int i = 0; i < 9; i++) fileData.Add(i); // 4,4,1
+                fileData.RemoveAt(8); // remove sole element in last chunk -> chunk deleted
+                fileData.EndWrite();
+                Assert.AreEqual(8, fileData.Count);
+                for (int i = 0; i < 8; i++) Assert.AreEqual(i, fileData[i]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2))
+            {
+                Assert.AreEqual(8, fileData.Count);
+                for (int i = 0; i < 8; i++) Assert.AreEqual(i, fileData[i]);
+            }
+        }
+
+        [Test]
+        public void TestFileDataClear()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2))
+            {
+                for (int i = 0; i < 15; i++) fileData.Add(i);
+                fileData.Clear();
+                Assert.AreEqual(0, fileData.Count);
+                fileData.BeginWrite();
+                fileData.Add(42);
+                fileData.EndWrite();
+                Assert.AreEqual(1, fileData.Count);
+                Assert.AreEqual(42, fileData[0]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2))
+            {
+                Assert.AreEqual(1, fileData.Count);
+                Assert.AreEqual(42, fileData[0]);
+            }
+        }
     }
 }

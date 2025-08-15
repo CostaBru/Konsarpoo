@@ -334,12 +334,58 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
     }
 
     /// <summary>
+    /// Removes the element at the specified index shifting subsequent elements left.
+    /// </summary>
+    /// <param name="index">Zero based index to remove.</param>
+    public void RemoveAt(int index)
+    {
+        if (index < 0 || index >= m_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        // Fast path: removing last element
+        if (index == m_count - 1)
+        {
+            int lastChunkIndex = index >> m_stepBase;
+            var lastChunk = LoadChuck(lastChunkIndex);
+            lastChunk.Size--;
+            lastChunk.IsDirty = true;
+        }
+        else
+        {
+            // Shift elements left one by one using indexer to avoid holding multiple chunks simultaneously (prevents eviction issues)
+            for (int i = index; i < m_count - 1; i++)
+            {
+                this[i] = this[i + 1];
+            }
+        }
+
+        m_count--;
+
+        if (m_count == 0)
+        {
+            Clear();
+        }
+    }
+
+    /// <summary>
+    /// Clears all data from the file and memory.
+    /// </summary>
+    public void Clear()
+    {
+        m_count = 0;
+        m_arrayCount = 0;
+        m_buffer.Clear();
+        m_fileSerialization.Clear();
+    }
+
+    /// <summary>
     /// Forces all cached data to be written to disk and evicts all arrays from memory.
     /// </summary>
     public void Flush()
     {
         FlushDirtyChunks();
-        m_buffer.Clear();
         m_fileSerialization.Flush();
     }
 

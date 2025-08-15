@@ -12,6 +12,8 @@ internal interface IDataArrayFileAccessor
     T[] ReadArray<T>(int arrayIndex);
     void WriteArray<T>(int arrayIndex, T[] array);
     void AppendArray<T>(T[] array);
+    void RemoveArray(int arrayIndex);
+    void Clear();
     int ArrayCount { get; }
 }
 
@@ -236,6 +238,88 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         AppendArray(array);
     }
     
+    public void RemoveArray(int arrayIndex)
+    {
+        if (arrayIndex < 0 || arrayIndex >= m_arrayCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+        }
+        
+        // compute size of array being removed
+        long baseOffset = GetBaseOffset(m_offsetTable.Length);
+        long start = GetArrayOffset(arrayIndex, m_offsetTable.Length);
+        long end = baseOffset + m_offsetTable[arrayIndex];
+        long sizeToRemove = end - start;
+        if (sizeToRemove < 0)
+        {
+            throw new InvalidOperationException("Corrupted offset table: negative size");
+        }
+        if (arrayIndex < m_arrayCount - 1)
+        {
+            // move trailing data up
+            long trailingOffset = end;
+            long copySize = m_fileStream.Length - trailingOffset;
+            if (copySize > 0)
+            {
+                var chunks = CopyMemory(trailingOffset, copySize);
+                WriteMemory(start, chunks);
+            }
+            // adjust cumulative end offsets for subsequent arrays
+            for (int j = arrayIndex + 1; j < m_arrayCount; j++)
+            {
+                m_offsetTable[j] -= sizeToRemove;
+            }
+            // shift cumulative ends left
+            for (int j = arrayIndex; j < m_arrayCount - 1; j++)
+            {
+                m_offsetTable[j] = m_offsetTable[j + 1];
+            }
+        }
+        // zero out last (now unused) entry (keep capacity)
+        if (m_arrayCount > 0)
+        {
+            m_offsetTable[m_arrayCount - 1] = 0;
+        }
+        m_arrayCount--;
+        
+        // truncate file
+        if (m_arrayCount == 0)
+        {
+            // reset fully: metadata only
+            m_offsetTable = new long[0];
+            var newLen = m_metaSize; // only metadata
+            SetMetadata((m_maxSizeOfArray, 0, m_version, 0));
+            m_fileStream.SetLength(newLen);
+            if (CanFlush)
+            {
+                m_writer.Flush();
+            }
+        }
+        else
+        {
+            long newLen = m_fileStream.Length - sizeToRemove;
+            
+            WriteArrayCapacity(m_arrayCount);
+            WriteOffsetTableInfo(m_offsetTable);
+            m_fileStream.SetLength(newLen);
+        
+            if (CanFlush)
+            {
+                m_writer.Flush();
+            }
+        }
+    }
+
+    public void Clear()
+    {
+        m_arrayCount = 0;
+        m_dataCount = 0;
+        m_offsetTable = new long[0];
+        // Truncate to metadata only
+        m_fileStream.SetLength(m_metaSize);
+        SetMetadata((m_maxSizeOfArray, 0, m_version, 0));
+        if (CanFlush) m_writer.Flush();
+    }
 
     public T[] ReadSingleArray<T>()
     {
