@@ -165,7 +165,24 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
         {
             var loadedArray = m_fileSerialization.ReadArray<T>(arrayIndex);
             
-            var size = arrayIndex == m_arrayCount - 1 ? m_count % m_arrayCount : loadedArray.Length;
+            int size;
+            if (m_arrayCount == 0)
+            {
+                size = 0;
+            }
+            else if (arrayIndex == m_arrayCount - 1)
+            {
+                // size of last chunk = total count - full chunks * capacity
+                size = m_count - ((m_arrayCount - 1) * m_maxSizeOfArray);
+                if (size == 0 && m_count > 0)
+                {
+                    size = m_maxSizeOfArray; // last chunk is full
+                }
+            }
+            else
+            {
+                size = Math.Min(loadedArray.Length, m_maxSizeOfArray);
+            }
             
             var chunk = new ArrayChunk(loadedArray, size);
             
@@ -241,6 +258,79 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
         chunk.Size++;
 
         m_count++;  
+    }
+
+    /// <summary>
+    /// Inserts an element at the specified index shifting subsequent elements to the right.
+    /// </summary>
+    /// <param name="index">Zero based insertion index. Can be equal to Count (append).</param>
+    /// <param name="item">Item to insert.</param>
+    public void Insert(int index, T item)
+    {
+        if (index < 0 || index > m_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        // Fast append path
+        if (index == m_count)
+        {
+            Add(item);
+            return;
+        }
+        
+        int arrayIndex = index >> m_stepBase;
+        int elementIndex = index - (arrayIndex << m_stepBase);
+        
+        // Item to propagate when chunks are full
+        T currentItem = item;
+        
+        for (int ai = arrayIndex; ai < m_arrayCount; ai++)
+        {
+            var chunk = LoadChuck(ai);
+            if (chunk == null)
+            {
+                // Should not happen for ai < m_arrayCount, but guard just in case
+                chunk = GetOrAddChunk(ai);
+            }
+            
+            // If chunk has space
+            if (chunk.Size < m_maxSizeOfArray)
+            {
+                // shift if inserting not at end of used region
+                if (elementIndex < chunk.Size)
+                {
+                    Array.Copy(chunk.Array, elementIndex, chunk.Array, elementIndex + 1, chunk.Size - elementIndex);
+                }
+                chunk.Array[elementIndex] = currentItem;
+                chunk.Size++;
+                chunk.IsDirty = true;
+                m_count++;
+                return;
+            }
+            else
+            {
+                // Chunk full: push last element forward
+                var last = chunk.Array[m_maxSizeOfArray - 1];
+                // Shift right inside the chunk starting from elementIndex
+                for (int i = m_maxSizeOfArray - 2; i >= elementIndex; i--)
+                {
+                    chunk.Array[i + 1] = chunk.Array[i];
+                }
+                chunk.Array[elementIndex] = currentItem;
+                chunk.IsDirty = true; // size unchanged (still full)
+                currentItem = last;
+                elementIndex = 0; // insertion index for next chunk becomes start
+            }
+        }
+
+        // All existing chunks were full, need a new chunk
+        var newChunkIndex = m_arrayCount; // next index
+        var newChunk = GetOrAddChunk(newChunkIndex);
+        newChunk.Array[0] = currentItem;
+        newChunk.Size = 1;
+        newChunk.IsDirty = true;
+        m_count++;
     }
 
     /// <summary>

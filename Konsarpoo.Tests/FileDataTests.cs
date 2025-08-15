@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -183,6 +184,47 @@ namespace Konsarpoo.Collections.Tests
                     double actual = fileData[index];
                     
                     Assert.AreEqual(expected, actual, 1e-10);
+                }
+            }
+        }
+
+        [Test]
+        public void TestFileDataInsertOperations()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            {
+                fileData.BeginWrite();
+                for (int i = 0; i < 8; i++)
+                {
+                    fileData.Add(i); // two full chunks
+                }
+                // Insert in middle causing cascade and new chunk creation
+                fileData.Insert(4, 100);
+                // Insert at start
+                fileData.Insert(0, 200);
+                // Insert at end (append path)
+                fileData.Insert(fileData.Count, 300);
+                // Insert into partially filled last chunk
+                fileData.Insert(2, 400);
+                fileData.EndWrite();
+
+                var expected = new List<int> { 200, 0, 400, 1, 2, 3, 100, 4, 5, 6, 7, 300 };
+                Assert.AreEqual(expected.Count, fileData.Count);
+                for (int i = 0; i < expected.Count; i++)
+                {
+                    Assert.AreEqual(expected[i], fileData[i], $"Mismatch at index {i}");
+                }
+            }
+
+            // Reopen and verify persistence
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            {
+                var expected = new List<int> { 200, 0, 400, 1, 2, 3, 100, 4, 5, 6, 7, 300 };
+                Assert.AreEqual(expected.Count, fileData.Count);
+                for (int i = 0; i < expected.Count; i++)
+                {
+                    Assert.AreEqual(expected[i], fileData[i], $"Mismatch after reopen at index {i}");
                 }
             }
         }
