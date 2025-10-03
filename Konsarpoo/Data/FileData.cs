@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.Linq;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
@@ -39,21 +40,35 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
     private bool m_disposed;
     private int m_writeNestingLevel;
     
-    public static FileData<T> Create(string filePath, int maxSizeOfArray, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
-        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, allocator);
+        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, key, allocator);
     }
     
-    public static FileData<T> Open(string filePath, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Open(string filePath, byte[] key = null, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
-        return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, allocator);
+        return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
+    }
+    
+    public static FileData<T> CreateCrypted(string filePath, [NotNull] byte[] key, int maxSizeOfArray, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    {
+        if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
+        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, key, allocator);
+    }
+    
+    public static FileData<T> OpenCrypted(string filePath, [NotNull] byte[] key,  int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    {
+        if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
+        return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
     }
   
-    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, int arrayBufferCapacity, IArrayAllocator<T> allocator = null)
+    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null)
     {
         if (fileMode == FileMode.Open)
-        { 
-            m_fileSerialization = new DataFileSerialization(filePath, fileMode);
+        {
+            m_fileSerialization = cryptoKey != null
+                ? new CryptoDataFileSerialization(filePath, fileMode, cryptoKey)
+                : new DataFileSerialization(filePath, fileMode);
 
             var metadata = m_fileSerialization.ReadMetadata();
                  
@@ -64,7 +79,9 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
         else
         {
             m_maxSizeOfArray = maxSizeOfArray; 
-            m_fileSerialization = new DataFileSerialization(filePath, fileMode, maxSizeOfArray, 0);
+            m_fileSerialization = cryptoKey != null
+                ? new CryptoDataFileSerialization(filePath, fileMode, maxSizeOfArray, cryptoKey, 0)
+                : new DataFileSerialization(filePath, fileMode, maxSizeOfArray, 0);
         }
         
         m_stepBase = GetStepBase(m_maxSizeOfArray);

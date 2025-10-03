@@ -432,7 +432,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         }
     }
 
-    private byte[] GetBytes<T>(T[] array)
+    protected virtual byte[] GetBytes<T>(T[] array)
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
@@ -440,7 +440,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         return data;
     }
 
-    private T[] ReadBytes<T>(byte[] data)
+    protected virtual T[] ReadBytes<T>(byte[] data)
     {
         using var ms = new MemoryStream(data, 0, data.Length);
         return (T[])new BinaryFormatter().Deserialize(ms);

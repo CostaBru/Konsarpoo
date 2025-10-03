@@ -1,13 +1,22 @@
 ﻿using System;
 using System.IO;
+using System.Text;
+using System.Text.Unicode;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture]
+    [TestFixture(true)]
+    [TestFixture(false)]
     public class DataFileSerializationTests
     {
+        private readonly bool m_crypto;
         private string m_testFile;
+
+        public DataFileSerializationTests(bool crypto)
+        {
+            this.m_crypto = crypto;
+        }
 
         [SetUp]
         public void SetUp()
@@ -23,11 +32,18 @@ namespace Konsarpoo.Collections.Tests
                 File.Delete(m_testFile);
             }
         }
+        
+        private DataFileSerialization CreateInfo(int maxSizeOfArray)
+        {
+            return m_crypto
+                ? new CryptoDataFileSerialization(m_testFile, FileMode.CreateNew, maxSizeOfArray, Encoding.Unicode.GetBytes("TestKey"), 0)
+                : new DataFileSerialization(m_testFile, FileMode.CreateNew, maxSizeOfArray, 0);
+        }
 
         [Test]
         public void AppendArray_AppendsArraysCorrectly()
         {
-            var info = new DataFileSerialization(m_testFile, FileMode.CreateNew, 4, 0);
+            var info = CreateInfo(4);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -50,11 +66,11 @@ namespace Konsarpoo.Collections.Tests
                 info.Dispose();
             }
         }
-        
+
         [Test]
         public void TestWriteMetaDataAndAppend()
         {
-            var info = new DataFileSerialization(m_testFile, FileMode.CreateNew, 2, 0);
+            var info = CreateInfo(2);
             try
             {
                 info.SetMetadata((4, 8, 1, 200));
@@ -80,7 +96,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestSettingArrayCapacityDoNotCorrupt()
         {
-            var info = new DataFileSerialization(m_testFile, FileMode.CreateNew, 2, 0);
+            var info = CreateInfo(2);
             try
             {
                 info.SetMetadata((4, 0, 1, 2));
@@ -108,7 +124,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly()
         {
-            var info = new DataFileSerialization(m_testFile, FileMode.CreateNew, 4, 0);
+            var info = CreateInfo(4);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };
@@ -130,7 +146,7 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void WriteArray_AtZeroPosition_OverwritesCorrectly_Copy()
         {
-            var info = new DataFileSerialization(m_testFile, FileMode.CreateNew, 2, 0);
+            var info = CreateInfo(2);
             try
             {
                 var arr1 = new[] { 1, 2, 3 };

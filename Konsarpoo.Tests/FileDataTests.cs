@@ -2,14 +2,22 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture]
+    [TestFixture(true)]
+    [TestFixture(false)]
     public class FileDataTests
     {
+        private readonly byte[] m_key;
         private string m_testFile;
+
+        public FileDataTests(bool crypted)
+        {
+            this.m_key = crypted ? Encoding.Unicode.GetBytes("TestKey") : null;
+        }
 
         [SetUp]
         public void SetUp()
@@ -28,7 +36,7 @@ namespace Konsarpoo.Collections.Tests
         {
             var newFile = m_testFile;
 
-            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2, key: m_key))
             {
                 fileData.BeginWrite();
                 
@@ -49,7 +57,7 @@ namespace Konsarpoo.Collections.Tests
                 }
             }
             
-            using (var fileData = FileData<int>.Open(newFile, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Open(newFile, arrayBufferCapacity: 2, key: m_key))
             {
                 Assert.AreEqual(10, fileData.Count);
                 
@@ -72,7 +80,7 @@ namespace Konsarpoo.Collections.Tests
         {
             var cacheTestFile= m_testFile;
             
-            using (var fileData = FileData<int>.Create(cacheTestFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Create(cacheTestFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
             {
                 fileData.BeginWrite();
                 
@@ -99,7 +107,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataModification()
         {
             var testFile = m_testFile;
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2, key: m_key))
             {
                 fileData.BeginWrite();
                 
@@ -123,7 +131,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(6, fileData[6]);
             }
             
-            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
             {
                 Assert.AreEqual(100, fileData[0]);
                 Assert.AreEqual(105, fileData[5]);
@@ -137,7 +145,7 @@ namespace Konsarpoo.Collections.Tests
         {
             var testFile  = m_testFile;
             
-            using (var fileData = FileData<string>.Create(testFile, maxSizeOfArray: 8, arrayBufferCapacity: 3))
+            using (var fileData = FileData<string>.Create(testFile, maxSizeOfArray: 8, arrayBufferCapacity: 3, key: m_key))
             {
                 fileData.BeginWrite();
                 
@@ -165,7 +173,7 @@ namespace Konsarpoo.Collections.Tests
         {
             var testFile  = m_testFile;
             
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 10, arrayBufferCapacity: 1))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 10, arrayBufferCapacity: 1, key: m_key))
             {
                 fileData.BeginWrite();
                 
@@ -192,7 +200,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataInsertOperations()
         {
             var testFile = m_testFile;
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
             {
                 fileData.BeginWrite();
                 for (int i = 0; i < 8; i++)
@@ -218,7 +226,7 @@ namespace Konsarpoo.Collections.Tests
             }
 
             // Reopen and verify persistence
-            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
             {
                 var expected = new List<int> { 200, 0, 400, 1, 2, 3, 100, 4, 5, 6, 7, 300 };
                 Assert.AreEqual(expected.Count, fileData.Count);
@@ -233,7 +241,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataRemoveAtOperations()
         {
             var testFile = m_testFile;
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
             {
                 fileData.BeginWrite();
                 for (int i = 0; i < 20; i++) fileData.Add(i);
@@ -253,7 +261,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(mirror.Count, fileData.Count);
                 for (int i = 0; i < mirror.Count; i++) Assert.AreEqual(mirror[i], fileData[i], $"Mismatch after removals at {i}");
             }
-            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2))
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
             {
                 var mirror = new List<int>(Enumerable.Range(0,20));
                 mirror.RemoveAt(0);
@@ -271,7 +279,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataRemoveAtShrinksChunks()
         {
             var testFile = m_testFile;
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2, key: m_key))
             {
                 fileData.BeginWrite();
                 for (int i = 0; i < 9; i++) fileData.Add(i); // 4,4,1
@@ -280,7 +288,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(8, fileData.Count);
                 for (int i = 0; i < 8; i++) Assert.AreEqual(i, fileData[i]);
             }
-            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2))
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2, key: m_key))
             {
                 Assert.AreEqual(8, fileData.Count);
                 for (int i = 0; i < 8; i++) Assert.AreEqual(i, fileData[i]);
@@ -291,7 +299,7 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataClear()
         {
             var testFile = m_testFile;
-            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2))
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray:4, arrayBufferCapacity:2, key: m_key))
             {
                 for (int i = 0; i < 15; i++) fileData.Add(i);
                 fileData.Clear();
@@ -302,7 +310,7 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(1, fileData.Count);
                 Assert.AreEqual(42, fileData[0]);
             }
-            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2))
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity:2, key: m_key))
             {
                 Assert.AreEqual(1, fileData.Count);
                 Assert.AreEqual(42, fileData[0]);
