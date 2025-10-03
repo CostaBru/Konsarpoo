@@ -34,7 +34,7 @@ namespace Konsarpoo.Collections
     [DebuggerDisplay("Count {m_count}")]
     [DebuggerTypeProxy(typeof(CollectionDebugView<>))]
     [Serializable]
-    public partial class Data<T> : IList<T>, IReadOnlyList<T>, ICollection, IList, IAppender<T>, IDisposable, IStack<T>, ISerializable, IDeserializationCallback
+    public partial class Data<T> : IList<T>, IReadOnlyList<T>, ICollection, IList, IAppender<T>, IDisposable, IStack<T>, ISerializable, IDeserializationCallback, IRandomAccessData<T>
     {
         /// <summary>
         /// Default T value cached.

@@ -651,5 +651,144 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(42, fileData[0]);
             }
         }
+
+        [Test]
+        public void TestFileDataBinarySearch_SingleChunk_FoundAndNotFound()
+        {
+            var file = m_testFile;
+            var data = Enumerable.Range(0, 32).ToArray(); // sorted
+
+            using (var fd = FileData<int>.Create(file, maxSizeOfArray: 64, arrayBufferCapacity: 2, key: m_key))
+            {
+                fd.BeginWrite();
+                foreach (var v in data) fd.Add(v);
+                fd.EndWrite();
+
+                Assert.AreEqual(data.Length, fd.Count);
+
+                // found
+                var idx = fd.BinarySearch(5, 0, fd.Count);
+                var exp = Array.BinarySearch(data, 0, data.Length, 5);
+                Assert.AreEqual(exp, idx);
+
+                // not found (smaller than all)
+                idx = fd.BinarySearch(-1, 0, fd.Count);
+                exp = Array.BinarySearch(data, 0, data.Length, -1);
+                Assert.AreEqual(exp, idx);
+
+                // not found (greater than all)
+                idx = fd.BinarySearch(100, 0, fd.Count);
+                exp = Array.BinarySearch(data, 0, data.Length, 100);
+                Assert.AreEqual(exp, idx);
+            }
+        }
+
+        [Test]
+        public void TestFileDataBinarySearch_MultiChunk_FoundAndNotFound()
+        {
+            var file = m_testFile;
+            var data = Enumerable.Range(0, 20).ToArray(); // 5 chunks if maxSizeOfArray = 4
+
+            using (var fd = FileData<int>.Create(file, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                fd.BeginWrite();
+                foreach (var v in data) fd.Add(v);
+                fd.EndWrite();
+
+                Assert.AreEqual(data.Length, fd.Count);
+
+                // found in first chunk
+                var idx = fd.BinarySearch(2, 0, fd.Count);
+                var exp = Array.BinarySearch(data, 0, data.Length, 2);
+                Assert.AreEqual(exp, idx);
+
+                // found in middle chunk
+                idx = fd.BinarySearch(9, 0, fd.Count);
+                exp = Array.BinarySearch(data, 0, data.Length, 9);
+                Assert.AreEqual(exp, idx);
+
+                // not found
+                idx = fd.BinarySearch(21, 0, fd.Count);
+                exp = Array.BinarySearch(data, 0, data.Length, 21);
+                Assert.AreEqual(exp, idx);
+            }
+        }
+
+        [Test]
+        public void TestFileDataBinarySearch_RangeAndEmptyRange_Semantics()
+        {
+            var file = m_testFile;
+            var data = Enumerable.Range(0, 30).ToArray();
+
+            using (var fd = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 3, key: m_key))
+            {
+                fd.BeginWrite();
+                foreach (var v in data) fd.Add(v);
+                fd.EndWrite();
+
+                // Search in sub-range [5, 15) => length 10
+                int start = 5; int endExclusive = 15; int length = endExclusive - start;
+
+                var idx = fd.BinarySearch(7, start, endExclusive);
+                var exp = Array.BinarySearch(data, start, length, 7);
+                Assert.AreEqual(exp, idx);
+
+                // below range -> should be complement of start
+                idx = fd.BinarySearch(4, start, endExclusive);
+                exp = Array.BinarySearch(data, start, length, 4);
+                Assert.AreEqual(exp, idx);
+
+                // above range -> should be complement of end
+                idx = fd.BinarySearch(99, start, endExclusive);
+                exp = Array.BinarySearch(data, start, length, 99);
+                Assert.AreEqual(exp, idx);
+
+                // Empty range at position 5
+                start = 5; endExclusive = 5; length = 0;
+                idx = fd.BinarySearch(5, start, endExclusive);
+                exp = Array.BinarySearch(data, start, length, 5);
+                Assert.AreEqual(exp, idx);
+            }
+        }
+
+        [Test]
+        public void TestFileDataBinarySearch_InvalidArgs_ReturnMinusOne()
+        {
+            var file = m_testFile;
+            using (var fd = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key))
+            {
+                fd.BeginWrite();
+                for (int i = 0; i < 10; i++) fd.Add(i);
+                fd.EndWrite();
+
+                Assert.AreEqual(-1, fd.BinarySearch(5, -1, fd.Count)); // invalid startIndex
+                Assert.AreEqual(-1, fd.BinarySearch(5, fd.Count, fd.Count)); // startIndex >= Count
+                Assert.AreEqual(-1, fd.BinarySearch(5, 0, -1)); // invalid endExclusive
+                Assert.AreEqual(-1, fd.BinarySearch(5, 0, fd.Count + 1)); // endExclusive > Count
+            }
+        }
+
+        [Test]
+        public void TestFileDataBinarySearch_String_CustomComparer()
+        {
+            var file = m_testFile;
+            var data = Enumerable.Range(0, 100).Select(i => i.ToString()).ToArray();
+
+            using (var fd = FileData<string>.Create(file, maxSizeOfArray: 16, arrayBufferCapacity: 2, key: m_key))
+            {
+                fd.BeginWrite();
+                foreach (var v in data) fd.Add(v);
+                fd.EndWrite();
+
+                var cmp = StringComparer.Ordinal;
+                var idx = fd.BinarySearch("42", 0, fd.Count, cmp);
+                var exp = Array.BinarySearch(data, 0, data.Length, "42", cmp);
+                Assert.AreEqual(exp, idx);
+
+                idx = fd.BinarySearch("999", 0, fd.Count, cmp);
+                exp = Array.BinarySearch(data, 0, data.Length, "999", cmp);
+                Assert.AreEqual(exp, idx);
+            }
+        }
     }
 }

@@ -35,6 +35,8 @@ namespace Konsarpoo.Collections
                 }
             }
         }
+        
+        void IRandomAccessData<T>.Ensure(int size) => this.Ensure(size);
 
         /// <summary>
         /// Array API. Ensures that current Data&lt;T&gt; container has given size.

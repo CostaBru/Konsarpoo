@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections;
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
 [DebuggerDisplay("Count {m_count}")]
 [DebuggerTypeProxy(typeof(ReadonlyListDebugView<>))]
-public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>
+public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, IRandomAccessData<T>
 {
     private class ArrayChunk
     {
@@ -473,6 +473,64 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>
         {
             Clear();
         }
+    }
+    
+    /// <summary>
+    /// Array and List API. Searches the entire sorted FileData&lt;T&gt; for an element using the comparer given and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="startIndex"></param>
+    /// <param name="count"></param>
+    /// <param name="comparer"></param>
+    /// <returns>The zero-based index of item in the sorted FileData&lt;T&gt;, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of Count.</returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public int BinarySearch(T value, int startIndex, int count, IComparer<T> comparer = null)
+    {
+        if (startIndex < 0 || startIndex >= m_count || count < 0 || count > m_count)
+        {
+            return -1;
+        }
+        
+        comparer ??= Comparer<T>.Default;
+
+        if (SingleArray())
+        {
+            var arrayChunk = LoadChuck(0);
+
+            return Array.BinarySearch(arrayChunk.Array, startIndex, count - startIndex, value, comparer);
+        }
+
+        return BinarySearchSlow(value, startIndex, count, comparer);
+    }
+
+    
+    private int BinarySearchSlow(T item, int startIndex, int count, IComparer<T> comparer)
+    {
+        int lo = startIndex;
+        int hi = count - 1;
+
+        while (lo <= hi)
+        {
+            int index = lo + ((hi - lo) >> 1);
+
+            int order = comparer.Compare(item, this[index]);
+
+            if (order == 0)
+            {
+                return index;
+            }
+
+            if (order > 0)
+            {
+                lo = index + 1;
+            }
+            else
+            {
+                hi = index - 1;
+            }
+        }
+        return ~lo;
     }
 
     /// <summary>
