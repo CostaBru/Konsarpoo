@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Konsarpoo.Collections;
@@ -7,7 +8,7 @@ namespace Konsarpoo.Collections;
 /// Basic interface for random access data structure.
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public interface IRandomAccessData<T> : IList<T>, IAppender<T>, IReadOnlyList<T>
+public interface IRandomAccessData<T> : IList<T>, IAppender<T>, IReadOnlyList<T>, IList
 {
     /// <summary>
     /// Array API. Ensures that current IRandomAccessData&lt;T&gt; container has given size.
