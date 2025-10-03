@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -17,10 +18,27 @@ internal interface IDataArrayFileAccessor
     int ArrayCount { get; }
 }
 
-internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAccessor, IDisposable
+[DebuggerDisplay("FilePath = {m_filePath}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {MaxSizeOfArray}, DataCount = {DataCount}, Version = {Version}, CanFlush = {CanFlush}")]
+internal class DataFileSerialization : DataStreamSerialization
 {
     private readonly string m_filePath;
-    private FileStream m_fileStream;
+    
+    public DataFileSerialization(string filePath, FileMode fileMode, int maxSizeOfArray, int arrayCapacity = 0) 
+        : base(new FileStream(filePath, fileMode, FileAccess.ReadWrite, FileShare.None), maxSizeOfArray, arrayCapacity)
+    {
+        m_filePath = filePath;
+    }
+
+    public DataFileSerialization(string filePath, FileMode fileMode) : base(new FileStream(filePath, fileMode, FileAccess.ReadWrite, FileShare.None))
+    {
+        m_filePath = filePath;
+    }
+}
+
+[DebuggerDisplay("DataCount = {DataCount}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {m_maxSizeOfArray}, Version = {m_version}, CanFlush = {CanFlush}")]
+internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileAccessor, IDisposable
+{
+    private Stream m_fileStream;
     private BinaryWriter m_writer;
     private BinaryReader m_reader;
     private int m_arrayCount;
@@ -31,10 +49,9 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
     protected static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
     private long[] m_offsetTable;
 
-    public DataFileSerialization(string filePath, FileMode fileMode, int maxSizeOfArray, int arrayCapacity = 0)
+    public DataStreamSerialization(Stream fileStream, int maxSizeOfArray, int arrayCapacity = 0)
     {
-        m_filePath = filePath;
-        m_fileStream = new FileStream(m_filePath, fileMode, FileAccess.ReadWrite, FileShare.None);
+        m_fileStream = fileStream;
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
 
@@ -43,10 +60,9 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         m_offsetTable = new long[arrayCapacity];
     }
 
-    public DataFileSerialization(string filePath, FileMode fileMode)
+    public DataStreamSerialization(Stream fileStream)
     {
-        m_filePath = filePath;
-        m_fileStream = new FileStream(m_filePath, fileMode, FileAccess.ReadWrite, FileShare.None);
+        m_fileStream = fileStream;
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
         
@@ -67,6 +83,10 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
             m_offsetTable = new long[0];
         }
     }
+
+    public int MaxSizeOfArray => m_maxSizeOfArray;
+    public int DataCount => m_dataCount;
+    public int Version => m_version;
 
     private int m_edit = 0;
     
@@ -94,7 +114,7 @@ internal class DataFileSerialization : IDataSerializationInfo, IDataArrayFileAcc
         }
     }
 
-    protected bool CanFlush => m_edit == 0;
+    public bool CanFlush => m_edit == 0;
 
     public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
