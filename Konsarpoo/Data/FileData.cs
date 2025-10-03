@@ -5,7 +5,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Konsarpoo.Collections.Allocators;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections;
 
@@ -43,35 +45,21 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     private bool m_disposed;
     private int m_writeNestingLevel;
     
-    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
-        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, key, allocator);
+        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, compressionLevel, arrayBufferCapacity, key, allocator);
     }
     
-    public static FileData<T> Open(string filePath, byte[] key = null, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Open(string filePath, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
-        return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
-    }
-    
-    public static FileData<T> CreateCrypted(string filePath, [JetBrains.Annotations.NotNull] byte[] key, int maxSizeOfArray, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
-    {
-        if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
-        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, key, allocator);
-    }
-    
-    public static FileData<T> OpenCrypted(string filePath, [JetBrains.Annotations.NotNull] byte[] key,  int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
-    {
-        if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
-        return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
+        return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator);
     }
   
-    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null)
+    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null)
     {
         if (fileMode == FileMode.Open)
         {
-            m_fileSerialization = cryptoKey != null
-                ? new CryptoDataFileSerialization(filePath, fileMode, cryptoKey)
-                : new DataFileSerialization(filePath, fileMode);
+            m_fileSerialization = new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel);
 
             var metadata = m_fileSerialization.ReadMetadata();
                  
@@ -82,9 +70,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         else
         {
             m_maxSizeOfArray = maxSizeOfArray; 
-            m_fileSerialization = cryptoKey != null
-                ? new CryptoDataFileSerialization(filePath, fileMode, maxSizeOfArray, cryptoKey, 0)
-                : new DataFileSerialization(filePath, fileMode, maxSizeOfArray, 0);
+            m_fileSerialization = new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, maxSizeOfArray);
         }
         
         m_stepBase = GetStepBase(m_maxSizeOfArray);

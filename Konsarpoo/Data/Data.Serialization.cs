@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
+using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {

@@ -1,21 +1,27 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Unicode;
+using Konsarpoo.Collections.Data.Serialization;
 using NUnit.Framework;
 
 namespace Konsarpoo.Collections.Tests
 {
-    [TestFixture(true)]
-    [TestFixture(false)]
+    [TestFixture(true, CompressionLevel.Fastest)]
+    [TestFixture(true, CompressionLevel.NoCompression)]
+    [TestFixture(false, CompressionLevel.Fastest)]
+    [TestFixture(false, CompressionLevel.NoCompression)]
     public class DataFileSerializationTests
     {
         private readonly bool m_crypto;
+        private readonly CompressionLevel m_compressionLevel;
         private string m_testFile;
 
-        public DataFileSerializationTests(bool crypto)
+        public DataFileSerializationTests(bool crypto, CompressionLevel compressionLevel)
         {
-            this.m_crypto = crypto;
+            m_crypto = crypto;
+            m_compressionLevel = compressionLevel;
         }
 
         [SetUp]
@@ -35,9 +41,9 @@ namespace Konsarpoo.Collections.Tests
         
         private DataFileSerialization CreateInfo(int maxSizeOfArray)
         {
-            return m_crypto
-                ? new CryptoDataFileSerialization(m_testFile, FileMode.CreateNew, maxSizeOfArray, Encoding.Unicode.GetBytes("TestKey"), 0)
-                : new DataFileSerialization(m_testFile, FileMode.CreateNew, maxSizeOfArray, 0);
+            var encryptKey = m_crypto ? Encoding.Unicode.GetBytes("TestKey") : null;
+
+            return new DataFileSerialization(m_testFile, FileMode.CreateNew, encryptKey, m_compressionLevel, maxSizeOfArray, 0);
         }
 
         [Test]

@@ -1,42 +1,18 @@
 ﻿using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
+using JetBrains.Annotations;
 
-namespace Konsarpoo.Collections;
+namespace Konsarpoo.Collections.Data.Serialization;
 
-internal interface IDataArrayFileAccessor
-{
-    T[] ReadArray<T>(int arrayIndex);
-    void WriteArray<T>(int arrayIndex, T[] array);
-    void AppendArray<T>(T[] array);
-    void RemoveArray(int arrayIndex);
-    void Clear();
-    int ArrayCount { get; }
-}
-
-[DebuggerDisplay("FilePath = {m_filePath}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {MaxSizeOfArray}, DataCount = {DataCount}, Version = {Version}, CanFlush = {CanFlush}")]
-internal class DataFileSerialization : DataStreamSerialization
-{
-    private readonly string m_filePath;
-    
-    public DataFileSerialization(string filePath, FileMode fileMode, int maxSizeOfArray, int arrayCapacity = 0) 
-        : base(new FileStream(filePath, fileMode, FileAccess.ReadWrite, FileShare.None), maxSizeOfArray, arrayCapacity)
-    {
-        m_filePath = filePath;
-    }
-
-    public DataFileSerialization(string filePath, FileMode fileMode) : base(new FileStream(filePath, fileMode, FileAccess.ReadWrite, FileShare.None))
-    {
-        m_filePath = filePath;
-    }
-}
-
+/// <summary>
+/// Serialization of arrays of data into a stream with support for compression/encryption pipelines.
+/// </summary>
 [DebuggerDisplay("DataCount = {DataCount}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {m_maxSizeOfArray}, Version = {m_version}, CanFlush = {CanFlush}")]
-internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileAccessor, IDisposable
+public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 {
     private Stream m_fileStream;
     private BinaryWriter m_writer;
@@ -45,26 +21,56 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
     private int m_dataCount;
     private int m_version;
     private int m_maxSizeOfArray;
+    private readonly Func<DataStreamSerialization, byte[], byte[]> m_writeProcessPipeline;
+    private readonly Func<DataStreamSerialization, byte[], byte[]> m_readProcessPipeline;
     private bool m_disposed;
     protected static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
     private long[] m_offsetTable;
 
-    public DataStreamSerialization(Stream fileStream, int maxSizeOfArray, int arrayCapacity = 0)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataStreamSerialization"/> class.
+    /// </summary>
+    /// <param name="fileStream"></param>
+    /// <param name="maxSizeOfArray"></param>
+    /// <param name="writeProcessPipeline"></param>
+    /// <param name="readProcessPipeline"></param>
+    /// <param name="arrayCapacity"></param>
+    /// <exception cref="ArgumentNullException"></exception>
+    public DataStreamSerialization([NotNull] Stream fileStream,
+        int maxSizeOfArray,
+        [NotNull] Func<DataStreamSerialization, byte[], byte[]> writeProcessPipeline,
+        [NotNull] Func<DataStreamSerialization, byte[], byte[]> readProcessPipeline, 
+        int arrayCapacity = 0)
     {
-        m_fileStream = fileStream;
+        m_fileStream = fileStream ?? throw new ArgumentNullException(nameof(fileStream));
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
 
         m_maxSizeOfArray = maxSizeOfArray;
+        
+        m_writeProcessPipeline = writeProcessPipeline ?? throw new ArgumentNullException(nameof(writeProcessPipeline));
+        m_readProcessPipeline = readProcessPipeline ?? throw new ArgumentNullException(nameof(readProcessPipeline));
 
         m_offsetTable = new long[arrayCapacity];
     }
 
-    public DataStreamSerialization(Stream fileStream)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataStreamSerialization"/> class.
+    /// </summary>
+    /// <param name="fileStream"></param>
+    /// <param name="writeProcessPipeline"></param>
+    /// <param name="readProcessPipeline"></param>
+    /// <exception cref="ArgumentNullException"></exception>
+    public DataStreamSerialization([NotNull] Stream fileStream,
+        [NotNull] Func<DataStreamSerialization, byte[], byte[]> writeProcessPipeline,
+        [NotNull] Func<DataStreamSerialization, byte[], byte[]> readProcessPipeline)
     {
-        m_fileStream = fileStream;
+        m_fileStream = fileStream ?? throw new ArgumentNullException(nameof(fileStream));
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
+        
+        m_writeProcessPipeline = writeProcessPipeline ?? throw new ArgumentNullException(nameof(writeProcessPipeline));
+        m_readProcessPipeline = readProcessPipeline ?? throw new ArgumentNullException(nameof(readProcessPipeline));
         
         var metaData = ReadMetadata();
         
@@ -84,17 +90,32 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
+    /// <summary>
+    /// Maximum size of a single array.
+    /// </summary>
     public int MaxSizeOfArray => m_maxSizeOfArray;
+    /// <summary>
+    /// Count of data items across all arrays.
+    /// </summary>
     public int DataCount => m_dataCount;
+    /// <summary>
+    /// Age of the data.
+    /// </summary>
     public int Version => m_version;
 
     private int m_edit = 0;
     
+    /// <summary>
+    /// Begin a write operation. Call EndWrite when done.
+    /// </summary>
     public void BeginWrite()
     {
         m_edit++;
     }
 
+    /// <summary>
+    /// End a write operation. Flushes if no more active write operations.
+    /// </summary>
     public void EndWrite()
     {
         m_edit--;
@@ -106,6 +127,9 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
+    /// <summary>
+    /// Flushes any pending writes to the underlying stream if not in a write operation.
+    /// </summary>
     public void Flush()
     {
         if (CanFlush)
@@ -114,8 +138,15 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
+    /// <summary>
+    /// True if not in a write operation and can flush.
+    /// </summary>
     public bool CanFlush => m_edit == 0;
 
+    /// <summary>
+    /// Sets the metadata at the start of the stream.
+    /// </summary>
+    /// <param name="metaData"></param>
     public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
     {
         m_fileStream.Seek(0, SeekOrigin.Begin);
@@ -131,6 +162,10 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
+    /// <summary>
+    /// Sets the capacity of the array offset table. Existing data will be moved if necessary.
+    /// </summary>
+    /// <param name="capacity"></param>
     public void SetArrayCapacity(int capacity)
     {
         SetCapacityCore(capacity);
@@ -175,6 +210,10 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         return offsetTable;
     }
 
+    /// <summary>
+    /// Reads the metadata from the start of the stream.
+    /// </summary>
+    /// <returns></returns>
     public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata()
     {
         if (m_fileStream.Length == 0)
@@ -203,6 +242,11 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         SetMetadata(metaData);
     }
 
+    /// <summary>
+    /// Appends a new array to the stream.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <typeparam name="T"></typeparam>
     public void AppendArray<T>(T[] array)
     {
         if (m_arrayCount == m_offsetTable.Length)
@@ -246,6 +290,12 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         WriteMemory(newOffset, chunks);
     }
 
+    /// <summary>
+    /// Writes an array at the specified index, shifting data if necessary.
+    /// </summary>
+    /// <param name="arrayIndex"></param>
+    /// <param name="array"></param>
+    /// <typeparam name="T"></typeparam>
     public void WriteArray<T>(int arrayIndex, T[] array)
     {
         WriteArrayAt(arrayIndex, array);
@@ -253,11 +303,22 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
 
     public int ArrayCount => m_arrayCount;
 
+    /// <summary>
+    /// Appends a single array to the stream.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <typeparam name="T"></typeparam>
     public void WriteSingleArray<T>(T[] array)
     {
         AppendArray(array);
     }
     
+    /// <summary>
+    /// Removes the array at the specified index, shifting data if necessary.
+    /// </summary>
+    /// <param name="arrayIndex"></param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     public void RemoveArray(int arrayIndex)
     {
         if (arrayIndex < 0 || arrayIndex >= m_arrayCount)
@@ -330,6 +391,9 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
+    /// <summary>
+    /// Clears all data, resetting to an empty state.
+    /// </summary>
     public void Clear()
     {
         m_arrayCount = 0;
@@ -341,11 +405,22 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         if (CanFlush) m_writer.Flush();
     }
 
+    /// <summary>
+    /// Reads a single array from the stream.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
     public T[] ReadSingleArray<T>()
     {
         return ReadArray<T>(0);
     }
 
+    /// <summary>
+    /// Reads the array at the specified index from the stream.
+    /// </summary>
+    /// <param name="arrayIndex"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
     public T[] ReadArray<T>(int arrayIndex)
     {
         var arrayOffset = GetArrayOffset(arrayIndex, m_offsetTable.Length);
@@ -452,17 +527,30 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         }
     }
 
-    protected virtual byte[] GetBytes<T>(T[] array)
+    protected byte[] GetBytes<T>(T[] array)
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
         byte[] data = ms.ToArray();
+
+        if (m_writeProcessPipeline != null)
+        {
+            return m_writeProcessPipeline(this, data);
+        }
+        
         return data;
     }
 
-    protected virtual T[] ReadBytes<T>(byte[] data)
+    protected T[] ReadBytes<T>(byte[] data)
     {
-        using var ms = new MemoryStream(data, 0, data.Length);
+        var bytes = data;
+
+        if (m_readProcessPipeline != null)
+        {
+            bytes = m_readProcessPipeline(this, data);
+        }
+        
+        using var ms = new MemoryStream(bytes, 0, bytes.Length);
         return (T[])new BinaryFormatter().Deserialize(ms);
     }
     
@@ -516,6 +604,9 @@ internal class DataStreamSerialization : IDataSerializationInfo, IDataArrayFileA
         return ReadBytes<T>(bytes);
     }
 
+    /// <summary>
+    /// Disposes the instance and releases all resources.
+    /// </summary>
     public void Dispose()
     {
         if (m_disposed)

@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Konsarpoo.Collections.Allocators;
 
 namespace Konsarpoo.Collections;
 
+[ExcludeFromCodeCoverage]
 internal class DataFlatStore<T> : IReadOnlyList<T>
 {
     private class Store
