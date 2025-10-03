@@ -76,6 +76,126 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestFileDataEnsure0([Values(0, 999)] int defVal)
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                if (defVal == 0)
+                {
+                    fileData.Ensure(4);
+                }
+                else
+                {
+                    fileData.Ensure(4, defVal);
+                }
+                
+                Assert.AreEqual(4, fileData.Count);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    Assert.AreEqual(defVal, fileData[i]);
+                }
+            }
+        }
+        
+        [Test]
+        public void TestFileDataEnsure08([Values(0, 999)] int defVal)
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                var size = 8;
+                
+                if (defVal == 0)
+                {
+                    fileData.Ensure(size);
+                }
+                else
+                {
+                    fileData.Ensure(size, defVal);
+                }
+                
+                Assert.AreEqual(size, fileData.Count);
+
+                for (int i = 0; i < size; i++)
+                {
+                    Assert.AreEqual(defVal, fileData[i]);
+                }
+            }
+        }
+        
+        [Test]
+        public void TestFileDataEnsure18_([Values(0, 999)] int defVal)
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                fileData.Add(1);
+                fileData.Add(2);
+                fileData.Add(3);
+                fileData.Add(4);
+
+                var size = 8;
+                
+                if (defVal == 0)
+                {
+                    fileData.Ensure(size);
+                }
+                else
+                {
+                    fileData.Ensure(size, defVal);
+                }
+                
+                Assert.AreEqual(size, fileData.Count);
+                
+                Assert.AreEqual(1, fileData[0]);
+                Assert.AreEqual(2, fileData[1]);
+                Assert.AreEqual(3, fileData[2]);
+                Assert.AreEqual(4, fileData[3]);
+
+                for (int i = 4; i < size; i++)
+                {
+                    Assert.AreEqual(defVal, fileData[i]);
+                }
+            }
+        }
+        
+        [Test]
+        public void TestFileDataEnsure1([Values(0, 999)] int defVal)
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                fileData.Add(1);
+
+                var size = 4;
+                
+                if (defVal == 0)
+                {
+                    fileData.Ensure(size);
+                }
+                else
+                {
+                    fileData.Ensure(size, defVal);
+                }
+                
+                Assert.AreEqual(size, fileData.Count);
+                
+                Assert.AreEqual(1, fileData[0]);
+
+                for (int i = 1; i < size; i++)
+                {
+                    Assert.AreEqual(defVal, fileData[i]);
+                }
+            }
+        }
+
+        [Test]
         public void TestFileDataCacheEviction()
         {
             var cacheTestFile= m_testFile;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.Linq;
@@ -13,6 +14,8 @@ namespace Konsarpoo.Collections;
 /// Uses LfuCache for memory management and DataFileSerialization for persistence.
 /// </summary>
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
+[DebuggerDisplay("Count {m_count}")]
+[DebuggerTypeProxy(typeof(ReadonlyListDebugView<>))]
 public class FileData<T> : IReadOnlyList<T>, IDisposable
 {
     private class ArrayChunk
@@ -275,6 +278,74 @@ public class FileData<T> : IReadOnlyList<T>, IDisposable
         chunk.Size++;
 
         m_count++;  
+    }
+
+    /// <summary>
+    /// Array API. Ensures that current FileData&lt;T&gt; container has given size.
+    /// </summary>
+    /// <param name="size"></param>
+    public void Ensure(int size)
+    {
+        if(m_count >= size)
+        {
+            return;
+        }
+        
+        var count = size - m_count;
+        
+        var loopsCount = Math.Max(1, count / m_maxSizeOfArray);
+        
+        var part = m_count >> m_stepBase;
+
+        for (int i = 0; i < loopsCount; i++)
+        {
+            var arrayIndex = part + i;
+
+            GetOrAddChunk(arrayIndex);
+        }
+
+        m_count = size;
+    }
+
+    /// <summary>
+    /// Array API. Ensures that current FileData&lt;T&gt; container has given size.
+    /// </summary>
+    /// <param name="size"></param>
+    /// <param name="defaultValue">default value</param>
+    public void Ensure(int size, T defaultValue)
+    {
+        if(m_count >= size)
+        {
+            return;
+        }
+        
+        var count = size - m_count;
+        
+        var loopsCount = Math.Max(1, count / m_maxSizeOfArray);
+
+        var div = m_count % m_maxSizeOfArray;
+        
+        var part = m_count >> m_stepBase;
+
+        for (int i = 0; i < loopsCount; i++)
+        {
+            var arrayIndex = part + i;
+
+            var chunk = GetOrAddChunk(arrayIndex);
+
+            var startIndex = 0;
+
+            if (i == 0)
+            {
+                startIndex = div;
+            }
+
+            Array.Fill(chunk.Array, defaultValue, startIndex, m_maxSizeOfArray - div);
+
+            chunk.IsDirty = true;
+        }
+
+        m_count = size;
     }
 
     /// <summary>
