@@ -36,8 +36,16 @@ jobs:
         with:
           name: test-results-windows
           path: D:\a\Konsarpoo\Konsarpoo\Konsarpoo.Tests\TestResults
+      # Add JetBrains feed and install dotCover from it
+      - name: Add JetBrains dotCover feed
+        run: dotnet nuget add source https://packages.jetbrains.team/api/nuget/dotnet-tools -n jb-dotnet-tools
       - name: Cover set up
-        run: dotnet tool install JetBrains.dotCover.GlobalTool -g
+        run: dotnet tool install JetBrains.dotCover.GlobalTool -g --add-source https://packages.jetbrains.team/api/nuget/dotnet-tools
+      - name: Add .NET tools to PATH
+        shell: pwsh
+        run: echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+      - name: Verify dotCover
+        run: dotcover --version
       - name: Run cover
         run: dotnet dotcover test --no-build --dcOutput="CoverageReport/Konsarpoo.CoverageReport.html" --dcReportType="HTML"
       - name: Publish test coverage
