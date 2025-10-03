@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Konsarpoo.Collections
 {
-    public partial class FileData<T> : IList<T>
+    public partial class FileData<T> : IList<T>, ICollection, IList
     {
         /// <summary>
         /// Determines whether the collection contains a specific value.
@@ -82,5 +84,59 @@ namespace Konsarpoo.Collections
             }
             return -1;
         }
+        
+        [ExcludeFromCodeCoverageAttribute]
+        int IList.IndexOf(object value)
+        {
+            return IndexOf((T)value);
+        }
+
+        [ExcludeFromCodeCoverageAttribute]
+        void IList.Insert(int index, object value)
+        {
+            Insert(index, (T)value);
+        }
+
+        [ExcludeFromCodeCoverageAttribute]
+        void IList.Remove(object value)
+        {
+            Remove((T)value);
+        }
+        
+        [ExcludeFromCodeCoverageAttribute]
+        int IList.Add(object value)
+        {
+            Add((T)value);
+
+            return m_count - 1;
+        }
+
+        [ExcludeFromCodeCoverageAttribute]
+        bool IList.Contains(object value)
+        {
+            return Contains((T)value);
+        }
+
+        [ExcludeFromCodeCoverage]
+        void ICollection.CopyTo(Array array, int index)
+        {
+            CopyTo((T[])array, index);
+        }
+        
+        [ExcludeFromCodeCoverage]
+        object IList.this[int index]
+        {
+            get => this[index];
+            set => this[index] = (T)value;
+        }
+
+        [ExcludeFromCodeCoverage]
+        bool ICollection.IsSynchronized => false;
+
+        [ExcludeFromCodeCoverage]
+        object ICollection.SyncRoot => this;
+        
+        [ExcludeFromCodeCoverage]
+        bool IList.IsFixedSize => false;
     }
 }
