@@ -21,6 +21,7 @@ Some extras built in:
 - ``BitArr``
 - ``Tuple Trie Map``
 - ``Lfu Cache``
+- FileData
 - Python like APIs. Append methods, ``+`` ``-``, equality operators overloaded.
 - Lambda allocation free enumerable extensions
 
@@ -57,12 +58,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 5.0.5
+PM> Install-Package Konsarpoo -Version 5.1.0
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 5.0.5
+> dotnet add package Konsarpoo --version 5.1.0
 ```
 
 ### DATA  
@@ -139,6 +140,10 @@ var first = dataRs.FirstOrDefault();
 Assert.AreEqual(1, first);
 Assert.AreEqual(1, dataRs.Count);
 ```
+
+# FileData
+
+The random access data container desgined for storing persisntent data on disk with optional encryption and buffering. Implemented as list of fixed len arrays + offset table. Each array is written to the output file as a block of bytes. Supports minimal set of ``List`` and ``IReadonlyList<T>`` API's.
 
 # License
 
