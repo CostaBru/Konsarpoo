@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections;
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
 [DebuggerDisplay("Count {m_count}")]
 [DebuggerTypeProxy(typeof(ReadonlyListDebugView<>))]
-public class FileData<T> : IReadOnlyList<T>, IDisposable
+public partial class FileData<T> : IReadOnlyList<T>, IDisposable
 {
     private class ArrayChunk
     {

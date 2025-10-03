@@ -436,5 +436,220 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(42, fileData[0]);
             }
         }
+
+        [Test]
+        public void TestIListContainsAndIndexOf()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                for (int i = 0; i < 10; i++) fileData.Add(i);
+                // duplicate value
+                fileData.Add(5);
+
+                // Contains
+                Assert.IsTrue(fileData.Contains(0));
+                Assert.IsTrue(fileData.Contains(5));
+                Assert.IsTrue(fileData.Contains(9));
+                Assert.IsFalse(fileData.Contains(-1));
+                Assert.IsFalse(fileData.Contains(100));
+
+                // IndexOf returns first occurrence
+                Assert.AreEqual(0, fileData.IndexOf(0));
+                Assert.AreEqual(5, fileData.IndexOf(5));
+                Assert.AreEqual(9, fileData.IndexOf(9));
+                Assert.AreEqual(-1, fileData.IndexOf(12345));
+            }
+        }
+
+        [Test]
+        public void TestIListRemoveItem_FirstOccurrenceAndReturnValue()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                for (int i = 0; i < 10; i++) fileData.Add(i);
+                fileData.Add(5); // duplicate
+
+                // Remove existing value removes the first occurrence only
+                var removed = fileData.Remove(5);
+                Assert.IsTrue(removed);
+                Assert.AreEqual(10, fileData.Count); // 11 -> 10
+                Assert.AreEqual(6, fileData[5]); // first 5 removed, 6 shifted to index 5
+                Assert.IsTrue(fileData.Contains(5)); // second 5 still present
+
+                // Remove missing value returns false and does not change
+                removed = fileData.Remove(999);
+                Assert.IsFalse(removed);
+                Assert.AreEqual(10, fileData.Count);
+            }
+        }
+
+        [Test]
+        public void TestIListCopyTo_WithOffsetAndBoundsChecks()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                for (int i = 0; i < 6; i++) fileData.Add(i + 10); // 10..15
+
+                var dest = new int[10];
+                fileData.CopyTo(dest, 2);
+
+                // Before offset should be default(0)
+                Assert.AreEqual(0, dest[0]);
+                Assert.AreEqual(0, dest[1]);
+                // Copied range
+                for (int i = 0; i < 6; i++) Assert.AreEqual(10 + i, dest[2 + i]);
+                // After copied range remains default
+                for (int i = 8; i < dest.Length; i++) Assert.AreEqual(0, dest[i]);
+
+                // Exception cases
+                Assert.Throws<ArgumentNullException>(() => fileData.CopyTo(null, 0));
+                Assert.Throws<ArgumentOutOfRangeException>(() => fileData.CopyTo(dest, -1));
+                Assert.Throws<ArgumentException>(() => fileData.CopyTo(dest, dest.Length + 1)); // arrayIndex > length
+
+                var small = new int[7];
+                // 7 - 3 = 4 < Count(6) -> not enough space
+                Assert.Throws<ArgumentException>(() => fileData.CopyTo(small, 3));
+                // arrayIndex == array.Length -> fails capacity check
+                Assert.Throws<ArgumentException>(() => fileData.CopyTo(small, small.Length));
+            }
+        }
+
+        [Test]
+        public void TestIListIsReadOnly_IsFalse()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                Assert.IsFalse(fileData.IsReadOnly);
+                Assert.IsFalse(((ICollection<int>)fileData).IsReadOnly);
+            }
+        }
+
+        [Test]
+        public void TestFileDataSort_Default_SingleChunk()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 16, arrayBufferCapacity: 2, key: m_key))
+            {
+                var data = new[] { 5, 1, 9, 3, 7, 2, 8, 6, 4, 0 };
+                fileData.BeginWrite();
+                foreach (var x in data) fileData.Add(x);
+                fileData.Sort();
+                fileData.EndWrite();
+                for (int i = 0; i < data.Length; i++) Assert.AreEqual(i, fileData[i]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
+            {
+                for (int i = 0; i < 10; i++) Assert.AreEqual(i, fileData[i]);
+            }
+        }
+
+        [Test]
+        public void TestFileDataSort_Default_MultiChunk()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                // 3 chunks worth of data, intentionally jumbled
+                var data = new[] { 12, 3, 7, 1, 9, 0, 5, 2, 11, 4, 8, 6 };
+                var expected = data.OrderBy(x => x).ToArray();
+                fileData.BeginWrite();
+                foreach (var x in data) fileData.Add(x);
+                fileData.Sort();
+                fileData.EndWrite();
+                for (int i = 0; i < expected.Length; i++) Assert.AreEqual(expected[i], fileData[i]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
+            {
+                var expected = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12 };
+                for (int i = 0; i < expected.Length; i++) Assert.AreEqual(expected[i], fileData[i]);
+            }
+        }
+
+        private sealed class DescComparer : IComparer<int>
+        {
+            public int Compare(int x, int y) => y.CompareTo(x);
+        }
+
+        [Test]
+        public void TestFileDataSort_CustomComparer_Descending()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                var data = new[] { 5, 1, 9, 3, 7, 2, 8, 6, 4, 0 };
+                fileData.BeginWrite();
+                foreach (var x in data) fileData.Add(x);
+                fileData.Sort(new DescComparer());
+                fileData.EndWrite();
+                for (int i = 0; i < data.Length; i++) Assert.AreEqual(9 - i, fileData[i]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
+            {
+                for (int i = 0; i < 10; i++) Assert.AreEqual(9 - i, fileData[i]);
+            }
+        }
+
+        [Test]
+        public void TestFileDataSort_Comparison_ByAbsThenValue()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                var data = new[] { -3, 2, -1, 0, 1, -2, 3, -4, 4 };
+                fileData.BeginWrite();
+                foreach (var x in data) fileData.Add(x);
+                fileData.Sort((a, b) =>
+                {
+                    var ca = Math.Abs(a).CompareTo(Math.Abs(b));
+                    return ca != 0 ? ca : a.CompareTo(b);
+                });
+                fileData.EndWrite();
+
+                var expected = new[] { 0, -1, 1, -2, 2, -3, 3, -4, 4 };
+                Assert.AreEqual(expected.Length, fileData.Count);
+                for (int i = 0; i < expected.Length; i++) Assert.AreEqual(expected[i], fileData[i]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key))
+            {
+                var expected = new[] { 0, -1, 1, -2, 2, -3, 3, -4, 4 };
+                for (int i = 0; i < expected.Length; i++) Assert.AreEqual(expected[i], fileData[i]);
+            }
+        }
+
+        [Test]
+        public void TestFileDataSort_EmptyAndSingle_DoNothing1()
+        {
+            var testFile1 = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile1, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                fileData.Sort();
+                fileData.Sort(new DescComparer());
+                fileData.Sort((a,b) => a.CompareTo(b));
+                Assert.AreEqual(0, fileData.Count);
+            }
+        }
+
+        [Test]
+        public void TestFileDataSort_EmptyAndSingle_DoNothing2()
+        {
+            var testFile2 = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile2, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key))
+            {
+                fileData.Add(42);
+                fileData.Sort();
+                Assert.AreEqual(1, fileData.Count);
+                Assert.AreEqual(42, fileData[0]);
+
+                fileData.Sort(new DescComparer());
+                Assert.AreEqual(42, fileData[0]);
+
+                fileData.Sort((a,b) => b.CompareTo(a));
+                Assert.AreEqual(42, fileData[0]);
+            }
+        }
     }
 }
