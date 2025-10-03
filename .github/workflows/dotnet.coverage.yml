@@ -61,10 +61,15 @@ jobs:
         with:
           name: test-coverage-windows
           path: D:\a\Konsarpoo\Konsarpoo\CoverageReport
-      - name: Write test coverage to env variable
-        run:  python D:\a\Konsarpoo\Konsarpoo\Coverage\coverageToEnv.py D:\a\Konsarpoo\Konsarpoo\CoverageReport\Konsarpoo.CoverageReport.html
+      - name: Write test coverage to env variable (from Cobertura XML)
+        run:  python D:\a\Konsarpoo\Konsarpoo\Coverage\coverageToEnv.py D:\a\Konsarpoo\Konsarpoo\CoverageReport\coverage.cobertura.xml
+      - name: Echo coverage value (debug)
+        run: echo Coverage is %COVERAGE%
+        shell: cmd
       - name: Create the Coverage Badge
+        if: ${{ env.COVERAGE != '' && secrets.GIST_SECRET != '' }}
         uses: schneegans/dynamic-badges-action@v1.6.0
+        continue-on-error: true
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: 53438eb82c2cc9b70de34df4f14a7072
