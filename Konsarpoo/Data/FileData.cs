@@ -2,10 +2,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.Linq;
-using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections;
 
@@ -16,7 +16,7 @@ namespace Konsarpoo.Collections;
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
 [DebuggerDisplay("Count {m_count}")]
 [DebuggerTypeProxy(typeof(ReadonlyListDebugView<>))]
-public partial class FileData<T> : IReadOnlyList<T>, IDisposable
+public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>
 {
     private class ArrayChunk
     {
@@ -53,13 +53,13 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable
         return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
     }
     
-    public static FileData<T> CreateCrypted(string filePath, [NotNull] byte[] key, int maxSizeOfArray, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> CreateCrypted(string filePath, [JetBrains.Annotations.NotNull] byte[] key, int maxSizeOfArray, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
         if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
         return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, arrayBufferCapacity, key, allocator);
     }
     
-    public static FileData<T> OpenCrypted(string filePath, [NotNull] byte[] key,  int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> OpenCrypted(string filePath, [JetBrains.Annotations.NotNull] byte[] key,  int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
     {
         if (key == null || key.Length == 0) throw new ArgumentException(nameof(key));
         return new FileData<T>(filePath, 0, FileMode.Open, arrayBufferCapacity, key, allocator);
@@ -259,10 +259,30 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable
         }
     }
 
+    /// <inheritdoc />
+    public void Append(T value)
+    {
+        Add(value);
+    }
+
     /// <summary>
     /// Gets the number of elements in the collection.
     /// </summary>
     public int Count => m_count;
+    
+    /// <summary>
+    /// Adds a collection of elements to the end of the collection.
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public void AddRange(IEnumerable<T> items)
+    {
+        if (items == null) throw new ArgumentNullException(nameof(items));
+        
+        foreach (var item in items)
+        {
+            Add(item);
+        }
+    }
 
     /// <summary>
     /// Adds an element to the end of the collection.
@@ -480,9 +500,16 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable
     /// </summary>
     public IEnumerator<T> GetEnumerator()
     {
-        for (int i = 0; i < m_count; i++)
+        var loopsCount = m_count / m_maxSizeOfArray;
+
+        for (int i = 0; i < loopsCount; i++)
         {
-            yield return this[i];
+            var chunk = LoadChuck(i);
+            
+            for (int j = 0; j < chunk.Size; j++)
+            {
+                yield return chunk.Array[j];
+            }
         }
     }
 
