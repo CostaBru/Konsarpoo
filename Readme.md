@@ -143,7 +143,7 @@ Assert.AreEqual(1, dataRs.Count);
 
 # FileData
 
-The random access data container desgined for storing persisntent data on disk with optional encryption and buffering. Implemented as list of fixed len arrays + offset table. Each array is written to the output file as a block of bytes. Supports minimal set of ``List`` and ``IReadonlyList<T>`` API's.
+The random access data container desgined for storing persisntent data on disk with optional encryption and buffering. Implemented as list of fixed len arrays + offset table. Each array is written to the output file as a block of bytes. Supports minimal set of ``IList<T>`` and ``IReadonlyList<T>`` API's.
 
 # License
 
