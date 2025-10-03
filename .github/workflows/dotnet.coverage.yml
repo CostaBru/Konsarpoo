@@ -12,11 +12,11 @@ jobs:
     steps:
 
       - uses: actions/checkout@v4
-      - name: Setup .NET
+      - name: Setup .NET 6.0
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.x'
-      - name: Setup .NET Core 3.1
+      - name: Setup .NET 7.0
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0.x'
@@ -36,18 +36,26 @@ jobs:
         with:
           name: test-results-windows
           path: D:\a\Konsarpoo\Konsarpoo\Konsarpoo.Tests\TestResults
-      # Add JetBrains feed and install dotCover from it
-      - name: Add JetBrains dotCover feed
-        run: dotnet nuget add source https://packages.jetbrains.team/api/nuget/dotnet-tools -n jb-dotnet-tools
-      - name: Cover set up
-        run: dotnet tool install JetBrains.dotCover.GlobalTool -g --add-source https://packages.jetbrains.team/api/nuget/dotnet-tools
+      # Coverage using Microsoft dotnet-coverage and ReportGenerator
+      - name: Install coverage tools
+        run: |
+          dotnet tool install --global dotnet-coverage
+          dotnet tool install --global dotnet-reportgenerator-globaltool
       - name: Add .NET tools to PATH
         shell: pwsh
         run: echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
-      - name: Verify dotCover
-        run: dotcover --version
-      - name: Run cover
-        run: dotnet dotcover test --no-build --dcOutput="CoverageReport/Konsarpoo.CoverageReport.html" --dcReportType="HTML"
+      - name: Ensure coverage output directory exists
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path CoverageReport | Out-Null
+      - name: Collect coverage (Cobertura)
+        run: dotnet-coverage collect "dotnet test --no-build --configuration Release --no-restore" -f cobertura -o "CoverageReport/coverage.cobertura.xml"
+      - name: Generate HTML coverage report
+        run: reportgenerator -reports:"CoverageReport/coverage.cobertura.xml" -targetdir:"CoverageReport" -reporttypes:"Html;HtmlSummary"
+      - name: Normalize coverage report filename for badge script
+        shell: pwsh
+        run: |
+          if (Test-Path "CoverageReport/Summary.html") { Copy-Item "CoverageReport/Summary.html" "CoverageReport/Konsarpoo.CoverageReport.html" -Force } 
+          elseif (Test-Path "CoverageReport/index.html") { Copy-Item "CoverageReport/index.html" "CoverageReport/Konsarpoo.CoverageReport.html" -Force }
       - name: Publish test coverage
         uses: actions/upload-artifact@v4
         with:
