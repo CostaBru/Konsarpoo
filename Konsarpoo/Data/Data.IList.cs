@@ -35,5 +35,11 @@ namespace Konsarpoo.Collections
         {
             return Contains((T)value);
         }
+
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
+        int IRandomAccessData<T>.IndexOf(T item)
+        {
+            return IndexOf(item);
+        }
     }
 }
