@@ -45,8 +45,8 @@ public class AdvancedDataStreamSerialization : DataStreamSerialization
     
     private static byte[] Compress(byte[] data, CompressionLevel compressionLevel)
     {
-        using MemoryStream output = new MemoryStream();
-        using DeflateStream stream = new DeflateStream(output, compressionLevel);
+        using var output = new MemoryStream();
+        using var stream = new DeflateStream(output, compressionLevel);
         stream.Write(data, 0, data.Length);
         stream.Flush();
         var compress = output.ToArray();
@@ -55,9 +55,9 @@ public class AdvancedDataStreamSerialization : DataStreamSerialization
 
     private static byte[] Decompress(byte[] data)
     {
-        using MemoryStream input = new MemoryStream(data);
-        using MemoryStream output = new MemoryStream();
-        using DeflateStream stream = new DeflateStream(input, CompressionMode.Decompress);
+        using var input = new MemoryStream(data);
+        using var output = new MemoryStream();
+        using var stream = new DeflateStream(input, CompressionMode.Decompress);
         stream.CopyTo(output);
         stream.Flush();
         return output.ToArray();

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -104,6 +105,95 @@ namespace Konsarpoo.Collections.Tests
                 }
             }
         }
+        
+        [Test]
+        public void TestFileDataEnsure([Values(0, 999)] int defVal)
+        {
+            var newFile = m_testFile;
+
+            using var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+          
+            if (defVal == 0)
+            {
+                fileData.Ensure(4);
+                fileData.Ensure(16);
+                fileData.Ensure(32);
+            }
+            else
+            {
+                fileData.Ensure(4, defVal);
+                fileData.Ensure(16, defVal);
+                fileData.Ensure(32, defVal);
+            }
+                
+            Assert.AreEqual(32, fileData.Count);
+
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(defVal, fileData[i]);
+            }
+        }
+        
+        [Test]
+        public void TestPoolListInsert([Values(2000, 6, 5, 4, 3, 2, 1, 0)] int count)
+        {
+            var newFile = m_testFile;
+
+            {
+                using var data = FileData<int>.Create(newFile, maxSizeOfArray: 512, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+
+                data.BeginWrite();
+                
+                var list = new List<int>(count);
+
+                for (int i = 0; i < count; i++)
+                {
+                    data.Insert(0, i);
+                    list.Insert(0, i);
+
+                    Assert.AreEqual(list[i], data[i]);
+                }
+                
+                data.EndWrite();
+
+                var enumerator = ((IEnumerable)data).GetEnumerator();
+                enumerator.MoveNext();
+
+                int ii = 0;
+                foreach (var val in list)
+                {
+                    if (ii == 510)
+                    {
+                        System.Console.Write(ii);
+                    }
+                    
+                    Assert.AreEqual(val, enumerator.Current, ii.ToString());
+                    enumerator.MoveNext();
+                    ii++;
+                }
+            }
+
+            {
+                using var poolList = FileData<int>.Open(newFile, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+
+                var list = new List<int>(count);
+
+                for (int i = 0; i < count; i++)
+                {
+                    list.Insert(0, i);
+                }
+
+                var enumerator = ((IEnumerable)poolList).GetEnumerator();
+                enumerator.MoveNext();
+
+                foreach (var i in list)
+                {
+                    Assert.AreEqual(i, enumerator.Current);
+                    enumerator.MoveNext();
+                }
+            }
+        }
+
         
         [Test]
         public void TestFileDataEnsure08([Values(0, 999)] int defVal)

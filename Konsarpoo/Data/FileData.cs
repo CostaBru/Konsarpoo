@@ -84,6 +84,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         m_buffer.StartTrackingMemory(arrayBufferCapacity, (key, chunk) => 1);
     }
 
+    /// <summary>
+    /// Gets the maximum size of each internal array chunk.
+    /// </summary>
+    public int MaxSizeOfArray => m_maxSizeOfArray;
+    
     private static int GetStepBase(int maxSizeOfArray)
     {
         if (maxSizeOfArray <= 1)
@@ -297,20 +302,20 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             return;
         }
         
-        var count = size - m_count;
+        var newArrayCount = (size >> m_stepBase);
+        var currentCount = Math.Max(1, m_arrayCount - 1);
         
-        var loopsCount = Math.Max(1, count / m_maxSizeOfArray);
-        
-        var part = m_count >> m_stepBase;
-
-        for (int i = 0; i < loopsCount; i++)
-        {
-            var arrayIndex = part + i;
-
-            GetOrAddChunk(arrayIndex);
-        }
-
         m_count = size;
+
+        if (newArrayCount == 0)
+        {
+            return;
+        }
+        
+        for (int i = currentCount - 1 ; i < newArrayCount; i++)
+        {
+            GetOrAddChunk(i);
+        }
     }
 
     /// <summary>
@@ -325,32 +330,39 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             return;
         }
         
-        var count = size - m_count;
-        
-        var loopsCount = Math.Max(1, count / m_maxSizeOfArray);
+        var newArrayCount = (size >> m_stepBase);
+        var currentCount = Math.Max(1, m_arrayCount - 1);
 
-        var div = m_count % m_maxSizeOfArray;
-        
-        var part = m_count >> m_stepBase;
-
-        for (int i = 0; i < loopsCount; i++)
+        for (int i = currentCount - 1; i < newArrayCount; i++)
         {
-            var arrayIndex = part + i;
+            var arrayIndex = i;
 
             var chunk = GetOrAddChunk(arrayIndex);
 
-            var startIndex = 0;
-
-            if (i == 0)
+            if (chunk.Size == m_maxSizeOfArray)
             {
-                startIndex = div;
+                continue;
             }
 
-            Array.Fill(chunk.Array, defaultValue, startIndex, m_maxSizeOfArray - div);
+            var startIndex = 0;
+
+            if (i == currentCount - 1)
+            {
+                startIndex = chunk.Size;
+            }
+
+            var count = m_maxSizeOfArray;
+            
+            if (i == newArrayCount - 1)
+            {
+                count = m_maxSizeOfArray - size % m_maxSizeOfArray - chunk.Size;
+            }
+
+            Array.Fill(chunk.Array, defaultValue, startIndex, count);
 
             chunk.IsDirty = true;
         }
-
+        
         m_count = size;
     }
 
@@ -388,7 +400,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             }
             
             // If chunk has space
-            if (chunk.Size < m_maxSizeOfArray - 1)
+            if (chunk.Size < m_maxSizeOfArray)
             {
                 // shift if inserting not at end of used region
                 if (elementIndex < chunk.Size)
@@ -529,9 +541,25 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         m_buffer.Clear();
         m_fileSerialization.Clear();
     }
+    
+    /// <summary>
+    /// Clears all arrays.
+    /// </summary>
+    public void Zero()
+    {
+        var loopsCount = m_count / m_maxSizeOfArray;
+
+        for (int i = 0; i < loopsCount; i++)
+        {
+            var chunk = LoadChuck(i);
+
+            var array = chunk.Array;
+            Array.Clear(array, 0, array.Length);
+        }
+    }
 
     /// <summary>
-    /// Forces all cached data to be written to disk and evicts all arrays from memory.
+    /// Forces all cached data to be written to disk.
     /// </summary>
     public void Flush()
     {
@@ -544,15 +572,39 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// </summary>
     public IEnumerator<T> GetEnumerator()
     {
-        var loopsCount = m_count / m_maxSizeOfArray;
+        var currentCount = m_arrayCount;
 
-        for (int i = 0; i < loopsCount; i++)
+        for (int i = 0; i < currentCount; i++)
         {
             var chunk = LoadChuck(i);
             
             for (int j = 0; j < chunk.Size; j++)
             {
                 yield return chunk.Array[j];
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Gets an enumerator that iterates through the collection.
+    /// </summary>
+    public void ForEach<V>(V p, Func<FileData<T>, int, T, V, bool> act)
+    {
+        var loopsCount = m_count / m_maxSizeOfArray;
+
+        int totalIndex = 0;
+        for (int i = 0; i < loopsCount; i++)
+        {
+            var chunk = LoadChuck(i);
+            
+            for (int j = 0; j < chunk.Size; j++)
+            {
+                if (act(this, totalIndex, chunk.Array[j], p))
+                {
+                    return;
+                }
+
+                totalIndex++;
             }
         }
     }
