@@ -269,10 +269,14 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     {
         if (items == null) throw new ArgumentNullException(nameof(items));
         
+        BeginWrite();
+        
         foreach (var item in items)
         {
             Add(item);
         }
+        
+        EndWrite();
     }
 
     /// <summary>
@@ -290,32 +294,45 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
         m_count++;  
     }
+    
+    /// <summary>
+    /// List API. Reverses the order of the elements in the entire Data&lt;T&gt;.
+    /// </summary>
+    public void Reverse()
+    {
+        if (m_arrayCount == 1)
+        {
+            var chunk = GetOrAddChunk(0);
+
+            Array.Reverse(chunk.Array, 0, m_count);
+
+            chunk.IsDirty = true;
+            
+            return;
+        }
+
+        ReverseSlow();
+    }
+
+    private void ReverseSlow()
+    {
+        for(int i = 0; i < m_count / 2; i++)
+        {
+            T temp = this[i];
+            var t1 = this[m_count - i - 1];
+            this[i] = t1;
+            this[m_count - i - 1] = temp;
+        }
+    }
 
     /// <summary>
     /// Array API. Ensures that current FileData&lt;T&gt; container has given size.
     /// </summary>
     /// <param name="size"></param>
+    /// <param name="defaultValue">default value</param>
     public void Ensure(int size)
     {
-        if(m_count >= size)
-        {
-            return;
-        }
-        
-        var newArrayCount = (size >> m_stepBase);
-        var currentCount = Math.Max(1, m_arrayCount - 1);
-        
-        m_count = size;
-
-        if (newArrayCount == 0)
-        {
-            return;
-        }
-        
-        for (int i = currentCount - 1 ; i < newArrayCount; i++)
-        {
-            GetOrAddChunk(i);
-        }
+        Ensure(size, default(T));
     }
 
     /// <summary>
@@ -360,6 +377,8 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
             Array.Fill(chunk.Array, defaultValue, startIndex, count);
 
+            chunk.Size = count - startIndex;
+            
             chunk.IsDirty = true;
         }
         

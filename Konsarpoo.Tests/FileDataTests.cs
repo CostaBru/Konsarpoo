@@ -264,29 +264,50 @@ namespace Konsarpoo.Collections.Tests
         {
             var newFile = m_testFile;
 
-            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
+            using var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            fileData.Add(1);
+
+            var size = 4;
+                
+            if (defVal == 0)
             {
-                fileData.Add(1);
+                fileData.Ensure(size);
+            }
+            else
+            {
+                fileData.Ensure(size, defVal);
+            }
+                
+            Assert.AreEqual(size, fileData.Count);
+                
+            Assert.AreEqual(1, fileData[0]);
 
-                var size = 4;
-                
-                if (defVal == 0)
-                {
-                    fileData.Ensure(size);
-                }
-                else
-                {
-                    fileData.Ensure(size, defVal);
-                }
-                
-                Assert.AreEqual(size, fileData.Count);
-                
-                Assert.AreEqual(1, fileData[0]);
+            for (int i = 1; i < size; i++)
+            {
+                Assert.AreEqual(defVal, fileData[i]);
+            }
+        }
+        
+        [Test]
+        public void TestReverse([Values(4097, 1025, 513, 5, 3, 1, 0)] int count)
+        {
+            var list = Enumerable.Range(0, count).ToList();
 
-                for (int i = 1; i < size; i++)
-                {
-                    Assert.AreEqual(defVal, fileData[i]);
-                }
+            var newFile = m_testFile;
+
+            using var dataList = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            
+            dataList.AddRange(list);
+            
+            list.Reverse();
+            dataList.Reverse();
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var val = list[i];
+                var arrVal = dataList[i];
+
+                Assert.AreEqual(val, arrVal);
             }
         }
 
