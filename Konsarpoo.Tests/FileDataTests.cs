@@ -310,6 +310,112 @@ namespace Konsarpoo.Collections.Tests
                 Assert.AreEqual(val, arrVal);
             }
         }
+        
+        private class IntComp : IComparer<int>
+        {
+            public int Compare(int x, int y)
+            {
+                return x.CompareTo(y);
+            }
+        }
+        
+        [Test]
+        public void TestSort1()
+        {
+            var list1 = Enumerable.Range(0, 100).Reverse().ToList();
+            
+            var newFile = m_testFile;
+
+            using var list2 = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            list2.AddRange(list1);
+            
+            list1.Sort();
+
+            list2.Sort((x, y) => x.CompareTo(y));
+
+            for (var index = 0; index < list1.Count; index++)
+            {
+                Assert.AreEqual(list1[index], list2[index]);
+            }
+        }
+        
+        [Test]
+        public void TestSort2()
+        {
+            var list1 = Enumerable.Range(0, 100).Reverse().ToList();
+            
+            var newFile = m_testFile;
+
+            using var list2 = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            list2.AddRange(list1);
+
+            var comparison = new Comparison<int>((x, y) => x.CompareTo(y));
+            
+            list1.Sort();
+            list2.Sort(comparison);
+
+            for (var index = 0; index < list1.Count; index++)
+            {
+                Assert.AreEqual(list1[index], list2[index]);
+            }
+        }
+        
+        [Test]
+        public void TestSort3()
+        {
+            var list1 = Enumerable.Range(0, 100).Reverse().ToList();
+            
+            var newFile = m_testFile;
+
+            using var list2 = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            list2.AddRange(list1);
+
+            list1.Sort();
+            list2.Sort(new IntComp());
+
+            for (var index = 0; index < list1.Count; index++)
+            {
+                Assert.AreEqual(list1[index], list2[index]);
+            }
+        }
+        
+        [Test]
+        public void TestBisect1([Values(16, 4)] int count)
+        {
+            var list1 = Enumerable.Range(0, count).Reverse().ToList();
+            
+            var newFile = m_testFile;
+
+            using var list2 = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            list2.AddRange(list1);
+
+            list1.Sort();
+            list2.Sort();
+
+            for (var index = 0; index < list1.Count; index++)
+            {
+                var i = list1[index];
+
+                var search = list2.BinarySearch(i, 0, list2.Count, new IntComp());
+                
+                Assert.AreEqual(i, list2[search]);
+            }
+        }
+
+        [Test]
+        public void TestSort5()
+        {
+            Data<int> data = new Data<int>(0, 16);
+            
+            int j = 0;
+            for (int i = (1024 * 100) - 1; i >= 0; i--)
+            {
+                data.Add(i);
+                j++;
+            }
+            
+            data.Sort();
+        }
 
         [Test]
         public void TestFileDataCacheEviction()
@@ -871,17 +977,15 @@ namespace Konsarpoo.Collections.Tests
         public void TestFileDataBinarySearch_InvalidArgs_ReturnMinusOne()
         {
             var file = m_testFile;
-            using (var fd = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
-            {
-                fd.BeginWrite();
-                for (int i = 0; i < 10; i++) fd.Add(i);
-                fd.EndWrite();
+            using var fd = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+            fd.BeginWrite();
+            for (int i = 0; i < 10; i++) fd.Add(i);
+            fd.EndWrite();
 
-                Assert.AreEqual(-1, fd.BinarySearch(5, -1, fd.Count)); // invalid startIndex
-                Assert.AreEqual(-1, fd.BinarySearch(5, fd.Count, fd.Count)); // startIndex >= Count
-                Assert.AreEqual(-1, fd.BinarySearch(5, 0, -1)); // invalid endExclusive
-                Assert.AreEqual(-1, fd.BinarySearch(5, 0, fd.Count + 1)); // endExclusive > Count
-            }
+            Assert.AreEqual(-1, fd.BinarySearch(5, -1, fd.Count)); // invalid startIndex
+            Assert.AreEqual(-1, fd.BinarySearch(5, fd.Count, fd.Count)); // startIndex >= Count
+            Assert.AreEqual(-1, fd.BinarySearch(5, 0, -1)); // invalid endExclusive
+            Assert.AreEqual(-1, fd.BinarySearch(5, 0, fd.Count + 1)); // endExclusive > Count
         }
 
         [Test]
@@ -904,6 +1008,87 @@ namespace Konsarpoo.Collections.Tests
                 idx = fd.BinarySearch("999", 0, fd.Count, cmp);
                 exp = Array.BinarySearch(data, 0, data.Length, "999", cmp);
                 Assert.AreEqual(exp, idx);
+            }
+        }
+        
+        [Test]
+        public void TestRemoveHugeSome()
+        {
+            var list = Enumerable.Range(0, 25000).ToList();
+
+            var file = m_testFile;
+            using var dataList = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+
+            dataList.AddRange(list);
+            
+            list.Remove(0);
+            dataList.Remove(0);
+
+            list.Remove(555);
+            dataList.Remove(555);
+
+            list.Remove(20000);
+            dataList.Remove(20000);
+
+            Assert.AreEqual(list.Count, dataList.Count);
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var val = dataList[i];
+                var arrVal = list[i];
+
+                Assert.AreEqual(val, arrVal);
+            }
+        }
+
+
+        [Test]
+        public void TestRemoveCommonAll()
+        {
+            var list = Enumerable.Range(0, 1000).ToList();
+
+            var file = m_testFile;
+            using var dataList = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+
+            dataList.AddRange(list);
+
+            Assert.AreEqual(list.Count, dataList.Count);
+
+            var array = list.ToArray();
+
+            foreach (var i in array)
+            {
+                dataList.Remove(i);
+            }
+
+            foreach (var i in array)
+            {
+                Assert.AreEqual(-1, dataList.IndexOf(i));
+            }
+        }
+        
+        [Test]
+        public void TestRemoveCommonAllReverse()
+        {
+            var list = Enumerable.Range(0, 1000).ToList();
+
+            var file = m_testFile;
+            using var dataList = FileData<int>.Create(file, maxSizeOfArray: 8, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel);
+
+            dataList.AddRange(list);
+
+            Assert.AreEqual(list.Count, dataList.Count);
+
+            var array = list.ToArray();
+
+            foreach (var i in array.Reverse())
+            {
+                dataList.Remove(i);
+            }
+
+            foreach (var i in array)
+            {
+                Assert.AreEqual(-1, dataList.IndexOf(i));
             }
         }
     }

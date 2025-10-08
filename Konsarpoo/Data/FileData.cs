@@ -609,10 +609,8 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// </summary>
     public void ForEach<V>(V p, Func<FileData<T>, int, T, V, bool> act)
     {
-        var loopsCount = m_count / m_maxSizeOfArray;
-
         int totalIndex = 0;
-        for (int i = 0; i < loopsCount; i++)
+        for (int i = 0; i < m_arrayCount; i++)
         {
             var chunk = LoadChuck(i);
             
