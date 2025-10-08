@@ -504,15 +504,13 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 
         while (rest > 0)
         {
-            var minChunkSize = (int)Math.Min(ushort.MaxValue + 1, rest);
-
             var chunkCopySize = (int)Math.Min(rest, len);
             
-            byte[] chunk = m_reader.ReadBytes(minChunkSize);
+            byte[] chunk = m_reader.ReadBytes(chunkCopySize);
 
             chunks.Add((chunk, chunkCopySize));
 
-            rest -= chunkCopySize;
+            rest -= chunk.Length;
         }
         return chunks;
     }
