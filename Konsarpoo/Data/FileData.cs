@@ -60,12 +60,10 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         if (fileMode == FileMode.Open)
         {
             m_fileSerialization = new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel);
-
-            var metadata = m_fileSerialization.ReadMetadata();
                  
-            m_maxSizeOfArray = metadata.maxSizeOfArray;
-            m_count = metadata.dataCount;
-            m_arrayCount = metadata.arraysCount;
+            m_maxSizeOfArray = m_fileSerialization.MaxSizeOfArray;
+            m_count = m_fileSerialization.DataCount;
+            m_arrayCount = m_fileSerialization.ArrayCount;
         }
         else
         {
@@ -100,11 +98,14 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void OnChunkDone(int arrayIndex, ArrayChunk chunk)
     {
-        m_fileSerialization.WriteArray(arrayIndex, chunk.Array);
-        
-        m_arrayAllocator.Return(chunk.Array);
+        if (chunk.IsDirty)
+        {
+            m_fileSerialization.WriteArray(arrayIndex, chunk.Array);
 
-        chunk.IsDirty = false;
+            m_arrayAllocator.Return(chunk.Array);
+
+            chunk.IsDirty = false;
+        }
     }
 
     /// <summary>
@@ -134,7 +135,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void FlushDirtyChunks()
     {
-        m_fileSerialization.SetMetadata((m_maxSizeOfArray, m_count, 1, m_arrayCount));
+        m_fileSerialization.WriteMetadata((m_maxSizeOfArray, m_count, 1));
         
         foreach (var kvp in m_buffer.OrderBy(k => k.Key))
         {

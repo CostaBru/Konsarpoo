@@ -6,16 +6,21 @@
 public interface IDataSerializationInfo
 {
     /// <summary>
-    /// Writes metadata information.
+    /// Updates metadata information.
     /// </summary>
     /// <param name="metaData"></param>
-    void WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData);
+    void UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData);
 
+    /// <summary>
+    /// Writes metadata information.
+    /// </summary>
+    void WriteMetadata();
+    
     /// <summary>
     /// Reads metadata information.
     /// </summary>
     /// <returns></returns>
-    (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata();
+    void ReadMetadata();
     
     /// <summary>
     /// Appends an array of type T to the serialization stream.
@@ -45,5 +50,15 @@ public interface IDataSerializationInfo
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
     T[] ReadSingleArray<T>();
+    
+    /// <summary>
+    /// Gets total arrays stored.
+    /// </summary>
+    int ArrayCount { get; }
+    
+    /// <summary>
+    /// Gets metadata.
+    /// </summary>
+    (int maxSizeOfArray, int dataCount, int version) MetaData { get; }
 }
 

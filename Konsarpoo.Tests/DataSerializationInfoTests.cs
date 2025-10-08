@@ -79,7 +79,7 @@ namespace Konsarpoo.Collections.Tests
             var info = CreateInfo(2);
             try
             {
-                info.SetMetadata((4, 8, 1, 200));
+                info.WriteMetadata((4, 8, 1));
                 
                 var arr1 = new[] { 1, 2, 3 };
                 var arr2 = new[] { 4, 5, 6, 7 };
@@ -105,7 +105,7 @@ namespace Konsarpoo.Collections.Tests
             var info = CreateInfo(2);
             try
             {
-                info.SetMetadata((4, 0, 1, 2));
+                info.WriteMetadata((4, 0, 1));
                 
                 var arr1 = new[] { 1, 2, 3 };
                 var arr2 = new[] { 4, 5, 6, 7 };
@@ -113,7 +113,7 @@ namespace Konsarpoo.Collections.Tests
                 info.AppendArray(arr1);
                 info.AppendArray(arr2);
 
-                info.SetMetadata((4, 0, 1, 100));
+                info.SetArrayCapacity(100);
                 
                 var read1 = info.ReadArray<int>(0);
                 var read2 = info.ReadArray<int>(1);

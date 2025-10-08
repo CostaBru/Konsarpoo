@@ -57,32 +57,42 @@ namespace Konsarpoo.Collections
         {
             if (m_root is null)
             {
-                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, 1));
+                info.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
                 info.WriteSingleArray(Array.Empty<T>());
+                info.WriteMetadata();
+                
                 return;
             }
 
             if (m_root.Storage != null)
             {
-                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, 1));
+                info.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
                 info.WriteSingleArray(m_root.Storage);
+                info.WriteMetadata();
             }
             else
             {
+                info.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
+                
                 var storeNodes = GetArrays(m_root).ToArray();
                 
-                info.WriteMetadata((m_maxSizeOfArray, m_count, m_version, storeNodes.Length));
                 foreach (var storeNode in storeNodes)
                 {
                     info.AppendArray(storeNode);
                 }
+                
+                info.WriteMetadata();
             }
         }
 
 
         public void DeserializeFrom(IDataSerializationInfo info)
         {
-            var (maxSizeOfArray, dataCount, version, elementsCount) = info.ReadMetadata();
+            info.ReadMetadata();
+            
+            var (maxSizeOfArray, dataCount, version) = info.MetaData;
+
+            var elementsCount = info.ArrayCount;
             
             m_maxSizeOfArray = (ushort)maxSizeOfArray;
 

@@ -24,9 +24,12 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     private readonly Func<DataStreamSerialization, byte[], byte[]> m_writeProcessPipeline;
     private readonly Func<DataStreamSerialization, byte[], byte[]> m_readProcessPipeline;
     private bool m_disposed;
-    protected static readonly long m_metaSize = sizeof(int) * 4; // maxSizeOfArray, dataCount, version, arraysCount
+    protected static readonly long m_metaSize = sizeof(int) * 5; // maxSizeOfArray, dataCount, version, arraysCount, extra metadata size
     private long[] m_offsetTable;
+    private byte[] m_extraMetaData = Array.Empty<byte>();
 
+    private long GetExtraMetadataSize => m_extraMetaData.Length;
+    
     /// <summary>
     /// Initializes a new instance of the <see cref="DataStreamSerialization"/> class.
     /// </summary>
@@ -72,14 +75,16 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_writeProcessPipeline = writeProcessPipeline ?? throw new ArgumentNullException(nameof(writeProcessPipeline));
         m_readProcessPipeline = readProcessPipeline ?? throw new ArgumentNullException(nameof(readProcessPipeline));
         
-        var metaData = ReadMetadata();
+        var metaData = ReadMetaDataCore();
         
-        m_arrayCount = metaData.arraysCount;
+      
         m_version = metaData.version;
         m_dataCount = metaData.dataCount;
         m_maxSizeOfArray = metaData.maxSizeOfArray;
         m_version = metaData.version;
-        
+        m_arrayCount = metaData.dataCount;
+        m_extraMetaData = metaData.extaMetaData;
+
         if (m_arrayCount > 0)
         {
             m_offsetTable = ReadOffsetTableInfo();
@@ -142,19 +147,66 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     /// True if not in a write operation and can flush.
     /// </summary>
     public bool CanFlush => m_edit == 0;
+    
+    /// <summary>
+    /// Sets extra metadata payload.
+    /// </summary>
+    /// <param name="metaDataBytes"></param>
+    public void UpdateExtraMetadata(byte[] metaDataBytes)
+    {
+        var newOffset = m_metaSize + metaDataBytes.Length;
+
+        var copySize = m_fileStream.Length - m_metaSize;
+
+        var chunks = CopyMemory(m_metaSize, copySize);
+
+        WriteMemory(newOffset, chunks);
+
+        m_fileStream.Seek(m_metaSize - sizeof(int), SeekOrigin.Begin);
+        m_writer.Write(metaDataBytes.Length);
+        m_writer.Write(metaDataBytes);
+
+        if (CanFlush)
+        {
+            m_writer.Flush();
+        }
+        
+        m_extraMetaData = metaDataBytes;
+    }
+
+    public byte[] ExtraMetadata => m_extraMetaData;
+    
+    /// <summary>
+    /// Reads extra metadata payload.
+    /// </summary>
+    public byte[] ReadExtraMetadata()
+    {
+        m_fileStream.Seek(m_metaSize - sizeof(int), SeekOrigin.Begin);
+        var metaSize = m_reader.ReadInt32();
+
+        var extraMeta = new byte[metaSize];
+        
+        for (int i = 0; i < metaSize; i++)
+        {
+            extraMeta[i] = m_reader.ReadByte();
+        }
+
+        return extraMeta;
+    }
 
     /// <summary>
     /// Sets the metadata at the start of the stream.
     /// </summary>
     /// <param name="metaData"></param>
-    public void SetMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
+    public void WriteMetadata((int maxSizeOfArray, int dataCount, int version) metaData) 
     {
         m_fileStream.Seek(0, SeekOrigin.Begin);
-        
+
         m_writer.Write(metaData.maxSizeOfArray);
         m_writer.Write(metaData.dataCount);
         m_writer.Write(metaData.version);
-        m_writer.Write(metaData.arraysCount);
+        m_writer.Write(m_arrayCount);
+        m_writer.Write(m_extraMetaData.Length);
 
         if (CanFlush)
         {
@@ -196,7 +248,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 
     private long[] ReadOffsetTableInfo()
     {
-        m_fileStream.Seek(m_metaSize, SeekOrigin.Begin);
+        m_fileStream.Seek(m_metaSize + GetExtraMetadataSize, SeekOrigin.Begin);
 
         var offsetTableCapacity = m_reader.ReadInt32();
 
@@ -210,25 +262,55 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         return offsetTable;
     }
 
+
+    public void WriteMetadata()
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     /// Reads the metadata from the start of the stream.
     /// </summary>
     /// <returns></returns>
-    public (int maxSizeOfArray, int dataCount, int version, int arraysCount) ReadMetadata()
+    public void ReadMetadata()
+    {
+        var metadata = ReadMetaDataCore();
+        
+        m_maxSizeOfArray =  metadata.maxSizeOfArray;
+        m_dataCount = metadata.dataCount;
+        m_version = metadata.version;
+    }
+
+    public (int maxSizeOfArray, int dataCount, int version) MetaData => (m_maxSizeOfArray, m_dataCount, m_version);
+
+    private (int maxSizeOfArray, int dataCount, int version, int count, byte[] extaMetaData) ReadMetaDataCore()
     {
         if (m_fileStream.Length == 0)
         {
-            return (0, 0, 0, 0);
+            return (0, 0, 0, 0, Array.Empty<byte>());
         }
         
         m_fileStream.Seek(0, SeekOrigin.Begin);
+
+        if (m_fileStream.Length < m_metaSize)
+        {
+            throw new InvalidOperationException("File stream does not have metadata written.");
+        }
         
         int maxSize = m_reader.ReadInt32();
         int count = m_reader.ReadInt32();
         int version = m_reader.ReadInt32();
-        int arraysCapacity = m_reader.ReadInt32();
+        int arrayCount = m_reader.ReadInt32(); 
+        var metaSize = m_reader.ReadInt32();
         
-        return (maxSize, count, version, arraysCapacity);
+        var extraMeta = new byte[metaSize];
+        
+        for (int i = 0; i < metaSize; i++)
+        {
+            extraMeta[i] = m_reader.ReadByte();
+        }
+        
+        return (maxSize, count, version, arrayCount, extraMeta);
     }
 
     private void WriteArrayCapacity(int count)
@@ -237,9 +319,9 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_writer.Write(count);
     }
 
-    void IDataSerializationInfo.WriteMetadata((int maxSizeOfArray, int dataCount, int version, int arraysCount) metaData)
+    void IDataSerializationInfo.UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData)
     {
-        SetMetadata(metaData);
+        WriteMetadata(metaData);
     }
 
     /// <summary>
@@ -312,84 +394,6 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         AppendArray(array);
     }
-    
-    /// <summary>
-    /// Removes the array at the specified index, shifting data if necessary.
-    /// </summary>
-    /// <param name="arrayIndex"></param>
-    /// <exception cref="ArgumentOutOfRangeException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
-    public void RemoveArray(int arrayIndex)
-    {
-        if (arrayIndex < 0 || arrayIndex >= m_arrayCount)
-        {
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        }
-        
-        // compute size of array being removed
-        long baseOffset = GetBaseOffset(m_offsetTable.Length);
-        long start = GetArrayOffset(arrayIndex, m_offsetTable.Length);
-        long end = baseOffset + m_offsetTable[arrayIndex];
-        long sizeToRemove = end - start;
-        if (sizeToRemove < 0)
-        {
-            throw new InvalidOperationException("Corrupted offset table: negative size");
-        }
-        if (arrayIndex < m_arrayCount - 1)
-        {
-            // move trailing data up
-            long trailingOffset = end;
-            long copySize = m_fileStream.Length - trailingOffset;
-            if (copySize > 0)
-            {
-                var chunks = CopyMemory(trailingOffset, copySize);
-                WriteMemory(start, chunks);
-            }
-            // adjust cumulative end offsets for subsequent arrays
-            for (int j = arrayIndex + 1; j < m_arrayCount; j++)
-            {
-                m_offsetTable[j] -= sizeToRemove;
-            }
-            // shift cumulative ends left
-            for (int j = arrayIndex; j < m_arrayCount - 1; j++)
-            {
-                m_offsetTable[j] = m_offsetTable[j + 1];
-            }
-        }
-        // zero out last (now unused) entry (keep capacity)
-        if (m_arrayCount > 0)
-        {
-            m_offsetTable[m_arrayCount - 1] = 0;
-        }
-        m_arrayCount--;
-        
-        // truncate file
-        if (m_arrayCount == 0)
-        {
-            // reset fully: metadata only
-            m_offsetTable = new long[0];
-            var newLen = m_metaSize; // only metadata
-            SetMetadata((m_maxSizeOfArray, 0, m_version, 0));
-            m_fileStream.SetLength(newLen);
-            if (CanFlush)
-            {
-                m_writer.Flush();
-            }
-        }
-        else
-        {
-            long newLen = m_fileStream.Length - sizeToRemove;
-            
-            WriteArrayCapacity(m_arrayCount);
-            WriteOffsetTableInfo(m_offsetTable);
-            m_fileStream.SetLength(newLen);
-        
-            if (CanFlush)
-            {
-                m_writer.Flush();
-            }
-        }
-    }
 
     /// <summary>
     /// Clears all data, resetting to an empty state.
@@ -401,8 +405,12 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_offsetTable = new long[0];
         // Truncate to metadata only
         m_fileStream.SetLength(m_metaSize);
-        SetMetadata((m_maxSizeOfArray, 0, m_version, 0));
-        if (CanFlush) m_writer.Flush();
+        m_extraMetaData = Array.Empty<byte>();
+        WriteMetadata((m_maxSizeOfArray, 0, m_version));
+        if (CanFlush)
+        {
+            m_writer.Flush();
+        }
     }
 
     /// <summary>
@@ -564,7 +572,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     
     private long GetBaseOffset(int offsetTableLenInFile)
     {
-        return m_metaSize + sizeof(int) + sizeof(long) * offsetTableLenInFile;
+        return m_metaSize + GetExtraMetadataSize + sizeof(int) + sizeof(long) * offsetTableLenInFile;
     }
     
     private void UpdateArrayOffset(int arrayIndex, long offset, long bytesWritten)
@@ -585,7 +593,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     
     private void WriteOffsetTableInfo(long[] offsetTable)
     {
-        m_fileStream.Seek(m_metaSize, SeekOrigin.Begin);
+        m_fileStream.Seek(m_metaSize + GetExtraMetadataSize, SeekOrigin.Begin);
         m_writer.Write(offsetTable.Length);
         
         for (var index = 0; index < offsetTable.Length; index++)
