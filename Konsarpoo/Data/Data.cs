@@ -47,7 +47,7 @@ namespace Konsarpoo.Collections
         [NonSerialized] private readonly IArrayAllocator<T> m_arrayAllocator;
         [NonSerialized] private readonly IArrayAllocator<INode> m_nodesAllocator;
         
-        private int m_maxSizeOfArray;
+        internal int m_maxSizeOfArray;
 
         /// <summary>
         /// Gets access to allocator.

@@ -60,5 +60,16 @@ public interface IDataSerializationInfo
     /// Gets metadata.
     /// </summary>
     (int maxSizeOfArray, int dataCount, int version) MetaData { get; }
+
+    /// <summary>
+    /// Gets an extra metadata saved to the serialization stream.
+    /// </summary>
+    byte[] ExtraMetadata { get; }
+
+    /// <summary>
+    /// Sets extra metadata payload.
+    /// </summary>
+    /// <param name="metaDataBytes"></param>
+    void SetExtraMetadata(byte[] metaDataBytes);
 }
 

@@ -1,17 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
+using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {
     public partial class Map<TKey, TValue>
     {
-        // constants for serialization
-        private const string VersionName = "Version";
-        private const string HashSizeName = "HashSize";  // Must save buckets.Length
-        private const string KeyValuePairsName = "KeyValuePairs";
-        private const string ComparerName = "Comparer";
 
         private SerializationInfo m_sInfo;
         
@@ -35,51 +33,44 @@ namespace Konsarpoo.Collections
                 throw new ArgumentNullException(nameof(info));
             }
             
-            info.AddValue(VersionName, (int)m_version);
-            info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<TKey>));
-            info.AddValue(HashSizeName, m_buckets.Length); //This is the length of the bucket array.
-           
-            if( m_buckets.m_count > 0) 
-            {
-                 var data = new Data<KeyValuePair<TKey, TValue>>();
-                 data.Ensure(Count);
-                 CopyTo(data, 0);
-                 info.AddValue(KeyValuePairsName, data, typeof(Data<KeyValuePair<TKey, TValue>>));
-            }
+            SerializeTo(new DataMemorySerializationInfo(info));
         }
 
-        /// <inheritdoc />
-        public virtual void OnDeserialization(object sender)
+        [Serializable]
+        private struct MapExtraInfo
         {
-            var siInfo = m_sInfo;
-            
-            if (siInfo is null) 
-            {
-                // It might be necessary to call OnDeserialization from a container if the container object also implements
-                // OnDeserialization. However, remoting will call OnDeserialization again.
-                // We can return immediately if this function is called twice. 
-                // Note we set remove the serialization info from the table at the end of this method.
-                return;
-            }            
-            
-            int realVersion = siInfo.GetInt32(VersionName);
-            int hashSize = siInfo.GetInt32(HashSizeName);
-            
-            m_comparer   = (IEqualityComparer<TKey>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<TKey>));
-            
-            if(hashSize != 0)
-            {
-                var data = (Data<KeyValuePair<TKey, TValue>>)siInfo.GetValue(KeyValuePairsName, typeof(Data<KeyValuePair<TKey, TValue>>));
- 
-                if (data is null) 
-                {
-                    throw new SerializationException("Cannot read dict key values from serialization info.");
-                }
+            public int HashSize;
+            public IEqualityComparer<TKey> Comparer;
+        }
+        
+        public void SerializeTo(IDataSerializationInfo dataSerializationInfo)
+        {
+            var data = new Data<KeyValuePair<TKey, TValue>>();
+            data.Ensure(Count);
+            CopyTo(data, 0);
 
-                data.OnDeserialization(this);
-                
-                m_buckets.Ensure(hashSize, -1);
-                m_entries.Ensure(hashSize);
+            var mapExtraInfo = new MapExtraInfo()
+            {
+                HashSize = m_buckets.Length,
+                Comparer = m_comparer
+            };
+            
+            using var memoryStream = (MemoryStream)SerializeHelper.Serialize(mapExtraInfo);
+            dataSerializationInfo.SetExtraMetadata(memoryStream.ToArray());
+            data.SerializeTo(dataSerializationInfo);
+        }
+
+        public void DeserializeFrom(IDataSerializationInfo info)
+        {
+            using var data = new Data<KeyValuePair<TKey, TValue>>();
+            data.DeserializeFrom(info);
+            using var memoryStream = new MemoryStream(info.ExtraMetadata);
+            var mapExtraInfo = SerializeHelper.Deserialize<MapExtraInfo>(memoryStream);
+            m_comparer = (IEqualityComparer<TKey>)mapExtraInfo.Comparer;
+            if (mapExtraInfo.HashSize > 0)
+            {
+                m_buckets.Ensure(mapExtraInfo.HashSize, -1);
+                m_entries.Ensure(mapExtraInfo.HashSize);
                 
                 m_freeList = -1;
 
@@ -93,13 +84,25 @@ namespace Konsarpoo.Collections
                     Insert(ref key, ref value, ref add);
                 }
             }
-            else 
+            else
             {
                 m_buckets.Clear();
                 m_entries.Clear();
             }
- 
-            m_version = (ushort)realVersion;
+
+            m_version = data.m_version;
+        }
+
+        /// <inheritdoc />
+        public virtual void OnDeserialization(object sender)
+        {
+            if (m_sInfo == null)
+            {
+                return;
+            }
+
+            DeserializeFrom(new DataMemorySerializationInfo(m_sInfo));
+
             m_sInfo = null;
         }
     }
