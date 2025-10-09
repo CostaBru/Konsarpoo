@@ -135,7 +135,7 @@ namespace Konsarpoo.Collections.Tests
         }
         
         [Test]
-        public void TestPoolListInsert([Values(2000, 6, 5, 4, 3, 2, 1, 0)] int count)
+        public void TestListInsert([Values(2000, 6, 5, 4, 3, 2, 1, 0)] int count)
         {
             var newFile = m_testFile;
 
@@ -656,6 +656,39 @@ namespace Konsarpoo.Collections.Tests
             {
                 Assert.AreEqual(1, fileData.Count);
                 Assert.AreEqual(42, fileData[0]);
+            }
+        }
+
+        [Test]
+        public void TestFileDataClearAfterOperations()
+        {
+            var testFile = m_testFile;
+            using (var fileData = FileData<int>.Create(testFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
+            {
+                // Add some data
+                for (int i = 0; i < 10; i++) fileData.Add(i);
+                // Modify some
+                fileData[5] = 999;
+                // Insert
+                fileData.Insert(0, -1);
+                // Remove
+                fileData.RemoveAt(10);
+                // Sort
+                fileData.Sort();
+                // Now clear
+                fileData.Clear();
+                Assert.AreEqual(0, fileData.Count);
+                // Add new data
+                fileData.BeginWrite();
+                fileData.Add(123);
+                fileData.EndWrite();
+                Assert.AreEqual(1, fileData.Count);
+                Assert.AreEqual(123, fileData[0]);
+            }
+            using (var fileData = FileData<int>.Open(testFile, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
+            {
+                Assert.AreEqual(1, fileData.Count);
+                Assert.AreEqual(123, fileData[0]);
             }
         }
 
