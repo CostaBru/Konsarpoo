@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
-using System.Security;
 using System.Security.Permissions;
+using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {
@@ -25,35 +26,75 @@ namespace Konsarpoo.Collections
         {
             m_siInfo = info;
         }
-
+        
         /// <inheritdoc />
-        [SecurityCritical]
+        [System.Security.SecurityCritical]  // auto-generated_required
         [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
+        public virtual void GetObjectData(SerializationInfo info, StreamingContext context) {
+            
+            if (info == null) 
             {
                 throw new ArgumentNullException(nameof(info));
             }
             
-            info.AddValue(ComparerName, m_comparer, typeof(IEqualityComparer<T>));
-            info.AddValue(CapacityName, m_buckets?.Count ?? 0);
-            info.AddValue(VersionName, m_version);
-
-            if (m_count == 0)
-            {
-                return;
-            }
-
-            var data = new Data<T>();
-            data.Ensure(Count);
-            CopyTo(data);
-            info.AddValue(ElementsName, data, typeof(Data<T>));
+            SerializeTo(new DataMemorySerializationInfo(info));
         }
 
-        /// <summary>Implements the <see cref="T:System.Runtime.Serialization.ISerializable" /> interface and raises the deserialization event when the deserialization is complete.</summary>
-        /// <param name="sender">The source of the deserialization event.</param>
-        /// <exception cref="T:System.Runtime.Serialization.SerializationException">The <see cref="T:System.Runtime.Serialization.SerializationInfo" /> object associated with the current <see cref="T:System.Collections.Generic.HashSet`1" /> object is invalid.</exception>
+        [Serializable]
+        private struct SetExtraInfo
+        {
+            public int HashSize;
+            public IEqualityComparer<T> Comparer;
+        }
+        
+        public void SerializeTo(IDataSerializationInfo dataSerializationInfo)
+        {
+            var data = new Data<T>();
+            data.Ensure(Count);
+            CopyTo(data, 0, Count);
+
+            var mapExtraInfo = new SetExtraInfo()
+            {
+                HashSize = m_buckets.Length,
+                Comparer = m_comparer
+            };
+            
+            using var memoryStream = (MemoryStream)SerializeHelper.Serialize(mapExtraInfo);
+            dataSerializationInfo.SetExtraMetadata(memoryStream.ToArray());
+            data.SerializeTo(dataSerializationInfo);
+        }
+
+        public void DeserializeFrom(IDataSerializationInfo info)
+        {
+            using var data = new Data<T>();
+            data.DeserializeFrom(info);
+            using var memoryStream = new MemoryStream(info.ExtraMetadata);
+            var mapExtraInfo = SerializeHelper.Deserialize<SetExtraInfo>(memoryStream);
+            m_comparer = (IEqualityComparer<T>)mapExtraInfo.Comparer;
+            if (mapExtraInfo.HashSize > 0)
+            {
+                m_buckets.Ensure(mapExtraInfo.HashSize, -1);
+                m_slots.Ensure(mapExtraInfo.HashSize);
+                
+                m_freeList = -1;
+
+                var add = true;
+                
+                foreach (var t in data)
+                {
+                    Add(t);
+                }
+            }
+            else
+            {
+                m_buckets.Clear();
+                m_slots.Clear();
+            }
+
+            m_version = data.m_version;
+        }
+
+        /// <inheritdoc />
         public virtual void OnDeserialization(object sender)
         {
             if (m_siInfo == null)
@@ -61,31 +102,8 @@ namespace Konsarpoo.Collections
                 return;
             }
 
-            int capacity = m_siInfo.GetInt32(CapacityName);
+            DeserializeFrom(new DataMemorySerializationInfo(m_siInfo));
 
-            m_comparer = (IEqualityComparer<T>)m_siInfo.GetValue(ComparerName, typeof(IEqualityComparer<T>));
-            m_freeList = -1;
-
-            if (capacity != 0)
-            {
-                var data = (Data<T>)m_siInfo.GetValue(ElementsName, typeof(Data<T>));
-                if (data == null)
-                {
-                    throw new SerializationException("Cannot read set values from serialization info.");
-                }
-                
-                m_buckets.Ensure(capacity);
-                m_slots.Ensure(capacity);
-            
-                data.OnDeserialization(this);
-                AddRange(data);
-            }
-            else
-            {
-                m_buckets.Clear();
-                m_slots.Clear();
-            }
-            m_version = (ushort)m_siInfo.GetInt32(VersionName);
             m_siInfo = null;
         }
     }
