@@ -94,7 +94,7 @@ namespace Konsarpoo.Collections
 
             var elementsCount = info.ArrayCount;
             
-            m_maxSizeOfArray = (ushort)maxSizeOfArray;
+            m_maxSizeOfArray = maxSizeOfArray;
 
             if (dataCount != 0 && elementsCount != 0)
             {

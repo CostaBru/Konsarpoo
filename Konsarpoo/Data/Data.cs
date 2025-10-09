@@ -1612,35 +1612,41 @@ namespace Konsarpoo.Collections
                 var nodeSize = Math.Min(array.Length, rest);
 
                 var closestValidArrayLen = 1 << (int)Math.Round(Math.Log(array.Length, 2));
+
+                var arrayToUse = array;
                 
                 if (closestValidArrayLen != array.Length)
                 {
-                    throw new ArgumentException($"Array len:{array.Length} must be power of 2, but was not.");
+                    var rent = m_arrayAllocator.Rent(closestValidArrayLen);
+                    
+                    Array.Copy(array, rent, array.Length);
+
+                    arrayToUse = rent;
                 }
                 
                 if (m_root == null)
                 {
-                    m_maxSizeOfArray = array.Length;
-                    prevArrayLen = array.Length;
+                    m_maxSizeOfArray = arrayToUse.Length;
+                    prevArrayLen = arrayToUse.Length;
                     
                     rest -= nodeSize;
 
-                    var storeNode = new StoreNode(m_arrayAllocator, array, nodeSize);
+                    var storeNode = new StoreNode(m_arrayAllocator, arrayToUse, nodeSize);
                     
                     m_root = storeNode;
                     
                     continue;
                 }
 
-                if (prevArrayLen < array.Length)
+                if (prevArrayLen < arrayToUse.Length)
                 {
-                    throw new ArgumentException($"The following array len:{array.Length} must be greater than or equal to former array length: {prevArrayLen}.");
+                    throw new ArgumentException($"The following array len:{arrayToUse.Length} must be greater than or equal to former array length: {prevArrayLen}.");
                 }
 
                 INode node1 = m_root;
                 INode node2;
                 
-                if (node1.AddArray(array, nodeSize, out node2) == false)
+                if (node1.AddArray(arrayToUse, nodeSize, out node2) == false)
                 {
                     m_root = new LinkNode(node1, node1.Level + 1, prevArrayLen, node1, m_nodesAllocator, node2);
                 }

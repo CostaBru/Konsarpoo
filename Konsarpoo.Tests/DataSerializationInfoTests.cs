@@ -241,5 +241,62 @@ namespace Konsarpoo.Collections.Tests
                 info.Dispose();
             }
         }
+
+        [Test]
+        public void TestMapSerialization()
+        {
+            var originalMap = new Map<string, int>();
+            originalMap.Add("key1", 1);
+            originalMap.Add("key2", 2);
+            originalMap.Add("key3", 3);
+
+            var info = CreateInfo(4);
+            try
+            {
+                originalMap.SerializeTo(info);
+
+                var deserializedMap = new Map<string, int>();
+                deserializedMap.DeserializeFrom(info);
+
+                Assert.AreEqual(originalMap.Count, deserializedMap.Count);
+                foreach (var kvp in originalMap)
+                {
+                    Assert.IsTrue(deserializedMap.TryGetValue(kvp.Key, out var value));
+                    Assert.AreEqual(kvp.Value, value);
+                }
+            }
+            finally
+            {
+                info.Dispose();
+            }
+        }
+       
+        [Test]
+        public void TestSetSerialization()
+        {
+            var originalSet = new Set<string>();
+            originalSet.Add("item1");
+            originalSet.Add("item2");
+            originalSet.Add("item3");
+
+            var info = CreateInfo(4);
+            try
+            {
+                originalSet.SerializeTo(info);
+
+                var deserializedSet = new Set<string>();
+                deserializedSet.DeserializeFrom(info);
+
+                Assert.AreEqual(originalSet.Count, deserializedSet.Count);
+                foreach (var item in originalSet)
+                {
+                    Assert.IsTrue(deserializedSet.Contains(item));
+                }
+            }
+            finally
+            {
+                info.Dispose();
+            }
+        }
     }
 }
