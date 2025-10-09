@@ -76,13 +76,12 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_readProcessPipeline = readProcessPipeline ?? throw new ArgumentNullException(nameof(readProcessPipeline));
         
         var metaData = ReadMetaDataCore();
-        
       
         m_version = metaData.version;
         m_dataCount = metaData.dataCount;
         m_maxSizeOfArray = metaData.maxSizeOfArray;
         m_version = metaData.version;
-        m_arrayCount = metaData.dataCount;
+        m_arrayCount = metaData.arrrayCount;
         m_extraMetaData = metaData.extaMetaData;
 
         if (m_arrayCount > 0)
@@ -152,66 +151,57 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     /// Sets extra metadata payload.
     /// </summary>
     /// <param name="metaDataBytes"></param>
-    public void UpdateExtraMetadata(byte[] metaDataBytes)
+    public void SetExtraMetadata(byte[] metaDataBytes)
     {
-        var newOffset = m_metaSize + metaDataBytes.Length;
+        if (m_fileStream.Length > 0)
+        {
+            var newOffset = m_metaSize + metaDataBytes.Length;
 
-        var copySize = m_fileStream.Length - m_metaSize;
+            var copySize = m_fileStream.Length - m_metaSize;
 
-        var chunks = CopyMemory(m_metaSize, copySize);
+            var chunks = CopyMemory(m_metaSize, copySize);
 
-        WriteMemory(newOffset, chunks);
+            WriteMemory(newOffset, chunks);
+        }
 
-        m_fileStream.Seek(m_metaSize - sizeof(int), SeekOrigin.Begin);
-        m_writer.Write(metaDataBytes.Length);
-        m_writer.Write(metaDataBytes);
+        m_extraMetaData = metaDataBytes;
+        
+        WriteMetadataCore();
 
         if (CanFlush)
         {
             m_writer.Flush();
         }
-        
-        m_extraMetaData = metaDataBytes;
     }
 
+    /// <summary>
+    /// Gets an extra metadata saved to the serialization stream.
+    /// </summary>
     public byte[] ExtraMetadata => m_extraMetaData;
-    
+
     /// <summary>
-    /// Reads extra metadata payload.
+    /// Write the metadata at the start of the stream.
     /// </summary>
-    public byte[] ReadExtraMetadata()
+    public void WriteMetadata()
     {
-        m_fileStream.Seek(m_metaSize - sizeof(int), SeekOrigin.Begin);
-        var metaSize = m_reader.ReadInt32();
+        WriteMetadataCore();
 
-        var extraMeta = new byte[metaSize];
-        
-        for (int i = 0; i < metaSize; i++)
+        if (CanFlush)
         {
-            extraMeta[i] = m_reader.ReadByte();
+            m_writer.Flush();
         }
-
-        return extraMeta;
     }
 
-    /// <summary>
-    /// Sets the metadata at the start of the stream.
-    /// </summary>
-    /// <param name="metaData"></param>
-    public void WriteMetadata((int maxSizeOfArray, int dataCount, int version) metaData) 
+    private void WriteMetadataCore()
     {
         m_fileStream.Seek(0, SeekOrigin.Begin);
 
-        m_writer.Write(metaData.maxSizeOfArray);
-        m_writer.Write(metaData.dataCount);
-        m_writer.Write(metaData.version);
+        m_writer.Write(m_maxSizeOfArray);
+        m_writer.Write(m_dataCount);
+        m_writer.Write(m_version);
         m_writer.Write(m_arrayCount);
         m_writer.Write(m_extraMetaData.Length);
-
-        if (CanFlush)
-        {
-            m_writer.Flush();
-        }
+        m_writer.Write(m_extraMetaData);
     }
 
     /// <summary>
@@ -263,9 +253,11 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     }
 
 
-    public void WriteMetadata()
+    public void UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData)
     {
-        throw new NotImplementedException();
+        m_maxSizeOfArray = metaData.maxSizeOfArray;
+        m_dataCount = metaData.dataCount;
+        m_version = metaData.version;
     }
 
     /// <summary>
@@ -283,7 +275,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 
     public (int maxSizeOfArray, int dataCount, int version) MetaData => (m_maxSizeOfArray, m_dataCount, m_version);
 
-    private (int maxSizeOfArray, int dataCount, int version, int count, byte[] extaMetaData) ReadMetaDataCore()
+    private (int maxSizeOfArray, int dataCount, int version, int arrrayCount, byte[] extaMetaData) ReadMetaDataCore()
     {
         if (m_fileStream.Length == 0)
         {
@@ -317,11 +309,6 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         m_fileStream.Seek(sizeof(int) * 3, SeekOrigin.Begin);
         m_writer.Write(count);
-    }
-
-    void IDataSerializationInfo.UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData)
-    {
-        WriteMetadata(metaData);
     }
 
     /// <summary>
@@ -406,7 +393,8 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         // Truncate to metadata only
         m_fileStream.SetLength(m_metaSize);
         m_extraMetaData = Array.Empty<byte>();
-        WriteMetadata((m_maxSizeOfArray, 0, m_version));
+        m_dataCount = 0;
+        WriteMetadataCore();
         if (CanFlush)
         {
             m_writer.Flush();

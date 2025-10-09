@@ -135,7 +135,9 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void FlushDirtyChunks()
     {
-        m_fileSerialization.WriteMetadata((m_maxSizeOfArray, m_count, 1));
+        m_fileSerialization.UpdateMetadata((m_maxSizeOfArray, m_count, 1));
+        
+        m_fileSerialization.WriteMetadata();
         
         foreach (var kvp in m_buffer.OrderBy(k => k.Key))
         {

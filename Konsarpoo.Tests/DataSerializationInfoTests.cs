@@ -41,9 +41,18 @@ namespace Konsarpoo.Collections.Tests
         
         private DataFileSerialization CreateInfo(int maxSizeOfArray)
         {
-            var encryptKey = m_crypto ? Encoding.Unicode.GetBytes("TestKey") : null;
+            return new DataFileSerialization(m_testFile, FileMode.Create, GetEncryptKey(), m_compressionLevel, maxSizeOfArray);
+        }
 
-            return new DataFileSerialization(m_testFile, FileMode.CreateNew, encryptKey, m_compressionLevel, maxSizeOfArray, 0);
+        private byte[] GetEncryptKey()
+        {
+            var encryptKey = m_crypto ? Encoding.Unicode.GetBytes("TestKey") : null;
+            return encryptKey;
+        }
+
+        private DataFileSerialization OpenInfo()
+        {
+            return new DataFileSerialization(m_testFile, FileMode.Open, GetEncryptKey(), m_compressionLevel);
         }
 
         [Test]
@@ -72,6 +81,61 @@ namespace Konsarpoo.Collections.Tests
                 info.Dispose();
             }
         }
+        
+        [Test]
+        public void AppendExtraMetadata()
+        {
+            var arr1 = new[] { 1, 2, 3 };
+            var arr2 = new[] { 4, 5, 6, 7 };
+                
+            var info = CreateInfo(4);
+            try
+            {
+                var bytes = Encoding.UTF8.GetBytes("Test");
+
+                info.SetExtraMetadata(bytes);
+
+                info.AppendArray(arr1);
+                var read1 = info.ReadArray<int>(0);
+                
+                info.AppendArray(arr2);
+                var read2 = info.ReadArray<int>(1);
+                
+                read1 = info.ReadArray<int>(0);
+                read2 = info.ReadArray<int>(1);
+
+                Assert.AreEqual(arr1, read1);
+                Assert.AreEqual(arr2, read2);
+                
+            }
+            finally
+            {
+                info.Dispose();
+            }
+
+            {
+                var dataFileSerialization = OpenInfo();
+
+                try
+                {
+                    var extraMetadata = dataFileSerialization.ExtraMetadata;
+
+                    var metadata = Encoding.UTF8.GetString(extraMetadata);
+
+                    Assert.AreEqual("Test", metadata);
+                    
+                    var read1 = dataFileSerialization.ReadArray<int>(0);
+                    var read2 = dataFileSerialization.ReadArray<int>(1);
+                
+                    Assert.AreEqual(arr1, read1);
+                    Assert.AreEqual(arr2, read2);
+                }
+                finally
+                {
+                    dataFileSerialization.Dispose();
+                }
+            }
+        }
 
         [Test]
         public void TestWriteMetaDataAndAppend()
@@ -79,7 +143,9 @@ namespace Konsarpoo.Collections.Tests
             var info = CreateInfo(2);
             try
             {
-                info.WriteMetadata((4, 8, 1));
+                info.UpdateMetadata((4, 8, 1));
+                
+                info.WriteMetadata();
                 
                 var arr1 = new[] { 1, 2, 3 };
                 var arr2 = new[] { 4, 5, 6, 7 };
@@ -105,7 +171,8 @@ namespace Konsarpoo.Collections.Tests
             var info = CreateInfo(2);
             try
             {
-                info.WriteMetadata((4, 0, 1));
+                info.UpdateMetadata((4, 0, 1));
+                info.WriteMetadata();
                 
                 var arr1 = new[] { 1, 2, 3 };
                 var arr2 = new[] { 4, 5, 6, 7 };
