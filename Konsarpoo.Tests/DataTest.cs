@@ -1648,11 +1648,11 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestSetSerialization2()
         {
-            var set = new Data<int>();
+            var set = new Data<KeyValuePair<(string, int, int), string>>();
 
-            set.AddRange(Enumerable.Range(0, 10000));
+            set.AddRange(Enumerable.Range(0, 1024).Select(i => new KeyValuePair<(string, int, int), string>((i.ToString(), i,i), i.ToString())));
 
-            var clone = SerializeHelper.Clone<Data<int>>(set);
+            var clone = SerializeHelper.Clone<Data<KeyValuePair<(string, int, int), string>>>(set);
 
             Assert.AreEqual(clone, set);
         }

@@ -8,6 +8,14 @@ using JetBrains.Annotations;
   
 namespace Konsarpoo.Collections;
 
+public interface ICacheStore<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
+{
+    bool TryGetValue([NotNull] TKey key, out TValue value);
+    bool AddOrUpdate([NotNull] TKey key, TValue value, Action<TKey, TValue> onItemRemove);
+    bool RemoveKey([NotNull] TKey key);
+    void Clear();
+}
+
 /// <summary>
 /// An O(1) LFU cache eviction data structure with extra tracking of memory and/or key obsolescence features. 
 /// <see ref="https://github.com/papers-we-love/papers-we-love/blob/main/caching/a-constant-algorithm-for-implementing-the-lfu-cache-eviction-scheme.pdf"/>
@@ -18,6 +26,7 @@ namespace Konsarpoo.Collections;
 [DebuggerDisplay("Count = {Count}, MemLimit = {MemoryLimitTracking}, TotalMem = {TotalMemoryTracked}, Timeout = {m_obsolescenceTimeout}, ObsoleteCount = {ObsoleteKeysCount}")]
 [Serializable]
 public partial class LfuCache<TKey, TValue> : 
+    ICacheStore<TKey, TValue>,
     ICollection<KeyValuePair<TKey, TValue>>,
     IReadOnlyDictionary<TKey, TValue>, 
     IAppender<KeyValuePair<TKey, TValue>>,
@@ -392,7 +401,12 @@ public partial class LfuCache<TKey, TValue> :
         }
         return false;
     }
-    
+
+    bool ICacheStore<TKey, TValue>.AddOrUpdate(TKey key, TValue value, Action<TKey, TValue> onItemRemove)
+    {
+        return AddOrUpdate(key, value);
+    }
+
     /// <summary>
     /// Returns key access frequency.
     /// </summary>

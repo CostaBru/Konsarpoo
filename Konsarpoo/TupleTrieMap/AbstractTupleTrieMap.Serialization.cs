@@ -3,17 +3,24 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
+using System.Text;
 using System.Xml;
 using System.Xml.Schema;
+using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
+using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections;
 
-public partial class AbstractTupleTrieMap<TKey, TValue>
+public partial class AbstractTupleTrieMap<TKey, TValue>: IDataSerializable
 {
-    private const string VersionName = "Version";
-    private const string SizeName = "Size";
-    private const string KeyValuePairsName = "KeyValuePairs";
     private const string MapFactoryName = "MapFactory";
+
+    [Serializable]
+    private struct TrieMapExtraInfo
+    {
+        public DelegateSerializationHelper NodesMapFactoryHelper;
+    }
 
     protected XmlSchema GetSchemaCore() => null;
 
@@ -72,27 +79,7 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
     [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
     protected void GetObjectDataCore(SerializationInfo info, StreamingContext context)
     {
-        if (info == null)
-        {
-            throw new ArgumentNullException(nameof(info));
-        }
-
-        info.AddValue(SizeName, Count);
-        info.AddValue(VersionName, Version);
-       
-        if (m_nodesMapFactory != null)
-        {
-            info.AddValue(MapFactoryName, new DelegateSerializationHelper(m_nodesMapFactory));
-        }
-        else
-        {
-            info.AddValue(MapFactoryName, null);
-        }
-
-        if (Count > 0)
-        {
-            info.AddValue(KeyValuePairsName, ToData());
-        }
+        SerializeTo(new DataMemorySerializationInfo(info));
     }
     
     [Serializable]
@@ -120,49 +107,82 @@ public partial class AbstractTupleTrieMap<TKey, TValue>
 
     protected void OnDeserializationCore(object sender)
     {
-        var siInfo = m_sInfo;
-
-        if (siInfo is null)
+        if (m_sInfo == null)
         {
-            // It might be necessary to call OnDeserialization from a container if the container object also implements
-            // OnDeserialization. However, remoting will call OnDeserialization again.
-            // We can return immediately if this function is called twice. 
-            // Note we set remove the serialization info from the table at the end of this method.
             return;
         }
 
-        int realVersion = siInfo.GetInt32(VersionName);
-        int count = siInfo.GetInt32(SizeName);
-        var helper = (DelegateSerializationHelper)siInfo.GetValue(MapFactoryName, typeof(DelegateSerializationHelper));
+        DeserializeFrom(new DataMemorySerializationInfo(m_sInfo));
 
-        if (helper != null)
-        {
-            m_nodesMapFactory = helper.GetDelegate<Func<Type,IDictionary<object, TrieLinkNode<TValue>>>>();
-        }
-        
-        if (count != 0)
-        {
-            var data = (Data<KeyValuePair<TKey, TValue>>)siInfo.GetValue(KeyValuePairsName, typeof(Data<KeyValuePair<TKey, TValue>>));
-
-            if (data is null)
-            {
-                throw new SerializationException("Cannot read dict key values from serialization info.");
-            }
-
-            data.OnDeserialization(this);
-
-            var add = true;
-
-            foreach (var t in data)
-            {
-                var key = t.Key;
-                var value = t.Value;
-
-                Insert(key, ref value, ref add);
-            }
-        }
-
-        m_version = (ushort)realVersion;
         m_sInfo = null;
+    }
+    
+    private static readonly IDataAllocatorSetup<KeyValuePair<TKey, TValue>> m_serializationAllocatorSetup = GcAllocatorSetup.GetDataPoolSetup<KeyValuePair<TKey, TValue>>();
+      
+    /// <summary>
+    /// Serializes the current instance to the provided <see cref="IDataSerializationInfo"/> implementation.
+    /// </summary>
+    /// <param name="info"></param>
+    public virtual void SerializeTo([NotNull] IDataSerializationInfo info)
+    {
+        if (info == null) throw new ArgumentNullException(nameof(info));
+        
+        var data = new Data<KeyValuePair<TKey, TValue>>(m_serializationAllocatorSetup);
+        data.Ensure(Count);
+
+        int i = 0;
+        foreach (var kv in GetKeyValues())
+        {
+            data[i] = new KeyValuePair<TKey, TValue>(kv.Key, kv.Value);
+            i++;
+        }
+
+        if (m_nodesMapFactory != null)
+        {
+            var trieMapExtraInfo = new TrieMapExtraInfo()
+            {
+                NodesMapFactoryHelper = new DelegateSerializationHelper(m_nodesMapFactory)
+            };
+
+            var serializeWithDcs = SerializeHelper.SerializeWithDcs(trieMapExtraInfo);
+            
+            info.SetExtraMetadata(Encoding.UTF8.GetBytes(serializeWithDcs));
+        }
+
+        data.SerializeTo(info);
+    }
+
+    /// <summary>
+    /// Deserializes the current instance from the provided <see cref="IDataSerializationInfo"/> implementation.
+    /// </summary>
+    /// <param name="info"></param>
+    /// <exception cref="SerializationException"></exception>
+    public virtual void DeserializeFrom([NotNull] IDataSerializationInfo info)
+    {
+        if (info == null) throw new ArgumentNullException(nameof(info));
+        
+        Clear();
+        
+        using var data = new Data<KeyValuePair<TKey, TValue>>(m_serializationAllocatorSetup);
+        data.DeserializeFrom(info);
+        
+        if (info.ExtraMetadata.Length > 0)
+        {
+            var xml = Encoding.UTF8.GetString(info.ExtraMetadata);
+            var deserializeWithDcs = SerializeHelper.DeserializeWithDcs<TrieMapExtraInfo>(xml);
+            var trieMapExtraInfo = deserializeWithDcs;
+            m_nodesMapFactory = trieMapExtraInfo.NodesMapFactoryHelper.GetDelegate<Func<Type, IDictionary<object, TrieLinkNode<TValue>>>>();
+        }
+
+        var add = true;
+        
+        foreach (var t in data)
+        {
+            var key = t.Key;
+            var value = t.Value;
+            
+            Insert(key, ref value, ref add);
+        }
+        m_version = data.m_version;
     }
 }

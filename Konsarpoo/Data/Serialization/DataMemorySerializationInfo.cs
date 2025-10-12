@@ -60,7 +60,7 @@ public class DataMemorySerializationInfo : IDataSerializationInfo
         info.AddValue(CapacityName, m_metaData.dataCount);
         info.AddValue(VersionName, m_metaData.version);
         info.AddValue(ElementsCountName, m_count);
-        info.AddValue(ExtraMetaDataName, m_extraMetaDataBytes);
+        info.AddValue(ExtraMetaDataName, m_extraMetaDataBytes, typeof(byte[]));
     }
     
     /// <summary>

@@ -3,17 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
+using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {
-    public partial class Set<T>
+    public partial class Set<T> : IDataSerializable
     {
-        private const string CapacityName = "Capacity";
-        private const string ElementsName = "Elements";
-        private const string ComparerName = "Comparer";
-        private const string VersionName = "Version";
-        
         [NonSerialized]
         private SerializationInfo m_siInfo;
         
@@ -46,10 +43,19 @@ namespace Konsarpoo.Collections
             public int HashSize;
             public IEqualityComparer<T> Comparer;
         }
+
+        private static readonly IDataAllocatorSetup<T> m_serializationAllocatorSetup =
+            GcAllocatorSetup.GetDataPoolSetup<T>();
         
-        public void SerializeTo(IDataSerializationInfo dataSerializationInfo)
+        /// <summary>
+        /// Serializes the current instance to the provided <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        public virtual void SerializeTo([NotNull] IDataSerializationInfo info)
         {
-            var data = new Data<T>();
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
+            var data = new Data<T>(m_serializationAllocatorSetup);
             data.Ensure(Count);
             CopyTo(data, 0, Count);
 
@@ -60,17 +66,29 @@ namespace Konsarpoo.Collections
             };
             
             using var memoryStream = (MemoryStream)SerializeHelper.Serialize(mapExtraInfo);
-            dataSerializationInfo.SetExtraMetadata(memoryStream.ToArray());
-            data.SerializeTo(dataSerializationInfo);
+            
+            info.SetExtraMetadata(memoryStream.ToArray());
+            data.SerializeTo(info);
         }
 
-        public void DeserializeFrom(IDataSerializationInfo info)
+        /// <summary>
+        /// Deserializes the current instance from the provided <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <exception cref="SerializationException"></exception>
+        public void DeserializeFrom([NotNull] IDataSerializationInfo info)
         {
-            using var data = new Data<T>();
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
+            Clear();
+            
+            using var data = new Data<T>(m_serializationAllocatorSetup);
             data.DeserializeFrom(info);
+            
             using var memoryStream = new MemoryStream(info.ExtraMetadata);
             var mapExtraInfo = SerializeHelper.Deserialize<SetExtraInfo>(memoryStream);
-            m_comparer = (IEqualityComparer<T>)mapExtraInfo.Comparer;
+            
+            m_comparer = mapExtraInfo.Comparer;
             if (mapExtraInfo.HashSize > 0)
             {
                 m_buckets.Ensure(mapExtraInfo.HashSize, -1);

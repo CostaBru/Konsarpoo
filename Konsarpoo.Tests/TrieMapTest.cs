@@ -259,8 +259,6 @@ public class TrieMapTest : BaseTest
     public void TestSerialization2()
     {
         var map = new TupleTrieMap<string, int, int>();
-        
-        map.SetStorageFactory(NodesMapFactory);
 
         map.Add(("1", 1), 1);
         map.Add(("1", 2), 2);
@@ -272,19 +270,12 @@ public class TrieMapTest : BaseTest
 
         Assert.True(deserializeWithDcs == map);
     }
-    
-    public static  IDictionary<object, AbstractTupleTrieMap<(string, int), int>.TrieLinkNode<int>> NodesMapFactory(Type type)
-    {
-        return null;
-    }
       
     [Test]
     public void TestSerializationClone2()
     {
         var map = new TupleTrieMap<string, int, int>();
         
-        map.SetStorageFactory(NodesMapFactory);
-
         foreach (var i in Enumerable.Range(1, 1024))
         {
             map.Add((i.ToString(), i), i);

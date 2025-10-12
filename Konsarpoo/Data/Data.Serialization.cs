@@ -4,11 +4,12 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
+using JetBrains.Annotations;
 using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {
-    public partial class Data<T>
+    public partial class Data<T> : IDataSerializable
     {
         [NonSerialized]
         private SerializationInfo m_siInfo;
@@ -53,8 +54,14 @@ namespace Konsarpoo.Collections
             m_siInfo = null;
         }
         
-        public void SerializeTo(IDataSerializationInfo info)
+        /// <summary>
+        /// Serializes the current instance to the provided <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        public virtual void SerializeTo([NotNull] IDataSerializationInfo info)
         {
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
             if (m_root is null)
             {
                 info.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
@@ -86,8 +93,17 @@ namespace Konsarpoo.Collections
         }
 
 
-        public void DeserializeFrom(IDataSerializationInfo info)
+        /// <summary>
+        /// Deserializes the current instance from the provided <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <exception cref="SerializationException"></exception>
+        public virtual void DeserializeFrom([NotNull] IDataSerializationInfo info)
         {
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
+            Clear();
+            
             info.ReadMetadata();
             
             var (maxSizeOfArray, dataCount, version) = info.MetaData;

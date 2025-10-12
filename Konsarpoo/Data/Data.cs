@@ -1617,7 +1617,7 @@ namespace Konsarpoo.Collections
                 
                 if (closestValidArrayLen != array.Length)
                 {
-                    var rent = m_arrayAllocator.Rent(closestValidArrayLen);
+                    var rent = new T[closestValidArrayLen];
                     
                     Array.Copy(array, rent, array.Length);
 

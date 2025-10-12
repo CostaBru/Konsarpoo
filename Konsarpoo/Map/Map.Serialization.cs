@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
+using JetBrains.Annotations;
+using Konsarpoo.Collections.Allocators;
 using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections
 {
-    public partial class Map<TKey, TValue>
+    public partial class Map<TKey, TValue> : IDataSerializable
     {
 
         private SerializationInfo m_sInfo;
@@ -43,9 +45,18 @@ namespace Konsarpoo.Collections
             public IEqualityComparer<TKey> Comparer;
         }
         
-        public void SerializeTo(IDataSerializationInfo dataSerializationInfo)
+        private static readonly IDataAllocatorSetup<KeyValuePair<TKey, TValue>> m_serializationAllocatorSetup =
+            GcAllocatorSetup.GetDataPoolSetup<KeyValuePair<TKey, TValue>>();
+      
+        /// <summary>
+        /// Serializes the current instance to the provided <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        public virtual void SerializeTo([NotNull] IDataSerializationInfo info)
         {
-            var data = new Data<KeyValuePair<TKey, TValue>>();
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
+            var data = new Data<KeyValuePair<TKey, TValue>>(m_serializationAllocatorSetup);
             data.Ensure(Count);
             CopyTo(data, 0);
 
@@ -55,18 +66,26 @@ namespace Konsarpoo.Collections
                 Comparer = m_comparer
             };
             
-            using var memoryStream = (MemoryStream)SerializeHelper.Serialize(mapExtraInfo);
-            dataSerializationInfo.SetExtraMetadata(memoryStream.ToArray());
-            data.SerializeTo(dataSerializationInfo);
+            using var memoryStream = SerializeHelper.Serialize(mapExtraInfo);
+            info.SetExtraMetadata(memoryStream.ToArray());
+            data.SerializeTo(info);
         }
 
-        public void DeserializeFrom(IDataSerializationInfo info)
+        /// <summary>
+        /// Deserializes the current instance using <see cref="IDataSerializationInfo"/> implementation.
+        /// </summary>
+        /// <param name="info"></param>
+        public virtual void DeserializeFrom([NotNull] IDataSerializationInfo info)
         {
-            using var data = new Data<KeyValuePair<TKey, TValue>>();
+            if (info == null) throw new ArgumentNullException(nameof(info));
+            
+            Clear();
+            
+            using var data = new Data<KeyValuePair<TKey, TValue>>(m_serializationAllocatorSetup);
             data.DeserializeFrom(info);
             using var memoryStream = new MemoryStream(info.ExtraMetadata);
             var mapExtraInfo = SerializeHelper.Deserialize<MapExtraInfo>(memoryStream);
-            m_comparer = (IEqualityComparer<TKey>)mapExtraInfo.Comparer;
+            m_comparer = mapExtraInfo.Comparer;
             if (mapExtraInfo.HashSize > 0)
             {
                 m_buckets.Ensure(mapExtraInfo.HashSize, -1);
@@ -94,7 +113,7 @@ namespace Konsarpoo.Collections
         }
 
         /// <inheritdoc />
-        public virtual void OnDeserialization(object sender)
+        public void OnDeserialization(object sender)
         {
             if (m_sInfo == null)
             {

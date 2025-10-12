@@ -466,20 +466,22 @@ namespace Konsarpoo.Collections.Tests
         [Test]
         public void TestSetSerialization2()
         {
-            var set = new Set<string>(StringComparer.OrdinalIgnoreCase);
+            var set = new Set<string>();
 
             foreach (var i in Enumerable.Range(0, 1024))
             {
                 set.Add(i.ToString());
             }
-
+        
             var clone = SerializeHelper.Clone<Set<string>>(set);
             
             var b = clone == set;
+            
+            Assert.True(b);
 
             Assert.AreEqual(clone, set);
         }
-        
+
         [Test]
         public void TestSetSerialization3()
         {
@@ -490,13 +492,13 @@ namespace Konsarpoo.Collections.Tests
                 set.Add(i);
             }
 
+
             var clone = SerializeHelper.Clone<Set<int>>(set);
-            
+
             var b = clone == set;
 
             Assert.AreEqual(clone, set);
         }
-
         [Test]
         public void TestSetExt()
         {

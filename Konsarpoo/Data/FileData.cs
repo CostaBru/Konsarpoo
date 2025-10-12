@@ -20,7 +20,7 @@ namespace Konsarpoo.Collections;
 [DebuggerTypeProxy(typeof(ReadonlyListDebugView<>))]
 public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, IRandomAccessData<T>
 {
-    private class ArrayChunk
+    public class ArrayChunk
     {
         public T[] Array;
         public int Size;
@@ -35,7 +35,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     }
     
     private readonly DataFileSerialization m_fileSerialization;
-    private readonly LfuCache<int, ArrayChunk> m_buffer;
+    private readonly ICacheStore<int, ArrayChunk> m_buffer;
     private readonly IArrayAllocator<T> m_arrayAllocator;
     
     private readonly int m_stepBase;
@@ -45,17 +45,17 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     private bool m_disposed;
     private int m_writeNestingLevel;
     
-    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null)
     {
         return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, compressionLevel, arrayBufferCapacity, key, allocator);
     }
     
-    public static FileData<T> Open(string filePath, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null)
+    public static FileData<T> Open(string filePath, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null)
     {
         return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator);
     }
   
-    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null)
+    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null, ICacheStore<int, ArrayChunk> cacheStore = null)
     {
         if (fileMode == FileMode.Open)
         {
@@ -76,10 +76,19 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         var defaultAllocatorSetup = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup;
       
         m_arrayAllocator = allocator ?? defaultAllocatorSetup.GetDataStorageAllocator<T>().GetDataArrayAllocator();
+
+        if (cacheStore != null)
+        {
+            m_buffer = cacheStore;
+        }
+        else
+        {
+            var buffer = new LfuCache<int, ArrayChunk>(0, 0, null, disposingStrategy: OnChunkDone);
         
-        m_buffer = new LfuCache<int, ArrayChunk>(0, 0, null, disposingStrategy: OnChunkDone);
-        
-        m_buffer.StartTrackingMemory(arrayBufferCapacity, (key, chunk) => 1);
+            buffer.StartTrackingMemory(arrayBufferCapacity, (key, chunk) => 1);
+
+            m_buffer = buffer;
+        }
     }
 
     /// <summary>
@@ -161,7 +170,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         var newChunk = new ArrayChunk(newArray, 0);
         
         m_fileSerialization.AppendArray(newArray);
-        m_buffer.AddOrUpdate(arrayIndex, newChunk);
+        m_buffer.AddOrUpdate(arrayIndex, newChunk, OnChunkDone);
 
         m_arrayCount++;
         
@@ -200,7 +209,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             
             var chunk = new ArrayChunk(loadedArray, size);
             
-            m_buffer.AddOrUpdate(arrayIndex, chunk);
+            m_buffer.AddOrUpdate(arrayIndex, chunk, OnChunkDone);
             
             return chunk;
         }
@@ -647,8 +656,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             {
                 EndWrite();
             }
-            
-            m_buffer?.Dispose();
+
+            if (m_buffer is IDisposable d)
+            {
+                d.Dispose();
+            }
             m_fileSerialization?.Dispose();
         }
         finally

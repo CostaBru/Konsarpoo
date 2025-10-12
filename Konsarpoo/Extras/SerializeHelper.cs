@@ -1,7 +1,9 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using JetBrains.Annotations;
 
 namespace Konsarpoo.Collections
 {
@@ -57,10 +59,10 @@ namespace Konsarpoo.Collections
         /// <param name="source"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static Stream Serialize(object source)
+        public static MemoryStream Serialize(object source)
         {
             IFormatter formatter = new BinaryFormatter();
-            Stream stream = new MemoryStream();
+            MemoryStream stream = new MemoryStream();
             formatter.Serialize(stream, source);
             return stream;
         }
@@ -71,8 +73,12 @@ namespace Konsarpoo.Collections
         /// <param name="stream"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static T Deserialize<T>(Stream stream)
+        public static T Deserialize<T>([NotNull] Stream stream)
         {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
             IFormatter formatter = new BinaryFormatter();
             stream.Position = 0;
             return (T)formatter.Deserialize(stream);
@@ -86,7 +92,8 @@ namespace Konsarpoo.Collections
         /// <returns></returns>
         public static T Clone<T>(object source)
         {
-            return Deserialize<T>(Serialize(source));
+            using var memoryStream = Serialize(source) ?? throw new ArgumentNullException("Serialize(source)");
+            return Deserialize<T>(memoryStream);
         }
     }
 }
