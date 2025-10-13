@@ -9,11 +9,13 @@ using JetBrains.Annotations;
 namespace Konsarpoo.Collections.Data.Serialization;
 
 /// <summary>
-/// Serialization of arrays of data into a stream with support for compression/encryption pipelines.
+/// Serialization of arrays of data into a stream with support for compression/encryption pipelines. Not thread safe.
 /// </summary>
 [DebuggerDisplay("DataCount = {DataCount}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {m_maxSizeOfArray}, Version = {m_version}, CanFlush = {CanFlush}")]
 public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 {
+    protected static readonly long m_metaSize = sizeof(int) * 5; // maxSizeOfArray, dataCount, version, arraysCount, extra metadata size
+    
     private Stream m_fileStream;
     private BinaryWriter m_writer;
     private BinaryReader m_reader;
@@ -24,14 +26,14 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     private readonly Func<DataStreamSerialization, byte[], byte[]> m_writeProcessPipeline;
     private readonly Func<DataStreamSerialization, byte[], byte[]> m_readProcessPipeline;
     private bool m_disposed;
-    protected static readonly long m_metaSize = sizeof(int) * 5; // maxSizeOfArray, dataCount, version, arraysCount, extra metadata size
     private long[] m_offsetTable;
     private byte[] m_extraMetaData = Array.Empty<byte>();
+    private int m_edit = 0;
 
     private long GetExtraMetadataSize => m_extraMetaData.Length;
     
     /// <summary>
-    /// Initializes a new instance of the <see cref="DataStreamSerialization"/> class.
+    /// The creation a new stream constructor. Initializes a new instance of the <see cref="DataStreamSerialization"/> class. Will override existing contents of the stream.
     /// </summary>
     /// <param name="fileStream"></param>
     /// <param name="maxSizeOfArray"></param>
@@ -58,7 +60,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DataStreamSerialization"/> class.
+    /// The opener an existing stream constructor. Initializes a new instance of the <see cref="DataStreamSerialization"/> class with contents loaded from the stream.
     /// </summary>
     /// <param name="fileStream"></param>
     /// <param name="writeProcessPipeline"></param>
@@ -106,8 +108,6 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     /// Age of the data.
     /// </summary>
     public int Version => m_version;
-
-    private int m_edit = 0;
     
     /// <summary>
     /// Begin a write operation. Call EndWrite when done.
@@ -215,6 +215,8 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
 
     private void SetCapacityCore(int capacity)
     {
+        if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+        
         var offsetTableBeforeResize = m_offsetTable.Length;
 
         if (capacity > offsetTableBeforeResize)
@@ -232,7 +234,13 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         }
         else
         {
-            throw new NotSupportedException("Trimming is not supported");
+            if (m_arrayCount > 0)
+            {
+                throw new NotSupportedException("Trimming is not supported");
+            }
+
+            Array.Resize(ref m_offsetTable, capacity);
+            WriteOffsetTableInfo(m_offsetTable);
         }
     }
 
@@ -252,7 +260,10 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         return offsetTable;
     }
 
-
+    /// <summary>
+    /// Updates the metadata values.
+    /// </summary>
+    /// <param name="metaData"></param>
     public void UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData)
     {
         m_maxSizeOfArray = metaData.maxSizeOfArray;
@@ -273,6 +284,9 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_version = metadata.version;
     }
 
+    /// <summary>
+    /// Gets the metadata tuple (maxSizeOfArray, dataCount, version).
+    /// </summary>
     public (int maxSizeOfArray, int dataCount, int version) MetaData => (m_maxSizeOfArray, m_dataCount, m_version);
 
     private (int maxSizeOfArray, int dataCount, int version, int arrrayCount, byte[] extaMetaData) ReadMetaDataCore()
@@ -370,6 +384,9 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         WriteArrayAt(arrayIndex, array);
     }
 
+    /// <summary>
+    /// Gets the count of arrays in the stream.
+    /// </summary>
     public int ArrayCount => m_arrayCount;
 
     /// <summary>
@@ -389,11 +406,10 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         m_arrayCount = 0;
         m_dataCount = 0;
+        m_extraMetaData = Array.Empty<byte>();
         m_offsetTable = new long[0];
         // Truncate to metadata only
         m_fileStream.SetLength(m_metaSize);
-        m_extraMetaData = Array.Empty<byte>();
-        m_dataCount = 0;
         WriteMetadataCore();
         if (CanFlush)
         {
@@ -476,7 +492,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         long offset = GetArrayOffset(i, m_offsetTable.Length);
         
-        var bytes = GetBytes(array);
+        var bytes = WriteArray(array);
 
         var bytesSize = bytes.Length + Marshal.SizeOf<int>();
 
@@ -521,11 +537,9 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         }
     }
 
-    protected virtual byte[] GetBytes<T>(T[] array)
+    private byte[] WriteArray<T>(T[] array)
     {
-        using var ms = new MemoryStream();
-        new BinaryFormatter().Serialize(ms, array);
-        byte[] data = ms.ToArray();
+        var data = SerializeArrayToBytes(array);
 
         if (m_writeProcessPipeline != null)
         {
@@ -534,8 +548,8 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         
         return data;
     }
-
-    protected virtual T[] ReadBytes<T>(byte[] data)
+    
+    private T[] ReadArray<T>(byte[] data)
     {
         var bytes = data;
 
@@ -544,10 +558,35 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
             bytes = m_readProcessPipeline(this, data);
         }
         
+        return DeserializeArrayFromBytes<T>(bytes);
+    }
+
+    /// <summary>
+    /// Serializes an array to a byte array using BinaryFormatter.
+    /// </summary>
+    /// <param name="array"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    protected virtual byte[] SerializeArrayToBytes<T>(T[] array)
+    {
+        using var ms = new MemoryStream();
+        new BinaryFormatter().Serialize(ms, array);
+        byte[] data = ms.ToArray();
+        return data;
+    }
+    
+    /// <summary>
+    /// Deserializes an array from a byte array using BinaryFormatter.
+    /// </summary>
+    /// <param name="bytes"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    protected virtual T[] DeserializeArrayFromBytes<T>(byte[] bytes)
+    {
         using var ms = new MemoryStream(bytes, 0, bytes.Length);
         return (T[])new BinaryFormatter().Deserialize(ms);
     }
-    
+
     protected long GetArrayOffset(int arrayIndex, int arrayCount)
     {
         if (arrayCount == 0 || arrayIndex == 0)
@@ -595,7 +634,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         int length = m_reader.ReadInt32();
         byte[] bytes = m_reader.ReadBytes(length);
-        return ReadBytes<T>(bytes);
+        return ReadArray<T>(bytes);
     }
 
     /// <summary>

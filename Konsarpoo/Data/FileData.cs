@@ -7,13 +7,14 @@ using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Serialization;
 using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections;
 
 /// <summary>
-/// A file-backed data structure that provides IReadOnlyList&lt;T&gt; interface with on-demand loading and unloading of array chunks.
-/// Uses LfuCache for memory management and DataFileSerialization for persistence.
+/// A file-backed data structure that provides IReadOnlyList&lt;T&gt; and IRandomAccessData&lt;T&gt; interface with on-demand loading and unloading of data chunks.
+/// Uses LfuCache for memory management and DataFileSerialization for persistence. Not thread safe.
 /// </summary>
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
 [DebuggerDisplay("Count {m_count}")]
@@ -44,6 +45,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     private int m_arrayCount;
     private bool m_disposed;
     private int m_writeNestingLevel;
+    private int m_version;
     
     public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null)
     {
@@ -54,27 +56,40 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     {
         return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator);
     }
-  
-    private FileData(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, int arrayBufferCapacity, byte[] cryptoKey, IArrayAllocator<T> allocator = null, ICacheStore<int, ArrayChunk> cacheStore = null)
+
+    private FileData(string filePath, 
+        int maxSizeOfArray,
+        FileMode fileMode,
+        CompressionLevel compressionLevel, 
+        int arrayBufferCapacity,
+        byte[] cryptoKey, 
+        IArrayAllocator<T> allocator = null,
+        ICacheStore<int, ArrayChunk> cacheStore = null)
+        : 
+        this(
+            fileMode == FileMode.Open ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, maxSizeOfArray),
+            arrayBufferCapacity, 
+            allocator, 
+            cacheStore)
     {
-        if (fileMode == FileMode.Open)
-        {
-            m_fileSerialization = new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel);
-                 
-            m_maxSizeOfArray = m_fileSerialization.MaxSizeOfArray;
-            m_count = m_fileSerialization.DataCount;
-            m_arrayCount = m_fileSerialization.ArrayCount;
-        }
-        else
-        {
-            m_maxSizeOfArray = maxSizeOfArray; 
-            m_fileSerialization = new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, maxSizeOfArray);
-        }
-        
+    }
+
+    public FileData([NotNull] DataFileSerialization fileSerialization,
+        int arrayBufferCapacity,
+        IArrayAllocator<T> allocator = null, 
+        ICacheStore<int, ArrayChunk> cacheStore = null)
+    {
+        m_fileSerialization = fileSerialization ?? throw new ArgumentNullException(nameof(fileSerialization));
+
+        m_maxSizeOfArray = m_fileSerialization.MaxSizeOfArray;
+        m_count = m_fileSerialization.DataCount;
+        m_arrayCount = m_fileSerialization.ArrayCount;
+        m_version = m_fileSerialization.Version;
+
         m_stepBase = GetStepBase(m_maxSizeOfArray);
-        
+
         var defaultAllocatorSetup = KonsarpooAllocatorGlobalSetup.DefaultAllocatorSetup;
-      
+
         m_arrayAllocator = allocator ?? defaultAllocatorSetup.GetDataStorageAllocator<T>().GetDataArrayAllocator();
 
         if (cacheStore != null)
@@ -84,12 +99,22 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         else
         {
             var buffer = new LfuCache<int, ArrayChunk>(0, 0, null, disposingStrategy: OnChunkDone);
-        
+
             buffer.StartTrackingMemory(arrayBufferCapacity, (key, chunk) => 1);
 
             m_buffer = buffer;
         }
     }
+
+    /// <summary>
+    /// Gets the file path associated with this FileData instance.
+    /// </summary>
+    public string FilePath => m_fileSerialization.FilePath;
+    
+    /// <summary>
+    /// Gets the version of the collection, which increments with collection count change.
+    /// </summary>
+    public int Version => m_version;
 
     /// <summary>
     /// Gets the maximum size of each internal array chunk.
@@ -304,6 +329,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         chunk.IsDirty = true;
         chunk.Size++;
 
+        m_version++;
         m_count++;  
     }
     
@@ -465,6 +491,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         newChunk.Array[0] = currentItem;
         newChunk.Size = 1;
         newChunk.IsDirty = true;
+        m_version++;
         m_count++;
     }
 
@@ -501,6 +528,10 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         if (m_count == 0)
         {
             Clear();
+        }
+        else
+        {
+            m_version++;
         }
     }
     
@@ -571,6 +602,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         m_arrayCount = 0;
         m_buffer.Clear();
         m_fileSerialization.Clear();
+        m_version++;
     }
     
     /// <summary>
@@ -587,6 +619,8 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             var array = chunk.Array;
             Array.Clear(array, 0, array.Length);
         }
+
+        m_version++;
     }
 
     /// <summary>
@@ -604,6 +638,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     public IEnumerator<T> GetEnumerator()
     {
         var currentCount = m_arrayCount;
+        var version = m_version;
 
         for (int i = 0; i < currentCount; i++)
         {
@@ -611,6 +646,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             
             for (int j = 0; j < chunk.Size; j++)
             {
+                if (version != m_version)
+                {
+                    throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
+                }
+                
                 yield return chunk.Array[j];
             }
         }
@@ -622,12 +662,19 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     public void ForEach<V>(V p, Func<FileData<T>, int, T, V, bool> act)
     {
         int totalIndex = 0;
+        var version = m_version;
+        
         for (int i = 0; i < m_arrayCount; i++)
         {
             var chunk = LoadChuck(i);
             
             for (int j = 0; j < chunk.Size; j++)
             {
+                if (version != m_version)
+                {
+                    throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
+                }
+                
                 if (act(this, totalIndex, chunk.Array[j], p))
                 {
                     return;
@@ -667,5 +714,39 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         {
             m_disposed = true;
         }
+    }
+
+    /// <summary>
+    /// Serializes the current instance to the provided <see cref="IDataSerializationInfo"/> implementation.
+    /// </summary>
+    /// <param name="info"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void SerializeTo(IDataSerializationInfo info)
+    {
+        info.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
+                
+        var currentCount = m_arrayCount;
+        var version = m_version;
+
+        if (m_arrayCount == 1)
+        {
+            info.WriteSingleArray(LoadChuck(0).Array);
+        }
+        else
+        {
+            for (int i = 0; i < currentCount; i++)
+            {
+                if (version != m_version)
+                {
+                    throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
+                }
+            
+                var chunk = LoadChuck(i);
+            
+                info.AppendArray(chunk.Array);
+            }
+        }
+                
+        info.WriteMetadata();
     }
 }
