@@ -521,7 +521,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         }
     }
 
-    protected byte[] GetBytes<T>(T[] array)
+    protected virtual byte[] GetBytes<T>(T[] array)
     {
         using var ms = new MemoryStream();
         new BinaryFormatter().Serialize(ms, array);
@@ -535,7 +535,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         return data;
     }
 
-    protected T[] ReadBytes<T>(byte[] data)
+    protected virtual T[] ReadBytes<T>(byte[] data)
     {
         var bytes = data;
 
