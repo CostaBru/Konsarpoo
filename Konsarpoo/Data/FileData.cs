@@ -169,7 +169,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void FlushDirtyChunks()
     {
-        m_fileSerialization.UpdateMetadata((m_maxSizeOfArray, m_count, 1));
+        m_fileSerialization.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
         
         m_fileSerialization.WriteMetadata();
         
@@ -688,7 +688,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>
-    /// Releases all resources used by the FileData.
+    /// Releases all resources used by the FileData and flush buffers to the disk.
     /// </summary>
     public void Dispose()
     {
@@ -699,15 +699,13 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         
         try
         {
-            if (m_writeNestingLevel > 0)
-            {
-                EndWrite();
-            }
+            EndWrite();
 
             if (m_buffer is IDisposable d)
             {
                 d.Dispose();
             }
+            
             m_fileSerialization?.Dispose();
         }
         finally

@@ -132,15 +132,12 @@ namespace Konsarpoo.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int BinarySearch(T value, int startIndex, int count, IComparer<T> comparer)
         {
-            if (comparer == null)
-            {
-                throw new ArgumentNullException(nameof(comparer));
-            }
-
             if (startIndex < 0 || startIndex >= m_count || count < 0 || count > m_count)
             {
                 return -1;
             }
+            
+            comparer ??= Comparer<T>.Default;
             
             var storage = m_root?.Storage;
 
