@@ -25,17 +25,12 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     {
         public T[] Array;
         public int Size;
-        public bool IsDirty;
-        
-        public ArrayChunk(T[] array, int size)
-        {
-            Array = array;
-            Size = size;
-            IsDirty = false;
-        }
+        public bool IsModified;
     }
     
     private readonly DataFileSerialization m_fileSerialization;
+    private readonly Action<ArrayChunk> m_disposeChunk;
+    private readonly Func<ArrayChunk, bool> m_isModifiedChunk;
     private readonly ICacheStore<int, ArrayChunk> m_buffer;
     private readonly IArrayAllocator<T> m_arrayAllocator;
     
@@ -47,14 +42,14 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     private int m_writeNestingLevel;
     private int m_version;
     
-    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null)
+    public static FileData<T> Create(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null, Action<ArrayChunk> disposeChunk = null, Func<ArrayChunk, bool> modifiedChunkCheck = null)
     {
-        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, compressionLevel, arrayBufferCapacity, key, allocator);
+        return new FileData<T>(filePath, maxSizeOfArray, FileMode.CreateNew, compressionLevel, arrayBufferCapacity, key, allocator, disposeChunk: disposeChunk, isModifiedChunkCheck: modifiedChunkCheck);
     }
     
-    public static FileData<T> Open(string filePath, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null)
+    public static FileData<T> Open(string filePath, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null, Action<ArrayChunk> disposeChunk = null, Func<ArrayChunk, bool> modifiedChunkCheck = null)
     {
-        return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator);
+        return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator, disposeChunk: disposeChunk, isModifiedChunkCheck: modifiedChunkCheck);
     }
 
     private FileData(string filePath, 
@@ -64,23 +59,31 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         int arrayBufferCapacity,
         byte[] cryptoKey, 
         IArrayAllocator<T> allocator = null,
-        ICacheStore<int, ArrayChunk> cacheStore = null)
+        ICacheStore<int, ArrayChunk> cacheStore = null,
+        Action<ArrayChunk> disposeChunk = null,
+        Func<ArrayChunk, bool> isModifiedChunkCheck = null)
         : 
         this(
             fileMode == FileMode.Open ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, maxSizeOfArray),
             arrayBufferCapacity, 
             allocator, 
-            cacheStore)
+            cacheStore,
+            disposeChunk,
+            isModifiedChunkCheck)
     {
     }
 
     public FileData([NotNull] DataFileSerialization fileSerialization,
         int arrayBufferCapacity,
         IArrayAllocator<T> allocator = null, 
-        ICacheStore<int, ArrayChunk> cacheStore = null)
+        ICacheStore<int, ArrayChunk> cacheStore = null,
+        Action<ArrayChunk> disposeChunk = null,
+        Func<ArrayChunk, bool> isModifiedChunkCheck = null)
     {
         m_fileSerialization = fileSerialization ?? throw new ArgumentNullException(nameof(fileSerialization));
-
+        m_disposeChunk = disposeChunk;
+        m_isModifiedChunk = isModifiedChunkCheck;
+        
         m_maxSizeOfArray = m_fileSerialization.MaxSizeOfArray;
         m_count = m_fileSerialization.DataCount;
         m_arrayCount = m_fileSerialization.ArrayCount;
@@ -132,13 +135,17 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void OnChunkDone(int arrayIndex, ArrayChunk chunk)
     {
-        if (chunk.IsDirty)
+        if (chunk.IsModified)
         {
             m_fileSerialization.WriteArray(arrayIndex, chunk.Array);
 
+            m_disposeChunk?.Invoke(chunk);
+            
+            Array.Clear(chunk.Array, 0, chunk.Size);
+            
             m_arrayAllocator.Return(chunk.Array);
-
-            chunk.IsDirty = false;
+            
+            chunk.IsModified = false;
         }
     }
 
@@ -161,13 +168,13 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         if (m_writeNestingLevel <= 0)
         {
             m_writeNestingLevel = 0;
-            FlushDirtyChunks();
+            FlushModifiedChunks();
         }
         
         m_fileSerialization.EndWrite();
     }
-
-    private void FlushDirtyChunks()
+    
+    private void FlushModifiedChunks()
     {
         m_fileSerialization.UpdateMetadata((m_maxSizeOfArray, m_count, m_version));
         
@@ -175,10 +182,10 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         
         foreach (var kvp in m_buffer.OrderBy(k => k.Key))
         {
-            if (kvp.Value.IsDirty)
+            if (kvp.Value.IsModified || (m_isModifiedChunk?.Invoke(kvp.Value) ?? false))
             {
                 WriteChunkToFile(kvp.Key, kvp.Value);
-                kvp.Value.IsDirty = false;
+                kvp.Value.IsModified = false;
             }
         }
     }
@@ -192,7 +199,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         }
 
         var newArray = m_arrayAllocator.Rent(m_maxSizeOfArray);
-        var newChunk = new ArrayChunk(newArray, 0);
+      
+        var newChunk = NewChunkInstance();
+        
+        newChunk.Array = newArray;
+        newChunk.Size = 0;
         
         m_fileSerialization.AppendArray(newArray);
         m_buffer.AddOrUpdate(arrayIndex, newChunk, OnChunkDone);
@@ -200,6 +211,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         m_arrayCount++;
         
         return newChunk;
+    }
+
+    protected virtual ArrayChunk NewChunkInstance()
+    {
+        return new ArrayChunk();
     }
 
     private ArrayChunk LoadChuck(int arrayIndex)
@@ -232,7 +248,10 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
                 size = Math.Min(loadedArray.Length, m_maxSizeOfArray);
             }
             
-            var chunk = new ArrayChunk(loadedArray, size);
+            var chunk = NewChunkInstance();
+
+            chunk.Array = loadedArray;
+            chunk.Size = size;
             
             m_buffer.AddOrUpdate(arrayIndex, chunk, OnChunkDone);
             
@@ -283,7 +302,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             var chunk = LoadChuck(arrayIndex);
 
             chunk.Array[elementIndex] = value;
-            chunk.IsDirty = true;
+            chunk.IsModified = true;
         }
     }
 
@@ -326,7 +345,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         var chunk = GetOrAddChunk(arrayIndex);
 
         chunk.Array[chunk.Size] = item;
-        chunk.IsDirty = true;
+        chunk.IsModified = true;
         chunk.Size++;
 
         m_version++;
@@ -344,7 +363,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
             Array.Reverse(chunk.Array, 0, m_count);
 
-            chunk.IsDirty = true;
+            chunk.IsModified = true;
             
             return;
         }
@@ -367,7 +386,6 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// Array API. Ensures that current FileData&lt;T&gt; container has given size.
     /// </summary>
     /// <param name="size"></param>
-    /// <param name="defaultValue">default value</param>
     public void Ensure(int size)
     {
         Ensure(size, default(T));
@@ -384,42 +402,52 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         {
             return;
         }
+
+        var restSize = size - m_count;
+
+        m_version++;
+
+        var currentArrayIndex = m_arrayCount - 1;
+
+        int i = Math.Max(0, currentArrayIndex);
         
-        var newArrayCount = (size >> m_stepBase);
-        var currentCount = Math.Max(1, m_arrayCount - 1);
-
-        for (int i = currentCount - 1; i < newArrayCount; i++)
+        var shouldFill = EqualityComparer<T>.Default.Equals(defaultValue, default) == false;
+        
+        while (restSize > 0)
         {
-            var arrayIndex = i;
-
-            var chunk = GetOrAddChunk(arrayIndex);
-
-            if (chunk.Size == m_maxSizeOfArray)
-            {
-                continue;
-            }
+            var chunk = GetOrAddChunk(i);
 
             var startIndex = 0;
 
-            if (i == currentCount - 1)
+            if (i == currentArrayIndex)
             {
                 startIndex = chunk.Size;
             }
 
-            var count = m_maxSizeOfArray;
+            var count = m_maxSizeOfArray - startIndex;
             
-            if (i == newArrayCount - 1)
+            if (startIndex + restSize <= m_maxSizeOfArray)
             {
-                count = m_maxSizeOfArray - size % m_maxSizeOfArray - chunk.Size;
+                count = restSize;
             }
 
-            Array.Fill(chunk.Array, defaultValue, startIndex, count);
+            if (count > 0)
+            {
+                if (shouldFill)
+                {
+                    Array.Fill(chunk.Array, defaultValue, startIndex, count);
+                }
 
-            chunk.Size = count - startIndex;
-            
-            chunk.IsDirty = true;
+                chunk.Size = startIndex + count;
+
+                chunk.IsModified = true;
+
+                restSize -= count;
+            }
+
+            i++;
         }
-        
+
         m_count = size;
     }
 
@@ -466,7 +494,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
                 }
                 chunk.Array[elementIndex] = currentItem;
                 chunk.Size++;
-                chunk.IsDirty = true;
+                chunk.IsModified = true;
                 m_count++;
                 
                 return;
@@ -480,7 +508,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
                 chunk.Array[i + 1] = chunk.Array[i];
             }
             chunk.Array[elementIndex] = currentItem;
-            chunk.IsDirty = true; // size unchanged (still full)
+            chunk.IsModified = true; // size unchanged (still full)
             currentItem = last;
             elementIndex = 0; // insertion index for next chunk becomes start
         }
@@ -490,7 +518,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         var newChunk = GetOrAddChunk(newChunkIndex);
         newChunk.Array[0] = currentItem;
         newChunk.Size = 1;
-        newChunk.IsDirty = true;
+        newChunk.IsModified = true;
         m_version++;
         m_count++;
     }
@@ -512,7 +540,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             int lastChunkIndex = index >> m_stepBase;
             var lastChunk = LoadChuck(lastChunkIndex);
             lastChunk.Size--;
-            lastChunk.IsDirty = true;
+            lastChunk.IsModified = true;
         }
         else
         {
@@ -628,7 +656,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// </summary>
     public void Flush()
     {
-        FlushDirtyChunks();
+        FlushModifiedChunks();
         m_fileSerialization.Flush();
     }
 

@@ -38,6 +38,44 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
+        public void TestFileEnsure2()
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key,
+                       compressionLevel: m_compressionLevel))
+            {
+                fileData.Ensure(2);
+
+                fileData[0] = 1;
+                fileData[1] = 1;
+                
+                fileData.Ensure(3, 2);
+                
+                Assert.AreEqual(2, fileData[2]);
+                
+                fileData.Ensure(5, 3);
+                
+                Assert.AreEqual(3, fileData[4]);
+            }
+        }
+        
+        [Test]
+        public void TestFileEnsure4()
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.Create(newFile, maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key,
+                       compressionLevel: m_compressionLevel))
+            {
+                fileData.Ensure(4, 1);
+                fileData.Ensure(5, 2);
+                
+                Assert.AreEqual(2, fileData[4]);
+            }
+        }
+
+        [Test]
         public void TestFileDataBasicOperations()
         {
             var newFile = m_testFile;
