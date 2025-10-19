@@ -3,13 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using Konsarpoo.Collections.Allocators;
 using Konsarpoo.Collections.Data.Serialization;
 
-namespace Konsarpoo.Collections;
+namespace Konsarpoo.Collections.Persistence;
 
 /// <summary>
 /// A file-backed data structure that provides IReadOnlyList&lt;T&gt; and IRandomAccessData&lt;T&gt; interface with on-demand loading and unloading of data chunks.
@@ -65,7 +65,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         this(
             fileMode == FileMode.Open 
                 ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) 
-                : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, NextPowerOfTwo(Math.Max(1, maxSizeOfArray))),
+                : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, Math.Max(1, maxSizeOfArray).PowerOfTwo()),
             arrayBufferCapacity, 
             allocator, 
             cacheStore,
@@ -159,15 +159,18 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
 
     private void OnChunkDone(int arrayIndex, ArrayChunk chunk)
     {
-        if (chunk.IsModified)
+        if (arrayIndex < m_fileSerialization.ArrayCount && (chunk.IsModified || (m_isModifiedChunk?.Invoke(chunk) ?? false)))
         {
             m_fileSerialization.WriteArray(arrayIndex, chunk.Array);
             chunk.IsModified = false;
         }
 
         m_disposeChunk?.Invoke(chunk);
-        
-        Array.Clear(chunk.Array, 0, chunk.Size);
+
+        if (chunk.Size > 0)
+        {
+            Array.Clear(chunk.Array, 0, chunk.Size);
+        }
             
         m_arrayAllocator.Return(chunk.Array);
     }
@@ -567,6 +570,12 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             lastChunk.Array[lastChunk.Size - 1] = default;
             lastChunk.Size--;
             lastChunk.IsModified = true;
+
+            if (lastChunk.Size == 0)
+            {
+                m_fileSerialization.RemoveLast();
+                m_arrayCount--;
+            }
         }
         else
         {
@@ -586,6 +595,14 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         }
         else
         {
+            var lastChunk = LoadChuck(m_arrayCount - 1);
+            
+            if (lastChunk.Size == 0)
+            {
+                m_fileSerialization.RemoveLast();
+                m_arrayCount--;
+            }
+            
             m_version++;
         }
     }

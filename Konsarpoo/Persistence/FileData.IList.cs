@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Konsarpoo.Collections
+namespace Konsarpoo.Collections.Persistence
 {
     public partial class FileData<T> : IList<T>, ICollection, IList
     {
@@ -85,25 +85,25 @@ namespace Konsarpoo.Collections
             return -1;
         }
         
-        [ExcludeFromCodeCoverageAttribute]
+        [ExcludeFromCodeCoverage]
         int IList.IndexOf(object value)
         {
             return IndexOf((T)value);
         }
 
-        [ExcludeFromCodeCoverageAttribute]
+        [ExcludeFromCodeCoverage]
         void IList.Insert(int index, object value)
         {
             Insert(index, (T)value);
         }
 
-        [ExcludeFromCodeCoverageAttribute]
+        [ExcludeFromCodeCoverage]
         void IList.Remove(object value)
         {
             Remove((T)value);
         }
         
-        [ExcludeFromCodeCoverageAttribute]
+        [ExcludeFromCodeCoverage]
         int IList.Add(object value)
         {
             Add((T)value);
@@ -111,7 +111,7 @@ namespace Konsarpoo.Collections
             return m_count - 1;
         }
 
-        [ExcludeFromCodeCoverageAttribute]
+        [ExcludeFromCodeCoverage]
         bool IList.Contains(object value)
         {
             return Contains((T)value);

@@ -9,6 +9,23 @@ namespace Konsarpoo.Collections
     /// </summary>
     public static class Extensions
     {
+        public static int PowerOfTwo(this int value)
+        {
+            if (value <= 1)
+            {
+                return 2;
+            }
+            // Round up to next power of two using bit operations
+            value--;
+            value |= value >> 1;
+            value |= value >> 2;
+            value |= value >> 4;
+            value |= value >> 8;
+            value |= value >> 16;
+            value++;
+            return value > 0 ? value : int.MaxValue; // guard overflow
+        }
+        
         /// <summary>
         /// Helps to check that item satisfied condition is present in collection. Passes the given value to comparer func.
         /// <remarks>It allows to pass lambda func without creating local variable closure and let .net optimize it to static function call.</remarks> 

@@ -2,11 +2,10 @@
 using System.IO;
 using System.IO.Compression;
 using System.Text;
-using System.Text.Unicode;
 using Konsarpoo.Collections.Data.Serialization;
 using NUnit.Framework;
 
-namespace Konsarpoo.Collections.Tests
+namespace Konsarpoo.Collections.Tests.Persistence
 {
     [TestFixture(true, CompressionLevel.Fastest)]
     [TestFixture(true, CompressionLevel.NoCompression)]
@@ -53,6 +52,96 @@ namespace Konsarpoo.Collections.Tests
         private DataFileSerialization OpenInfo()
         {
             return new DataFileSerialization(m_testFile, FileMode.Open, GetEncryptKey(), m_compressionLevel);
+        }
+        
+        [Test]
+        public void TestRemoveLast()
+        {
+            {
+                using var info1 = CreateInfo(4);
+                for (int i = 0; i < 100; i++)
+                {
+                    info1.AppendArray(new int[4] { 1, 2, 3, 4 });
+                }
+
+            }
+
+            {
+                using var info2 = OpenInfo();
+
+                int j = 100;
+                while (info2.ArrayCount > 0 && j > 0)
+                {
+                    info2.RemoveLast();
+
+                    j--;
+                }
+
+                Assert.AreEqual(0, info2.ArrayCount);
+            }
+
+            {
+                using var info3 = OpenInfo();
+                
+                Assert.AreEqual(0, info3.ArrayCount);
+                
+                Assert.Throws<IndexOutOfRangeException>(() => info3.ReadArray<int>(0));
+
+                for (int i = 0; i < 100; i++)
+                {
+                    var array = new int[4] { 1, 2, 3, 4 };
+                    
+                    info3.AppendArray(array);
+                    
+                    var read2 = info3.ReadArray<int>(i);
+                    
+                    Assert.AreEqual(array, read2);
+                }
+            }
+        }
+        
+        [Test]
+        public void TestRemoveLast2()
+        {
+            {
+                using var info1 = CreateInfo(4);
+                for (int i = 0; i < 2; i++)
+                {
+                    info1.AppendArray(new int[4] { 1, 2, 3, 4 });
+                }
+            }
+
+            {
+                using var info2 = OpenInfo();
+
+                info2.RemoveLast();
+
+                Assert.AreEqual(1, info2.ArrayCount);
+            }
+
+            {
+                using var info3 = OpenInfo();
+                
+                Assert.AreEqual(1, info3.ArrayCount);
+                
+                Assert.Throws<IndexOutOfRangeException>(() => info3.ReadArray<int>(1));
+
+                var array = new int[4] { 1, 2, 3, 4 };
+                
+                var read1 = info3.ReadArray<int>(0);
+                
+                Assert.AreEqual(array, read1);
+
+                for (int i = 1; i < 100; i++)
+                {
+                    
+                    info3.AppendArray(array);
+                    
+                    var read2 = info3.ReadArray<int>(i);
+                    
+                    Assert.AreEqual(array, read2);
+                }
+            }
         }
 
         [Test]
@@ -135,6 +224,15 @@ namespace Konsarpoo.Collections.Tests
                     dataFileSerialization.Dispose();
                 }
             }
+        }
+
+        [Test]
+        public void TestNextPowerOfTwo()
+        {
+            Assert.AreEqual(2, 2.PowerOfTwo());
+            Assert.AreEqual(4, 3.PowerOfTwo());
+            Assert.AreEqual(2, 1.PowerOfTwo());
+            Assert.AreEqual(2, 0.PowerOfTwo());
         }
 
         [Test]

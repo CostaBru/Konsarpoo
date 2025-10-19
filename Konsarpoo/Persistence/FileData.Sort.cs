@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Konsarpoo.Collections;
+namespace Konsarpoo.Collections.Persistence;
 
 public partial class FileData<T>
 {

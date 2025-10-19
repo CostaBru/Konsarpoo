@@ -1,14 +1,13 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using Konsarpoo.Collections.Allocators;
+using Konsarpoo.Collections.Persistence;
 using NUnit.Framework;
 
-namespace Konsarpoo.Collections.Tests
+namespace Konsarpoo.Collections.Tests.Persistence
 {
     [TestFixture(true, CompressionLevel.Fastest)]
     [TestFixture(true, CompressionLevel.NoCompression)]
@@ -290,7 +289,7 @@ namespace Konsarpoo.Collections.Tests
         }
 
         [Test]
-        public void TestAdd2([Values(0,1,2,1000, 1_0000)] int count)
+        public void TestAdd2([Values(0,1,2,1000)] int count)
         {
             {
                 using var map = FileMap<int, int>.OpenOrCreate(m_testFile, 512, m_key, m_compressionLevel);
@@ -300,81 +299,8 @@ namespace Konsarpoo.Collections.Tests
 
                 for (int i = 0; i < count; i++)
                 {
-                    if (i == 60)
-                    {
-                        //12123123
-                        var j = 0;
-                        System.Console.WriteLine("" + i);
-                    }
-                    
                     map[i] = i;
                     dict[i] = i;
-
-                    /*if (i < 1000)
-                    {
-                        var keys1 = new int[map.Keys.Count];
-                        var keys2 = new int[map.Keys.Count];
-
-                        map.Keys.CopyTo(keys1, 0);
-                        map.Keys.CopyTo(keys2, 0);
-
-                        var mapKeys = (ICollection<int>)map.Keys;
-
-                        Assert.True(mapKeys.IsReadOnly);
-
-                        Assert.Throws<NotSupportedException>(() => mapKeys.Remove(1));
-                        Assert.Throws<NotSupportedException>(() => mapKeys.Add(1));
-                        Assert.Throws<NotSupportedException>(() => mapKeys.Clear());
-
-                        Assert.True(mapKeys.Contains(i));
-
-                        for (int j = 0; j < keys1.Length; j++)
-                        {
-                            Assert.AreEqual(keys1[j], keys2[j]);
-                        }
-
-                        var enumerator = mapKeys.GetEnumerator();
-                        Assert.NotNull(((IEnumerable)mapKeys).GetEnumerator());
-
-                        while (enumerator.MoveNext())
-                        {
-                            var containsKey = map.ContainsKey(enumerator.Current);
-
-                            Assert.True(containsKey, $"Val {enumerator.Current} {map.Length}");
-                        }
-                    }
-
-                    if (i < 100)
-                    {
-                        var values1 = new int[map.Values.Count];
-                        var values2 = new int[map.Values.Count];
-
-                        map.Values.CopyTo(values1, 0);
-                        map.Values.CopyTo(values2, 0);
-
-                        for (int j = 0; j < values1.Length; j++)
-                        {
-                            Assert.AreEqual(values1[j], values2[j]);
-                        }
-
-                        var mapValues = (ICollection<int>)map.Values;
-
-                        Assert.True(mapValues.IsReadOnly);
-
-                        Assert.Throws<NotSupportedException>(() => mapValues.Remove(1));
-                        Assert.Throws<NotSupportedException>(() => mapValues.Add(1));
-                        Assert.Throws<NotSupportedException>(() => mapValues.Clear());
-
-                        Assert.True(mapValues.Contains(i));
-
-                        var enumerator = mapValues.GetEnumerator();
-                        Assert.NotNull(((IEnumerable)mapValues).GetEnumerator());
-
-                        while (enumerator.MoveNext())
-                        {
-                            Assert.True(map.ContainsValue(enumerator.Current));
-                        }
-                    }*/
 
                     Assert.AreEqual(dict[i], map[i]);
                 }

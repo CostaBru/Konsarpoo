@@ -51,7 +51,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         m_writer = new BinaryWriter(m_fileStream);
         m_reader = new BinaryReader(m_fileStream);
 
-        m_maxSizeOfArray = maxSizeOfArray;
+        m_maxSizeOfArray = maxSizeOfArray.PowerOfTwo();
         
         m_writeProcessPipeline = writeProcessPipeline ?? throw new ArgumentNullException(nameof(writeProcessPipeline));
         m_readProcessPipeline = readProcessPipeline ?? throw new ArgumentNullException(nameof(readProcessPipeline));
@@ -81,7 +81,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
       
         m_version = metaData.version;
         m_dataCount = metaData.dataCount;
-        m_maxSizeOfArray = metaData.maxSizeOfArray;
+        m_maxSizeOfArray = metaData.maxSizeOfArray.PowerOfTwo();
         m_version = metaData.version;
         m_arrayCount = metaData.arrrayCount;
         m_extraMetaData = metaData.extaMetaData;
@@ -97,7 +97,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     }
 
     /// <summary>
-    /// Maximum size of a single array.
+    /// Maximum size of a single array. Power of 2.
     /// </summary>
     public int MaxSizeOfArray => m_maxSizeOfArray;
     /// <summary>
@@ -266,7 +266,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     /// <param name="metaData"></param>
     public void UpdateMetadata((int maxSizeOfArray, int dataCount, int version) metaData)
     {
-        m_maxSizeOfArray = metaData.maxSizeOfArray;
+        m_maxSizeOfArray = metaData.maxSizeOfArray.PowerOfTwo();
         m_dataCount = metaData.dataCount;
         m_version = metaData.version;
     }
@@ -279,7 +279,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     {
         var metadata = ReadMetaDataCore();
         
-        m_maxSizeOfArray =  metadata.maxSizeOfArray;
+        m_maxSizeOfArray =  metadata.maxSizeOfArray.PowerOfTwo();
         m_dataCount = metadata.dataCount;
         m_version = metadata.version;
     }
@@ -400,7 +400,7 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     }
 
     /// <summary>
-    /// Clears all data, resetting to an empty state.
+    /// Clears all data, capacity and extra metadata, resetting to an empty state.
     /// </summary>
     public void Clear()
     {
@@ -436,6 +436,11 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
     public T[] ReadArray<T>(int arrayIndex)
     {
         var arrayOffset = GetArrayOffset(arrayIndex, m_offsetTable.Length);
+        
+        if(arrayOffset >= m_fileStream.Length)
+        {
+            throw new IndexOutOfRangeException("Array index is out of range of the stored arrays.");
+        }
         
         m_fileStream.Seek(arrayOffset, SeekOrigin.Begin);
         
@@ -635,6 +640,39 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         int length = m_reader.ReadInt32();
         byte[] bytes = m_reader.ReadBytes(length);
         return ReadArray<T>(bytes);
+    }
+
+    /// <summary>
+    /// Removes the last array from the stream. If it is empty it clear content and capacity to an empty state.
+    /// </summary>
+    public void RemoveLast()
+    {
+        if (m_arrayCount <= 0)
+        {
+            return;
+        }
+        
+        m_arrayCount--;
+        
+        long offset = GetArrayOffset(m_arrayCount, m_offsetTable.Length);
+        
+        WriteArrayCapacity(m_arrayCount);
+        m_offsetTable[m_arrayCount] = 0;
+        WriteOffsetTableInfo(m_offsetTable);
+        
+        m_fileStream.SetLength(offset);
+
+        if (m_arrayCount == 0)
+        {
+            Clear();
+        }
+        else
+        {
+            if (CanFlush)
+            {
+                m_writer.Flush();
+            } 
+        }
     }
 
     /// <summary>

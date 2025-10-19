@@ -6,10 +6,11 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using JetBrains.Annotations;
-using Konsarpoo.Collections;
 using Konsarpoo.Collections.Allocators;
 using Konsarpoo.Collections.Data.Serialization;
 using Konsarpoo.Collections.Stackalloc;
+
+namespace Konsarpoo.Collections.Persistence;
 
 /// <summary>
 /// File-based map/dictionary implementation with support of encryption and compression.
@@ -146,7 +147,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     {
         // Normalize OpenOrCreate into Open or Create based on metadata file existence
         var effectiveMode = fileMode == FileMode.OpenOrCreate
-            ? (File.Exists(filePath) ? FileMode.Open : FileMode.Create)
+            ? (System.IO.File.Exists(filePath) ? FileMode.Open : FileMode.Create)
             : fileMode;
 
         var entriesFile = GetEntriesFile(filePath);
@@ -163,7 +164,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
         MapFileMetadata metaData = null;
         if (effectiveMode == FileMode.Open)
         {
-            var text = File.ReadAllText(filePath);
+            var text = System.IO.File.ReadAllText(filePath);
             metaData = SerializeHelper.DeserializeWithDcs<MapFileMetadata>(text);
         }
 
@@ -379,7 +380,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
 
         var serializeWithDcs = SerializeHelper.SerializeWithDcs(mapFileMetadata);
         
-        File.WriteAllText(m_metaDataFile, serializeWithDcs);
+        System.IO.File.WriteAllText(m_metaDataFile, serializeWithDcs);
     }
 
     /// <summary>
@@ -435,7 +436,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
             
         for (int i = 0; i < count; i++)
         {
-             var entry = entries[i];
+            var entry = entries[i];
             if (entry.Key.HashCode >= 0)
             {
                 destination[index++] = new KeyValuePair<TKey, TValue>(entry.Key.Key, entry.Value);

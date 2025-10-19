@@ -5,9 +5,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using Konsarpoo.Collections.Persistence;
 using NUnit.Framework;
 
-namespace Konsarpoo.Collections.Tests
+namespace Konsarpoo.Collections.Tests.Persistence
 {
     [TestFixture(true, CompressionLevel.Fastest)]
     [TestFixture(true, CompressionLevel.NoCompression)]
@@ -615,6 +616,41 @@ namespace Konsarpoo.Collections.Tests
                     Assert.AreEqual(expected[i], fileData[i], $"Mismatch after reopen at index {i}");
                 }
             }
+        }
+        
+        [Test]
+        public void TestIList([Values(123, 6, 5, 4, 3, 2, 1, 0)] int count)
+        {
+            var testFile = m_testFile;
+            
+            using var fileData = FileData<int>.Create(
+                testFile,
+                maxSizeOfArray: 4, arrayBufferCapacity: 2,
+                key: m_key,
+                compressionLevel: m_compressionLevel);
+            
+            var data = (IList)fileData;
+
+            for (int i = 0; i < count; i++)
+            {
+                data.Add(i);
+
+                Assert.True(data.Contains(i));
+                Assert.AreEqual(i, data.IndexOf(i), i);
+            }
+
+            while (data.Count > 0)
+            {
+                data.RemoveAt(data.Count - 1);
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                data.Insert(0, i);
+                data.Remove(i);
+            }
+
+            Assert.AreEqual(0, data.Count);
         }
 
         [Test]
