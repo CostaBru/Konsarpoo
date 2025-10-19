@@ -12,7 +12,6 @@ public interface ICacheStore<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TVal
 {
     bool TryGetValue([NotNull] TKey key, out TValue value);
     bool AddOrUpdate([NotNull] TKey key, TValue value, Action<TKey, TValue> onItemRemove);
-    bool RemoveKey([NotNull] TKey key);
     void Clear();
 }
 

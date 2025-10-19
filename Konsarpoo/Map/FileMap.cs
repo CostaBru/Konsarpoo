@@ -12,7 +12,8 @@ using Konsarpoo.Collections.Data.Serialization;
 using Konsarpoo.Collections.Stackalloc;
 
 /// <summary>
-/// File-based map/dictionary implementation with support of encryption and compression. Stores data in 3 files: main file, buckets file and entries file.
+/// File-based map/dictionary implementation with support of encryption and compression.
+/// Stores data in 3 files: metadata file, buckets file and entries file. Not thread safe.
 /// </summary>
 /// <typeparam name="TKey"></typeparam>
 /// <typeparam name="TValue"></typeparam>
@@ -33,7 +34,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     private static bool ValueIsCollectionType()
     {
         var type = typeof(TValue);
-        return type.IsArray || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type));
+        return type != typeof(string) && (type.IsArray || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type)));
     }
 
     private IEqualityComparer<TKey> m_comparer;
@@ -89,7 +90,13 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     
     public class MapFileMetadata
     {
+        /// <summary>
+        /// File name of bucket file. Not a full path.
+        /// </summary>
         public string BucketsFile { get; set; }
+        /// <summary>
+        /// File name of entries file. Not a full path.
+        /// </summary>
         public string EntriesFile  { get; set; }
         public int Count  { get; set; }
         public int FreeCount  { get; set; }
@@ -108,39 +115,86 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
         int arrayBufferCapacity,
         byte[] cryptoKey, 
         bool rehashOnOpen)
+        : this(
+            filePath,
+            PrepareConstructorArgs(filePath, maxSizeOfArray, fileMode, compressionLevel, cryptoKey),
+            comparer,
+            arrayBufferCapacity,
+            rehashOnOpen)
+    {
+    }
+    
+    // Bridge to reuse the public ctor with prepared args in a single call
+    private FileMap(string filePath,
+        ConstructorArgs args,
+        IEqualityComparer<TKey> comparer,
+        int arrayBufferCapacity,
+        bool rehashOnOpen)
+        : this(filePath, args.Meta, args.EntriesSerialization, args.BucketsSerialization, comparer, arrayBufferCapacity, rehashOnOpen)
+    {
+    }
+    
+    // Packs constructor preparation results to avoid duplication and keep the public constructor the single initialization point.
+    private sealed class ConstructorArgs
+    {
+        public MapFileMetadata Meta { get; set; }
+        public DataFileSerialization EntriesSerialization { get; set; }
+        public DataFileSerialization BucketsSerialization { get; set; }
+    }
+
+    private static ConstructorArgs PrepareConstructorArgs(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, byte[] cryptoKey)
+    {
+        // Normalize OpenOrCreate into Open or Create based on metadata file existence
+        var effectiveMode = fileMode == FileMode.OpenOrCreate
+            ? (File.Exists(filePath) ? FileMode.Open : FileMode.Create)
+            : fileMode;
+
+        var entriesFile = GetEntriesFile(filePath);
+        var bucketFile = GetBucketFile(filePath);
+
+        DataFileSerialization entriesDataFileSerialization = effectiveMode == FileMode.Open
+            ? new DataFileSerialization(entriesFile, effectiveMode, cryptoKey, compressionLevel)
+            : new DataFileSerialization(entriesFile, effectiveMode, cryptoKey, compressionLevel, maxSizeOfArray);
+
+        DataFileSerialization bucketDataFileSerialization = effectiveMode == FileMode.Open
+            ? new DataFileSerialization(bucketFile, effectiveMode, cryptoKey, compressionLevel)
+            : new DataFileSerialization(bucketFile, effectiveMode, cryptoKey, compressionLevel, maxSizeOfArray);
+
+        MapFileMetadata metaData = null;
+        if (effectiveMode == FileMode.Open)
+        {
+            var text = File.ReadAllText(filePath);
+            metaData = SerializeHelper.DeserializeWithDcs<MapFileMetadata>(text);
+        }
+
+        return new ConstructorArgs
+        {
+            Meta = metaData,
+            EntriesSerialization = entriesDataFileSerialization,
+            BucketsSerialization = bucketDataFileSerialization
+        };
+    }
+
+    public FileMap(string filePath, 
+        MapFileMetadata metaData, 
+        DataFileSerialization entriesDataFileSerialization, 
+        DataFileSerialization bucketDataFileSerialization,
+        IEqualityComparer<TKey> comparer,
+        int arrayBufferCapacity,
+        bool rehashOnOpen)
     {
         m_metaDataFile = filePath ?? throw new ArgumentNullException(nameof(filePath));
-        
-        if (fileMode == FileMode.OpenOrCreate)
-        {
-            fileMode = File.Exists(m_metaDataFile) ? FileMode.Open : FileMode.Create;
-        }
-        
+      
         m_comparer = comparer ?? EqualityComparer<TKey>.Default;
-        
-        var bucketFile = GetBucketFile(m_metaDataFile);
-        var entriesFile = GetEntriesFile(m_metaDataFile);
 
-        var entriesDataFileSerialization = fileMode == FileMode.Open
-            ? new DataFileSerialization(entriesFile, fileMode, cryptoKey, compressionLevel)
-            : new DataFileSerialization(entriesFile, fileMode, cryptoKey, compressionLevel, maxSizeOfArray);
-
-        var bucketDataFileSerialization = fileMode == FileMode.Open
-            ? new DataFileSerialization(bucketFile, fileMode, cryptoKey, compressionLevel)
-            : new DataFileSerialization(bucketFile, fileMode, cryptoKey, compressionLevel, maxSizeOfArray);
-
-        if (fileMode == FileMode.Open)
+        if (metaData != null)
         {
-            var text = File.ReadAllText(m_metaDataFile);
-
-            var metaData = SerializeHelper.DeserializeWithDcs<MapFileMetadata>(text);
-
             m_count = metaData.Count;
             m_freeCount = metaData.FreeCount;
             m_freeList = metaData.FreeList;
             m_version = metaData.Version;
         }
-        
+
         m_buckets = new FileData<int>(bucketDataFileSerialization, arrayBufferCapacity);
         m_entries = new HashCodedChunkFileData(entriesDataFileSerialization, arrayBufferCapacity, disposeChunk: DisposeValue, isModifiedChunkCheck: ModifiedChunkCheck);
 
@@ -275,18 +329,15 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     {
         m_edit--;
 
-        if (m_edit <= 1)
+        if (m_edit <= 0)
         {
+            m_edit = 0;
+            
             FlushMeta();
-
-            m_entries.EndWrite();
-            m_buckets.EndWrite();
         }
-        else
-        {
-            m_entries.EndWrite();
-            m_buckets.EndWrite();
-        }
+        
+        m_entries.EndWrite();
+        m_buckets.EndWrite();
     }
 
     /// <summary>
@@ -846,7 +897,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     {
         m_entries.Ensure(prime);
 
-        m_buckets.Zero();
+        m_buckets.ClearAllArrays();
         m_buckets.Ensure(prime);
         
         m_entries.ForEach(m_buckets, (list, i, v, b) =>
@@ -862,7 +913,7 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
     
     private void ReHash()
     {
-        m_buckets.Zero();
+        m_buckets.ClearAllArrays();
         
         m_entries.ForEach(m_buckets, (list, i, v, b) =>
         {

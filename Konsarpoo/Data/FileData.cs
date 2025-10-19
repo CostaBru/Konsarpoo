@@ -7,14 +7,13 @@ using Konsarpoo.Collections.Allocators;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.Serialization;
 using Konsarpoo.Collections.Data.Serialization;
 
 namespace Konsarpoo.Collections;
 
 /// <summary>
 /// A file-backed data structure that provides IReadOnlyList&lt;T&gt; and IRandomAccessData&lt;T&gt; interface with on-demand loading and unloading of data chunks.
-/// Uses LfuCache for memory management and DataFileSerialization for persistence. Not thread safe.
+/// Uses ICacheStore for memory management and DataFileSerialization for persistence. Not thread safe.
 /// </summary>
 /// <typeparam name="T">The type of elements stored in the collection</typeparam>
 [DebuggerDisplay("Count {m_count}")]
@@ -64,7 +63,9 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         Func<ArrayChunk, bool> isModifiedChunkCheck = null)
         : 
         this(
-            fileMode == FileMode.Open ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, maxSizeOfArray),
+            fileMode == FileMode.Open 
+                ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) 
+                : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, NextPowerOfTwo(Math.Max(1, maxSizeOfArray))),
             arrayBufferCapacity, 
             allocator, 
             cacheStore,
@@ -130,7 +131,30 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         {
             return 0;
         }
-        return (int)Math.Log(maxSizeOfArray, 2);
+        // compute floor(log2(maxSizeOfArray)) using integer operations to avoid floating-point precision issues
+        int step = 0;
+        while ((1 << (step + 1)) <= maxSizeOfArray)
+        {
+            step++;
+        }
+        return step;
+    }
+
+    private static int NextPowerOfTwo(int value)
+    {
+        if (value <= 1)
+        {
+            return 1;
+        }
+        // Round up to next power of two using bit operations
+        value--;
+        value |= value >> 1;
+        value |= value >> 2;
+        value |= value >> 4;
+        value |= value >> 8;
+        value |= value >> 16;
+        value++;
+        return value > 0 ? value : int.MaxValue; // guard overflow
     }
 
     private void OnChunkDone(int arrayIndex, ArrayChunk chunk)
@@ -138,15 +162,14 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         if (chunk.IsModified)
         {
             m_fileSerialization.WriteArray(arrayIndex, chunk.Array);
-
-            m_disposeChunk?.Invoke(chunk);
-            
-            Array.Clear(chunk.Array, 0, chunk.Size);
-            
-            m_arrayAllocator.Return(chunk.Array);
-            
             chunk.IsModified = false;
         }
+
+        m_disposeChunk?.Invoke(chunk);
+        
+        Array.Clear(chunk.Array, 0, chunk.Size);
+            
+        m_arrayAllocator.Return(chunk.Array);
     }
 
     /// <summary>
@@ -357,6 +380,8 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// </summary>
     public void Reverse()
     {
+        m_version++;
+        
         if (m_arrayCount == 1)
         {
             var chunk = GetOrAddChunk(0);
@@ -539,6 +564,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         {
             int lastChunkIndex = index >> m_stepBase;
             var lastChunk = LoadChuck(lastChunkIndex);
+            lastChunk.Array[lastChunk.Size - 1] = default;
             lastChunk.Size--;
             lastChunk.IsModified = true;
         }
@@ -549,6 +575,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
             {
                 this[i] = this[i + 1];
             }
+            this[m_count - 1] = default;
         }
 
         m_count--;
@@ -577,7 +604,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     {
         if (startIndex < 0 || startIndex >= m_count || count < 0 || count > m_count)
         {
-            return -1;
+            throw new ArgumentOutOfRangeException($"startIndex {startIndex} or count {count} is out of range. Total count is {m_count}.");
         }
         
         comparer ??= Comparer<T>.Default;
@@ -586,7 +613,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         {
             var arrayChunk = LoadChuck(0);
 
-            return Array.BinarySearch(arrayChunk.Array, startIndex, count - startIndex, value, comparer);
+            return Array.BinarySearch(arrayChunk.Array, startIndex, m_count - startIndex, value, comparer);
         }
 
         return BinarySearchSlow(value, startIndex, count, comparer);
@@ -636,11 +663,11 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     /// <summary>
     /// Clears all arrays.
     /// </summary>
-    public void Zero()
+    public void ClearAllArrays()
     {
-        var loopsCount = m_count / m_maxSizeOfArray;
+        var currentCount = m_arrayCount;
 
-        for (int i = 0; i < loopsCount; i++)
+        for (int i = 0; i < currentCount; i++)
         {
             var chunk = LoadChuck(i);
 

@@ -1053,10 +1053,10 @@ namespace Konsarpoo.Collections.Tests
             for (int i = 0; i < 10; i++) fd.Add(i);
             fd.EndWrite();
 
-            Assert.AreEqual(-1, fd.BinarySearch(5, -1, fd.Count)); // invalid startIndex
-            Assert.AreEqual(-1, fd.BinarySearch(5, fd.Count, fd.Count)); // startIndex >= Count
-            Assert.AreEqual(-1, fd.BinarySearch(5, 0, -1)); // invalid endExclusive
-            Assert.AreEqual(-1, fd.BinarySearch(5, 0, fd.Count + 1)); // endExclusive > Count
+            Assert.Throws<ArgumentOutOfRangeException>(() => fd.BinarySearch(5, -1, fd.Count)); // invalid startIndex
+            Assert.Throws<ArgumentOutOfRangeException>(() => fd.BinarySearch(5, fd.Count, fd.Count)); // startIndex >= Count
+            Assert.Throws<ArgumentOutOfRangeException>(() => fd.BinarySearch(5, 0, -1)); // invalid endExclusive
+            Assert.Throws<ArgumentOutOfRangeException>(() => fd.BinarySearch(5, 0, fd.Count + 1)); // endExclusive > Count
         }
 
         [Test]
