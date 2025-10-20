@@ -58,12 +58,12 @@ Please use one of the following commands to install Konsarpoo:
 
 #### Package Manager
 ```cmd
-PM> Install-Package Konsarpoo -Version 5.2.0
+PM> Install-Package Konsarpoo -Version 5.2.5
 ```
 
 #### .NET CLI
 ```cmd
-> dotnet add package Konsarpoo --version 5.2.0
+> dotnet add package Konsarpoo --version 5.2.5
 ```
 
 ### DATA  
@@ -143,7 +143,15 @@ Assert.AreEqual(1, dataRs.Count);
 
 # FileData
 
-The random access data container desgined for storing persisntent data on disk with optional encryption and buffering. Implemented as list of fixed len arrays + offset table. Each array is written to the output file as a block of bytes. Supports minimal set of ``IList<T>`` and ``IReadonlyList<T>`` API's.
+The random access data container desgined for storing persistent data on disk with optional encryption and buffering. Implemented as list of fixed len arrays + offset table. Each array is written to the output file as a block of bytes. Supports minimal set of ``IList<T>`` and ``IReadonlyList<T>`` API's.
+
+# FileMap
+
+FileMap<T,V> is generic hashtable collection designed for storing persistent data on disk with optional encryption and buffering. Stores data in 3 files metadata, buckets and entries. 
+
+# FileSet
+
+FileSet<T,V> is generic hashtable collection of keys for storing persistent data on disk with optional encryption and buffering. Stores data in 3 files metadata, buckets and slots.
 
 # License
 
