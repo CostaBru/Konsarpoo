@@ -89,6 +89,9 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
         return new FileMap<TKey, TValue>(filePathPrefix, maxSizeOfArray, FileMode.OpenOrCreate, comparer, compressionLevel, storageArrayBufferCapacity, key, rehashOnOpen);
     }
     
+    /// <summary>
+    /// Metadata stored in the FileMap&lt;TKey,TValue&gt; metadata file.
+    /// </summary>
     public class MapFileMetadata
     {
         /// <summary>
@@ -99,13 +102,37 @@ public partial class FileMap<TKey, TValue> : IDictionary<TKey, TValue>,
         /// File name of entries file. Not a full path.
         /// </summary>
         public string EntriesFile  { get; set; }
+        /// <summary>
+        ///  Number of items stored in FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public int Count  { get; set; }
+        /// <summary>
+        /// Number of free slots in FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public int FreeCount  { get; set; }
+        /// <summary>
+        /// Index of first free slot in the  FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public int FreeList  { get; set; }
+        /// <summary>
+        /// Version of the FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public int Version  { get; set; }
+        /// <summary>
+        /// Type of comparer used in the FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public string ComparerType  { get; set; }
+        /// <summary>
+        /// Type of key stored in the FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public string KeyType  { get; set; }
+        /// <summary>
+        /// Type of value stored in the FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public string ValueType  { get; set; }
+        /// <summary>
+        /// Maximum size of array stored in the FileMap&lt;TKey,TValue&gt;.
+        /// </summary>
         public int MaxSizeOfArray  { get; set; }
     };
     
