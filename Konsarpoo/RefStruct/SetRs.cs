@@ -492,11 +492,11 @@ public ref struct SetRs<T>
     /// </summary>
     /// <param name="item"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Contains([NotNull] T item)
+    public bool Contains(T item)
     {
         if (m_count > 0)
         {
-            var hashCode = m_comparer.GetHashCode(item) & int.MaxValue;
+            var hashCode = item == null ? 0 : m_comparer.GetHashCode(item) & int.MaxValue;
             for (var i = m_buckets[hashCode % m_hashCount] - 1; i >= 0;)
             {
                 ref var kv = ref m_entries[i];
@@ -518,7 +518,7 @@ public ref struct SetRs<T>
     {
         int freeList;
 
-        int hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
+        int hashCode = key == null ? 0 : m_comparer.GetHashCode(key) & int.MaxValue;
 
         int index = hashCode % m_hashCount;
 
@@ -573,7 +573,7 @@ public ref struct SetRs<T>
     {
         if (m_count > 0)
         {
-            int hashCode = m_comparer.GetHashCode(key) & int.MaxValue;
+            int hashCode = key == null ? 0 : m_comparer.GetHashCode(key) & int.MaxValue;
 
             int index = hashCode % m_hashCount;
             int last = -1;
