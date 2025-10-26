@@ -12,7 +12,7 @@ namespace Konsarpoo.Collections.Data.Serialization;
 /// Serialization of arrays of data into a stream with support for compression/encryption pipelines. Not thread safe.
 /// </summary>
 [DebuggerDisplay("DataCount = {DataCount}, ArrayCount = {ArrayCount}, MaxSizeOfArray = {m_maxSizeOfArray}, Version = {m_version}, CanFlush = {CanFlush}")]
-public class DataStreamSerialization : IDataSerializationInfo, IDisposable
+public partial class DataStreamSerialization : IDataSerializationInfo, IDisposable
 {
     protected static readonly long m_metaSize = sizeof(int) * 5; // maxSizeOfArray, dataCount, version, arraysCount, extra metadata size
     
@@ -684,6 +684,9 @@ public class DataStreamSerialization : IDataSerializationInfo, IDisposable
         {
             return;
         }
+
+        DisposeTransactionalContexts();
+        
         m_writer?.Dispose();
         m_reader?.Dispose();
         m_fileStream?.Dispose();
