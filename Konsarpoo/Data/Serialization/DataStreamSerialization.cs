@@ -685,11 +685,18 @@ public partial class DataStreamSerialization : IDataSerializationInfo, IDisposab
             return;
         }
 
-        DisposeTransactionalContexts();
-        
+        DisposeCore();
+     
+        m_disposed = true;
+    }
+
+    /// <summary>
+    /// Core dispose logic.
+    /// </summary>
+    protected virtual void DisposeCore()
+    {
         m_writer?.Dispose();
         m_reader?.Dispose();
         m_fileStream?.Dispose();
-        m_disposed = true;
     }
 }

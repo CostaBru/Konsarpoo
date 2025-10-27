@@ -139,23 +139,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         }
         return step;
     }
-
-    private static int NextPowerOfTwo(int value)
-    {
-        if (value <= 1)
-        {
-            return 1;
-        }
-        // Round up to next power of two using bit operations
-        value--;
-        value |= value >> 1;
-        value |= value >> 2;
-        value |= value >> 4;
-        value |= value >> 8;
-        value |= value >> 16;
-        value++;
-        return value > 0 ? value : int.MaxValue; // guard overflow
-    }
+    
 
     private void OnChunkDone(int arrayIndex, ArrayChunk chunk)
     {
