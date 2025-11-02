@@ -50,6 +50,25 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
     {
         return new FileData<T>(filePath, 0, FileMode.Open, compressionLevel, arrayBufferCapacity, key, allocator, disposeChunk: disposeChunk, isModifiedChunkCheck: modifiedChunkCheck);
     }
+    
+    public static FileData<T> OpenOrCreate(string filePath, int maxSizeOfArray, byte[] key = null, CompressionLevel compressionLevel = CompressionLevel.NoCompression, int arrayBufferCapacity = 10, IArrayAllocator<T> allocator = null, ICacheStore<T, ArrayChunk > cacheStore = null, Action<ArrayChunk> disposeChunk = null, Func<ArrayChunk, bool> modifiedChunkCheck = null)
+    {
+        return new FileData<T>(filePath, maxSizeOfArray, FileMode.OpenOrCreate, compressionLevel, arrayBufferCapacity, key, allocator, disposeChunk: disposeChunk, isModifiedChunkCheck: modifiedChunkCheck);
+    }
+    
+    private static DataFileSerialization PrepareConstructorArgs(string filePath, int maxSizeOfArray, FileMode fileMode, CompressionLevel compressionLevel, byte[] cryptoKey)
+    {
+        // Normalize OpenOrCreate into Open or Create based on metadata file existence
+        var effectiveMode = fileMode == FileMode.OpenOrCreate
+            ? (File.Exists(filePath) ? FileMode.Open : FileMode.Create)
+            : fileMode;
+
+        DataFileSerialization serialization = effectiveMode == FileMode.Open
+            ? new DataFileSerialization(filePath, effectiveMode, cryptoKey, compressionLevel)
+            : new DataFileSerialization(filePath, effectiveMode, cryptoKey, compressionLevel, Math.Max(1, maxSizeOfArray).PowerOfTwo());
+
+        return serialization;
+    }
 
     private FileData(string filePath, 
         int maxSizeOfArray,
@@ -62,10 +81,7 @@ public partial class FileData<T> : IReadOnlyList<T>, IDisposable, IAppender<T>, 
         Action<ArrayChunk> disposeChunk = null,
         Func<ArrayChunk, bool> isModifiedChunkCheck = null)
         : 
-        this(
-            fileMode == FileMode.Open 
-                ? new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel) 
-                : new DataFileSerialization(filePath, fileMode, cryptoKey, compressionLevel, Math.Max(1, maxSizeOfArray).PowerOfTwo()),
+        this(PrepareConstructorArgs(filePath, maxSizeOfArray, fileMode, compressionLevel, cryptoKey),
             arrayBufferCapacity, 
             allocator, 
             cacheStore,

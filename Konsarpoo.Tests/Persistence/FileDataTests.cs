@@ -119,6 +119,50 @@ namespace Konsarpoo.Collections.Tests.Persistence
                 }
             }
         }
+        
+        [Test]
+        public void TestFileDataBasicOperationsOpenOrCreate()
+        {
+            var newFile = m_testFile;
+
+            using (var fileData = FileData<int>.OpenOrCreate(newFile, maxSizeOfArray: 4,  arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
+            {
+                fileData.BeginWrite();
+                
+                for (int i = 0; i < 10; i++)
+                {
+                    fileData.Add(i);
+                }
+                
+                fileData.EndWrite();
+                
+                Assert.AreEqual(10, fileData.Count);
+                    
+                for (int i = 0; i < 10; i++)
+                {
+                    var actual = fileData[i];
+                    
+                    Assert.AreEqual(i, actual);
+                }
+            }
+            
+            using (var fileData = FileData<int>.OpenOrCreate(newFile,  maxSizeOfArray: 4, arrayBufferCapacity: 2, key: m_key, compressionLevel: m_compressionLevel))
+            {
+                Assert.AreEqual(10, fileData.Count);
+                
+                for (int i = 0; i < 10; i++)
+                {
+                    Assert.AreEqual(i, fileData[i]);
+                }
+                
+                var enumerated = fileData.ToArray();
+                Assert.AreEqual(10, enumerated.Length);
+                for (int i = 0; i < 10; i++)
+                {
+                    Assert.AreEqual(i, enumerated[i]);
+                }
+            }
+        }
 
         [Test]
         public void TestFileDataEnsure0([Values(0, 999)] int defVal)
